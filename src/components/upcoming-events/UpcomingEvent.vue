@@ -1,0 +1,1 @@
+use DayDate.vue --short
