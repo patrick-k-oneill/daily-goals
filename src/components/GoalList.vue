@@ -12,7 +12,7 @@
 </template>
 
 <script setup lang="ts">
-    import GoalSingle from '@/components/GoalSingle.vue'
+    import GoalSingle from '@/components/goal-items/GoalSingle.vue'
     import { Goal } from '@/types';
 
     defineProps<{ goals: Goal[] }>()

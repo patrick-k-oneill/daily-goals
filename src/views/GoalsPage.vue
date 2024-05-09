@@ -12,7 +12,9 @@
             @create="createGoal"
         />
 
-        <GoalList :goals="goals" />
+        <GoalList :goals="goals"
+            @update="updateGoal"
+            @delete="deleteGoal" />
 
     </div>
 
@@ -20,7 +22,8 @@
 
 <script setup lang="ts">
     import { ref } from 'vue'
-    import { Goal, GoalCreateArgs, GoalStatus } from '@/types/index'
+    import { Goal } from '@/types/index'
+    import { createGoal, updateGoal, deleteGoal } from '@/utils/goal-helpers'
     import { useStorage } from '@vueuse/core'
 
     import GoalList from '@/components/GoalList.vue'
@@ -28,21 +31,6 @@
 
     const showCreateGoalForm = ref(false)
     const goals = useStorage<Goal[]>('goals', [])
-
-    const createGoal = (args: GoalCreateArgs) => {
-        const date = new Date();
-        const now = date.toISOString()
-
-        const newGoal = {
-            id: 'generate-unique-id', 
-            ...args,
-            status: GoalStatus.Active,
-            createdAt: now,
-            updatedAt: now,
-            deletedAt: null
-        }
-        goals.value.push(newGoal)
-    }
 </script>
 
 <style>

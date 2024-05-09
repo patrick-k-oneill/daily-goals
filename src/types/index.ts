@@ -30,6 +30,13 @@ export interface GoalCreateArgs {
     category: GoalCategory;
 }
 
+export interface GoalUpdateArgs {
+    id: string;
+    name: string;
+    description: string;
+    category: GoalCategory;
+}
+
 export type GoalGroup = {
     name: GoalCategory;
     goals: Goal[];
