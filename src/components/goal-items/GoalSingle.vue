@@ -10,18 +10,18 @@
 </template>
 
 <script setup lang="ts">
-import { Goal } from "@/types";
+import { Goal } from '@/types'
 
-const props = defineProps<{ goal: Goal }>();
+const props = defineProps<{ goal: Goal }>()
 
 const emit = defineEmits<{
-  (e: "openEdit", value: string): void;
-  (e: "delete", value: Goal): void;
-}>();
+  (e: 'openEdit', value: string): void
+  (e: 'delete', value: Goal): void
+}>()
 
 const openEdit = () => {
-  emit("openEdit", props.goal.id);
-};
+  emit('openEdit', props.goal.id)
+}
 
 // type: primary = square checkbox input
 // type: incremental =  Multiple inline circle checkboxes w/ :last-child === square checkbox

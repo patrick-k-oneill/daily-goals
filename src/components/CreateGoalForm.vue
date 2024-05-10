@@ -30,43 +30,43 @@
 </template>
 
 <script setup lang="ts">
-import { GoalCategory } from "@/types/index";
-import { reactive, toRaw } from "@vue/reactivity";
+import { GoalCategory } from '@/types/index'
+import { reactive, toRaw } from '@vue/reactivity'
 
 const emit = defineEmits<{
-  (e: "done"): void;
-  (e: "create", value: GoalCreateForm): void;
-}>();
+  (e: 'done'): void
+  (e: 'create', value: GoalCreateForm): void
+}>()
 
-const categories = Object.values(GoalCategory);
+const categories = Object.values(GoalCategory)
 
 type GoalCreateForm = {
-  name: string;
-  description: string;
-  category: GoalCategory;
-};
+  name: string
+  description: string
+  category: GoalCategory
+}
 
 const defaultFormValues = {
-  name: "",
-  description: "",
+  name: '',
+  description: '',
   category: GoalCategory.Daily,
-};
+}
 
-const form = reactive<GoalCreateForm>({ ...defaultFormValues });
+const form = reactive<GoalCreateForm>({ ...defaultFormValues })
 
 const resetFormValues = () => {
-  Object.assign(form, defaultFormValues);
-};
+  Object.assign(form, defaultFormValues)
+}
 
 const create = () => {
-  emit("create", toRaw(form));
-  resetFormValues();
-};
+  emit('create', toRaw(form))
+  resetFormValues()
+}
 
 const cancel = () => {
-  emit("done");
-  resetFormValues();
-};
+  emit('done')
+  resetFormValues()
+}
 </script>
 
 <style scoped>

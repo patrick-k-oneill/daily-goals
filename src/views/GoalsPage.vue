@@ -15,16 +15,16 @@
 </template>
 
 <script setup lang="ts">
-import { Goal } from "@/types/index";
-import { createGoal } from "@/utils/goal-helpers";
-import { useStorage } from "@vueuse/core";
-import { ref } from "vue";
+import { Goal } from '@/types/index'
+import { createGoal } from '@/utils/goal-helpers'
+import { useStorage } from '@vueuse/core'
+import { ref } from 'vue'
 
-import CreateGoalForm from "@/components/CreateGoalForm.vue";
-import GoalList from "@/components/GoalList.vue";
+import CreateGoalForm from '@/components/CreateGoalForm.vue'
+import GoalList from '@/components/GoalList.vue'
 
-const showCreateGoalForm = ref(false);
-const goals = useStorage<Goal[]>("goals", []);
+const showCreateGoalForm = ref(false)
+const goals = useStorage<Goal[]>('goals', [])
 </script>
 
 <style>
