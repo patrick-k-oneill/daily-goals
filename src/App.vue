@@ -1,11 +1,9 @@
 <template>
-
   <goals-page />
-
 </template>
 
 <script setup lang="ts">
-import GoalsPage from './views/GoalsPage.vue'
+import GoalsPage from "./views/GoalsPage.vue";
 </script>
 
 <style>

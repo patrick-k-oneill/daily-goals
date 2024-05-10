@@ -35,7 +35,7 @@ import { reactive, toRaw } from "@vue/reactivity";
 
 const emit = defineEmits<{
   (e: "done"): void;
-  (e: "create", value: GoalCreateForm): void;
+  (e: "update", value: GoalCreateForm): void;
 }>();
 
 const categories = Object.values(GoalCategory);
@@ -59,7 +59,7 @@ const resetFormValues = () => {
 };
 
 const create = () => {
-  emit("create", toRaw(form));
+  emit("update", toRaw(form));
   resetFormValues();
 };
 
