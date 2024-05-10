@@ -11,36 +11,36 @@ export enum GoalStatus {
 }
 
 export type Goal = {
-  id: string
-  name: string
-  description?: string
+  id: string;
+  name: string;
+  description?: string;
 
-  category: GoalCategory
-  status: GoalStatus
+  category: GoalCategory;
+  status: GoalStatus;
 
   // created/maintained by backend
-  createdAt?: string // set at creation, never updated
-  updatedAt?: string // update each time you update the goal
-  deletedAt?: null | string // for handling soft deletes
-}
+  createdAt?: string; // set at creation, never updated
+  updatedAt?: string; // update each time you update the goal
+  deletedAt?: null | string; // for handling soft deletes
+};
 
 export interface GoalCreateArgs {
-  name: string
-  description: string
-  category: GoalCategory
+  name: string;
+  description: string;
+  category: GoalCategory;
 }
 
 export interface GoalUpdateArgs {
-  id: string
-  name: string
-  description: string
-  category: GoalCategory
+  id: string;
+  name: string;
+  description: string;
+  category: GoalCategory;
 }
 
 export type GoalGroup = {
-  name: GoalCategory
-  goals: Goal[]
-}
+  name: GoalCategory;
+  goals: Goal[];
+};
 
 // const goalCategories = reactive<GoalGroup[]>([
 //     {

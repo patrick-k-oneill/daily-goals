@@ -17,19 +17,19 @@
 </template>
 
 <script setup lang="ts">
-import GoalSingle from '@/components/goal-items/GoalSingle.vue'
-import { Goal, GoalUpdateArgs } from '@/types'
-import { ref } from 'vue'
-import EditGoalForm from './EditGoalForm.vue'
+import { Goal, GoalUpdateArgs } from "@/types";
+import { ref } from "vue";
+import EditGoalForm from "./EditGoalForm.vue";
+import GoalSingle from "@/components/goal-items/GoalSingle.vue";
 
 const emit = defineEmits<{
-  (e: 'done'): void
-  (e: 'update', value: GoalUpdateArgs): void
-}>()
+  (e: "done"): void;
+  (e: "update", value: GoalUpdateArgs): void;
+}>();
 
-const editingGoalId = ref('')
+const editingGoalId = ref("");
 
-defineProps<{ goals: Goal[] }>()
+defineProps<{ goals: Goal[] }>();
 </script>
 
 <style></style>

@@ -3,12 +3,12 @@ module.exports = {
     node: true,
   },
   extends: [
-    "eslint:recommended",
-    "tseslint:recommended",
-    "plugin:vue/vue3-recommended",
-    "prettier",
+    'eslint:recommended',
+    'tseslint:recommended',
+    'plugin:vue/vue3-recommended',
+    'prettier',
   ],
   rules: {
-    "vue/no-unused-vars": "error",
+    'vue/no-unused-vars': 'error',
   },
 };
