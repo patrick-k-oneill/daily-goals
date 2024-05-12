@@ -7,8 +7,8 @@
           v-if="editingGoalId !== goal.id"
           :key="goal.id"
           :goal="goal"
-          @update="updateGoal"
-          @delete="deleteGoal"
+          @edit="setEditingGoalId(id)"
+          @delete="deleteGoal(id)"
         />
         <EditGoalForm v-else :key="`${goal.id}-edit`" :goal="goal" />
       </li>
@@ -19,6 +19,7 @@
 <script setup lang="ts">
 import { Goal, GoalUpdateArgs } from "@/types";
 import { ref } from "vue";
+import { deleteGoal } from "../utils/goal-helpers";
 import EditGoalForm from "./EditGoalForm.vue";
 import GoalSingle from "@/components/goal-items/GoalSingle.vue";
 
@@ -28,6 +29,14 @@ const emit = defineEmits<{
 }>();
 
 const editingGoalId = ref("");
+const setEditingGoalId = (id: string) => {
+  editingGoalId.value = id;
+};
+
+const deleteGoalId = (id: string) => {
+  deleteGoal(id);
+  setEditingGoalId("");
+};
 
 defineProps<{ goals: Goal[] }>();
 </script>
