@@ -30,8 +30,8 @@
 </template>
 
 <script setup lang="ts">
-import { GoalCategory } from '@/types/index';
 import { reactive, toRaw } from '@vue/reactivity';
+import { GoalCategory } from '../types';
 
 const emit = defineEmits<{
   (e: 'done'): void;

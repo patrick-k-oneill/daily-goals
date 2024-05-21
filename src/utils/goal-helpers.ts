@@ -1,6 +1,5 @@
-import { GoalCreateArgs, GoalUpdateArgs, Goal, GoalStatus } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
-import { del } from 'vue-demi';
+import { Goal, GoalCreateArgs, GoalStatus, GoalUpdateArgs } from '../types';
 
 export const createGoal = async (args: GoalCreateArgs) => {
   try {

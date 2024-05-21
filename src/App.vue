@@ -2,7 +2,7 @@
   <goals-page />
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" type="module">
 import GoalsPage from './views/GoalsPage.vue';
 </script>
 

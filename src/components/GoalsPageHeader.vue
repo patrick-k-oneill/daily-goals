@@ -3,7 +3,7 @@
 </template>
 
 <script lang="ts">
-import DayDate from './DayDate.vue';
+// import DayDate from './DayDate.vue';
 //use DayDate(long)
 </script>
 

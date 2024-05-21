@@ -10,7 +10,7 @@
 </template>
 
 <script setup lang="ts">
-import { Goal } from '@/types';
+import { Goal } from '../../types';
 
 const props = defineProps<{ goal: Goal }>();
 

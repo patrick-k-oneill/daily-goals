@@ -17,9 +17,9 @@
 </template>
 
 <script setup lang="ts">
-import GoalSingle from '@/components/goal-items/GoalSingle.vue';
-import { Goal, GoalUpdateArgs } from '@/types';
 import { ref } from 'vue';
+import GoalSingle from '../components/goal-items/GoalSingle.vue';
+import { Goal, GoalUpdateArgs } from '../types';
 import { deleteGoal } from '../utils/goal-helpers';
 import EditGoalForm from './EditGoalForm.vue';
 
@@ -33,10 +33,10 @@ const setEditingGoalId = (id: string) => {
   editingGoalId.value = id;
 };
 
-const deleteGoalId = (id: string) => {
-  deleteGoal(id);
-  setEditingGoalId('');
-};
+// const deleteGoalId = (id: string) => {
+//   deleteGoal(id);
+//   setEditingGoalId('');
+// };
 
 defineProps<{ goals: Goal[] }>();
 </script>
