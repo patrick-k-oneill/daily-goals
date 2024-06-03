@@ -27,13 +27,13 @@
 import { ref } from 'vue';
 import GoalSingle from '../components/goal-items/GoalSingle.vue';
 import { Goal, GoalUpdateArgs } from '../types';
-import { deleteGoal, updateGoal } from '../utils/goal-helpers';
 import EditGoalForm from './EditGoalForm.vue';
 
 defineProps<{ goals: Goal[] }>();
 
 const emit = defineEmits<{
-  (e: 'done'): void;
+  (e: 'update-goal', args: GoalUpdateArgs): void;
+  (e: 'delete-goal', id: string): void;
 }>();
 
 const editingGoalId = ref('');
@@ -42,12 +42,12 @@ const setEditingGoalId = (id: string) => {
 };
 
 const handleGoalUpdated = (args: GoalUpdateArgs) => {
-  updateGoal(args);
+  emit('update-goal', args);
   setEditingGoalId('');
 };
 
 const handleGoalDeleted = (id: string) => {
-  deleteGoal(id);
+  emit('delete-goal', id);
   setEditingGoalId('');
 };
 </script>

@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from '@vue/reactivity';
+import { reactive, toRaw } from '@vue/reactivity';
 import { Goal, GoalCategory, GoalForm, GoalUpdateArgs } from '../types';
 
 const props = defineProps<{ goal: Goal }>();
@@ -56,7 +56,7 @@ const resetFormValues = () => {
 
 const update = () => {
   const { id } = props.goal;
-  emit('update', { id, ...form });
+  emit('update', { id, ...toRaw(form) });
   emit('close-edit');
 };
 

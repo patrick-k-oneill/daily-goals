@@ -7,10 +7,14 @@
     <CreateGoalForm
       v-show="showCreateGoalForm"
       @done="showCreateGoalForm = false"
-      @create="createGoal"
+      @create="handleGoalCreated"
     />
 
-    <GoalList :goals="goals" />
+    <GoalList
+      :goals="goals"
+      @update-goal="handleGoalUpdated"
+      @delete-goal="handleGoalDeleted"
+    />
   </div>
 </template>
 
@@ -19,12 +23,15 @@ import { useStorage } from '@vueuse/core';
 import { ref } from 'vue';
 import CreateGoalForm from '../components/CreateGoalForm.vue';
 import GoalList from '../components/GoalList.vue';
-import { Goal } from '../types';
-import { createGoal } from '../utils/goal-helpers';
+import { Goal, GoalCreateArgs, GoalUpdateArgs } from '../types';
+import { createGoal, deleteGoal, updateGoal } from '../utils/goal-helpers';
 
 // TODO: Get rid of this, consolidate Create/Update forms and render them in place
 const showCreateGoalForm = ref(false);
 const goals = useStorage<Goal[]>('goals', []);
+const handleGoalCreated = (args: GoalCreateArgs) => createGoal(args, goals);
+const handleGoalUpdated = (args: GoalUpdateArgs) => updateGoal(args, goals);
+const handleGoalDeleted = (id: string) => deleteGoal(id, goals);
 </script>
 
 <style>

@@ -1,12 +1,12 @@
+import { RemovableRef } from '@vueuse/core';
 import { v4 as uuidv4 } from 'uuid';
 import { Goal, GoalCreateArgs, GoalStatus, GoalUpdateArgs } from '../types';
 
-export const createGoal = async (args: GoalCreateArgs) => {
+export const createGoal = async (
+  args: GoalCreateArgs,
+  goalsRef: RemovableRef<Goal[]>,
+) => {
   try {
-    // get existing goals
-    const storageGoals = localStorage.getItem('goals');
-    const goals = storageGoals ? JSON.parse(storageGoals) : [];
-    // format new goal
     const newGoal = {
       id: uuidv4(),
       ...args,
@@ -15,10 +15,7 @@ export const createGoal = async (args: GoalCreateArgs) => {
       updatedAt: new Date(Date.now()).toISOString(),
       deletedAt: null,
     };
-
-    // save goals
-    goals.push(newGoal);
-    localStorage.setItem('goals', JSON.stringify(goals));
+    goalsRef.value.push(newGoal);
   } catch (error) {
     throw error;
   }
@@ -29,17 +26,17 @@ export const createGoal = async (args: GoalCreateArgs) => {
  * goals array from local storage, splice
  * in goal with updated args
  */
-export const updateGoal = async (args: GoalUpdateArgs) => {
+export const updateGoal = async (
+  args: GoalUpdateArgs,
+  goalsRef: RemovableRef<Goal[]>,
+) => {
   try {
-    // get existing goals
-    const storageGoals = localStorage.getItem('goals');
-    const goals = storageGoals ? JSON.parse(storageGoals) : [];
+    const { value: goals } = goalsRef;
 
     const goalIndex = goals.findIndex((item: Goal) => item.id === args.id);
     if (goalIndex === -1) return;
     const goal: Goal = goals[goalIndex];
 
-    // format updated goal
     const updatedGoal = {
       ...args,
       status: goal.status,
@@ -48,9 +45,8 @@ export const updateGoal = async (args: GoalUpdateArgs) => {
       deletedAt: null,
     };
 
-    // splice in updated goal
     goals.splice(goalIndex, 1, updatedGoal);
-    localStorage.setItem('goals', JSON.stringify(goals));
+    goalsRef.value = goals;
   } catch (error) {
     throw error;
   }
@@ -62,23 +58,22 @@ export const updateGoal = async (args: GoalUpdateArgs) => {
  * into array. Used to style
  * deleted goal
  */
-export const deleteGoal = async (id: string) => {
+export const deleteGoal = async (
+  id: string,
+  goalsRef: RemovableRef<Goal[]>,
+) => {
   try {
-    // get existing goals
-    const storageGoals = localStorage.getItem('goals');
-    const goals = storageGoals ? JSON.parse(storageGoals) : [];
+    const { value: goals } = goalsRef;
 
     const goalIndex = goals.findIndex((item: Goal) => item.id === id);
     if (goalIndex === -1) return;
     const goal: Goal = goals[goalIndex];
 
-    // format deleted goal
     const deletedGoal: Goal = Object.assign({}, goal);
     deletedGoal.deletedAt = new Date(Date.now()).toISOString();
 
-    // splice in deleted goal
     goals.splice(goalIndex, 1, deletedGoal);
-    localStorage.setItem('goals', JSON.stringify(goals));
+    goalsRef.value = goals;
   } catch (error) {
     throw error;
   }
