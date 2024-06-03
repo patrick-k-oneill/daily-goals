@@ -19,9 +19,6 @@ export const createGoal = async (args: GoalCreateArgs) => {
     // save goals
     goals.push(newGoal);
     localStorage.setItem('goals', JSON.stringify(goals));
-
-    // return newly created goal
-    return newGoal;
   } catch (error) {
     throw error;
   }
@@ -45,7 +42,6 @@ export const updateGoal = async (args: GoalUpdateArgs) => {
     // format updated goal
     const updatedGoal = {
       ...args,
-      // ask Chris for less-verbose way to do this
       status: goal.status,
       createdAt: goal.createdAt,
       updatedAt: new Date(Date.now()).toISOString(),
@@ -55,9 +51,6 @@ export const updateGoal = async (args: GoalUpdateArgs) => {
     // splice in updated goal
     goals.splice(goalIndex, 1, updatedGoal);
     localStorage.setItem('goals', JSON.stringify(goals));
-
-    // return updated goal
-    return updatedGoal;
   } catch (error) {
     throw error;
   }
@@ -86,9 +79,6 @@ export const deleteGoal = async (id: string) => {
     // splice in deleted goal
     goals.splice(goalIndex, 1, deletedGoal);
     localStorage.setItem('goals', JSON.stringify(goals));
-
-    // return deleted goal
-    return deletedGoal;
   } catch (error) {
     throw error;
   }

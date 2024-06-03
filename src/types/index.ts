@@ -13,7 +13,7 @@ export enum GoalStatus {
 export type Goal = {
   id: string;
   name: string;
-  description?: string;
+  description: string;
 
   category: GoalCategory;
   status: GoalStatus;
@@ -22,6 +22,12 @@ export type Goal = {
   createdAt?: string; // set at creation, never updated
   updatedAt?: string; // update each time you update the goal
   deletedAt?: null | string; // for handling soft deletes
+};
+
+export type GoalForm = {
+  name: string;
+  description: string;
+  category: GoalCategory;
 };
 
 export interface GoalCreateArgs {

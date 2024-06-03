@@ -23,48 +23,45 @@
       </label>
     </div>
 
-    <button @click="create">Create</button>
+    <button @click="update">Update</button>
     <br />
     <button @click="cancel">Cancel</button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, toRaw } from '@vue/reactivity';
-import { GoalCategory } from '../types';
+import { reactive } from '@vue/reactivity';
+import { Goal, GoalCategory, GoalForm, GoalUpdateArgs } from '../types';
+
+const props = defineProps<{ goal: Goal }>();
 
 const emit = defineEmits<{
-  (e: 'done'): void;
-  (e: 'update', value: GoalCreateForm): void;
+  (e: 'close-edit'): void;
+  (e: 'update', args: GoalUpdateArgs): void;
 }>();
 
 const categories = Object.values(GoalCategory);
 
-type GoalCreateForm = {
-  name: string;
-  description: string;
-  category: GoalCategory;
-};
-
 const defaultFormValues = {
-  name: '',
-  description: '',
-  category: GoalCategory.Daily,
+  name: props.goal.name,
+  description: props.goal.description,
+  category: props.goal.category,
 };
 
-const form = reactive<GoalCreateForm>({ ...defaultFormValues });
+const form = reactive<GoalForm>({ ...defaultFormValues });
 
 const resetFormValues = () => {
   Object.assign(form, defaultFormValues);
 };
 
-const create = () => {
-  emit('update', toRaw(form));
-  resetFormValues();
+const update = () => {
+  const { id } = props.goal;
+  emit('update', { id, ...form });
+  emit('close-edit');
 };
 
 const cancel = () => {
-  emit('done');
+  emit('close-edit');
   resetFormValues();
 };
 </script>

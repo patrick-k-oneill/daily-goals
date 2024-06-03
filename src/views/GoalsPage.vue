@@ -22,6 +22,7 @@ import GoalList from '../components/GoalList.vue';
 import { Goal } from '../types';
 import { createGoal } from '../utils/goal-helpers';
 
+// TODO: Get rid of this, consolidate Create/Update forms and render them in place
 const showCreateGoalForm = ref(false);
 const goals = useStorage<Goal[]>('goals', []);
 </script>

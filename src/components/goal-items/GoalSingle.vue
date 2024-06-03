@@ -4,8 +4,8 @@
     <br />
     {{ goal.category }}
     <br />
-    <button @click="openEdit">Edit</button>
-    <button @click="delete">Delete</button>
+    <button @click="editClicked">Edit</button>
+    <button @click="deleteClicked" :disabled="!!goal.deletedAt">Delete</button>
   </div>
 </template>
 
@@ -15,12 +15,16 @@ import { Goal } from '../../types';
 const props = defineProps<{ goal: Goal }>();
 
 const emit = defineEmits<{
-  (e: 'openEdit', value: string): void;
-  (e: 'delete', value: Goal): void;
+  (e: 'edit', value: string): void;
+  (e: 'delete', value: string): void;
 }>();
 
-const openEdit = () => {
-  emit('openEdit', props.goal.id);
+const editClicked = () => {
+  emit('edit', props.goal.id);
+};
+
+const deleteClicked = () => {
+  emit('delete', props.goal.id);
 };
 
 // type: primary = square checkbox input

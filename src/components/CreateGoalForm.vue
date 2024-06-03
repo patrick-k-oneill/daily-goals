@@ -31,20 +31,14 @@
 
 <script setup lang="ts">
 import { reactive, toRaw } from '@vue/reactivity';
-import { GoalCategory } from '../types';
+import { GoalCategory, GoalForm } from '../types';
 
 const emit = defineEmits<{
   (e: 'done'): void;
-  (e: 'create', value: GoalCreateForm): void;
+  (e: 'create', value: GoalForm): void;
 }>();
 
 const categories = Object.values(GoalCategory);
-
-type GoalCreateForm = {
-  name: string;
-  description: string;
-  category: GoalCategory;
-};
 
 const defaultFormValues = {
   name: '',
@@ -52,7 +46,7 @@ const defaultFormValues = {
   category: GoalCategory.Daily,
 };
 
-const form = reactive<GoalCreateForm>({ ...defaultFormValues });
+const form = reactive<GoalForm>({ ...defaultFormValues });
 
 const resetFormValues = () => {
   Object.assign(form, defaultFormValues);
