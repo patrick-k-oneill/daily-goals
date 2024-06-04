@@ -34,7 +34,7 @@ import { reactive, toRaw } from '@vue/reactivity';
 import { GoalCategory, GoalForm } from '../types';
 
 const emit = defineEmits<{
-  (e: 'done'): void;
+  (e: 'close-create'): void;
   (e: 'create', value: GoalForm): void;
 }>();
 
@@ -54,11 +54,12 @@ const resetFormValues = () => {
 
 const create = () => {
   emit('create', toRaw(form));
+  emit('close-create');
   resetFormValues();
 };
 
 const cancel = () => {
-  emit('done');
+  emit('close-create');
   resetFormValues();
 };
 </script>

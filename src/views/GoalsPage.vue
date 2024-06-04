@@ -6,12 +6,13 @@
 
     <CreateGoalForm
       v-show="showCreateGoalForm"
-      @done="showCreateGoalForm = false"
+      @close-create="showCreateGoalForm = false"
       @create="handleGoalCreated"
     />
 
     <GoalList
       :goals="goals"
+      @create-goal="handleGoalCreated"
       @update-goal="handleGoalUpdated"
       @delete-goal="handleGoalDeleted"
     />
