@@ -15,16 +15,16 @@ import { Goal } from '../../types';
 const props = defineProps<{ goal: Goal }>();
 
 const emit = defineEmits<{
-  (e: 'edit', value: string): void;
-  (e: 'delete', value: string): void;
+  (e: 'edit-clicked', value: string): void;
+  (e: 'delete-clicked', value: string): void;
 }>();
 
 const editClicked = () => {
-  emit('edit', props.goal.id);
+  emit('edit-clicked', props.goal.id);
 };
 
 const deleteClicked = () => {
-  emit('delete', props.goal.id);
+  emit('delete-clicked', props.goal.id);
 };
 
 // type: primary = square checkbox input

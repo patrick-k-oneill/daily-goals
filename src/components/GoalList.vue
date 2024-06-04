@@ -15,8 +15,8 @@
           :key="goal.id"
           :goal="goal"
           :class="{ deleted: goal.deletedAt }"
-          @edit="setEditingGoalId(goal.id)"
-          @delete="handleGoalDeleted(goal.id)"
+          @edit-clicked="setEditingGoalId(goal.id)"
+          @delete-clicked="handleGoalDeleted(goal.id)"
         />
       </li>
       <li v-if="showCreateGoalForm">
@@ -39,14 +39,14 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import GoalSingle from '../components/goal-items/GoalSingle.vue';
-import { Goal, GoalForm, GoalUpdateArgs } from '../types';
+import { Goal, GoalCreateArgs, GoalUpdateArgs } from '../types';
 import CreateGoalForm from './CreateGoalForm.vue';
 import EditGoalForm from './EditGoalForm.vue';
 
 defineProps<{ goals: Goal[] }>();
 
 const emit = defineEmits<{
-  (e: 'create-goal', value: GoalForm): void;
+  (e: 'create-goal', args: GoalCreateArgs): void;
   (e: 'update-goal', args: GoalUpdateArgs): void;
   (e: 'delete-goal', id: string): void;
 }>();
@@ -58,8 +58,8 @@ const setEditingGoalId = (id: string) => {
   editingGoalId.value = id;
 };
 
-const handleGoalCreated = (value: GoalForm) => {
-  emit('create-goal', value);
+const handleGoalCreated = (args: GoalCreateArgs) => {
+  emit('create-goal', args);
 };
 
 const handleGoalUpdated = (args: GoalUpdateArgs) => {

@@ -31,11 +31,11 @@
 
 <script setup lang="ts">
 import { reactive, toRaw } from '@vue/reactivity';
-import { GoalCategory, GoalForm } from '../types';
+import { GoalCategory, GoalCreateArgs, GoalForm } from '../types';
 
 const emit = defineEmits<{
   (e: 'close-create'): void;
-  (e: 'create', value: GoalForm): void;
+  (e: 'create', value: GoalCreateArgs): void;
 }>();
 
 const categories = Object.values(GoalCategory);
