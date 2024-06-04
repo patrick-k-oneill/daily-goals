@@ -23,45 +23,26 @@
       </label>
     </div>
 
-    <button @click="create">Create</button>
+    <button @click="props.onSave(toRaw(form))">{{ props.saveText }}</button>
     <br />
-    <button @click="cancel">Cancel</button>
+    <button @click="props.onCancel">Cancel</button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { reactive, toRaw } from '@vue/reactivity';
-import { GoalCategory, GoalCreateArgs, GoalForm } from '../types';
+import { GoalCategory, GoalForm } from '../../types';
 
-const emit = defineEmits<{
-  (e: 'close-create'): void;
-  (e: 'create', value: GoalCreateArgs): void;
+const props = defineProps<{
+  form: GoalForm;
+  saveText: string;
+  onSave: (form: GoalForm) => void;
+  onCancel: () => void;
 }>();
 
 const categories = Object.values(GoalCategory);
 
-const defaultFormValues = {
-  name: '',
-  description: '',
-  category: GoalCategory.Daily,
-};
-
-const form = reactive<GoalForm>({ ...defaultFormValues });
-
-const resetFormValues = () => {
-  Object.assign(form, defaultFormValues);
-};
-
-const create = () => {
-  emit('create', toRaw(form));
-  emit('close-create');
-  resetFormValues();
-};
-
-const cancel = () => {
-  emit('close-create');
-  resetFormValues();
-};
+const form = reactive<GoalForm>(props.form);
 </script>
 
 <style scoped>

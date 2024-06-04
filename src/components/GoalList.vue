@@ -40,8 +40,8 @@
 import { ref } from 'vue';
 import GoalSingle from '../components/goal-items/GoalSingle.vue';
 import { Goal, GoalCreateArgs, GoalUpdateArgs } from '../types';
-import CreateGoalForm from './CreateGoalForm.vue';
-import EditGoalForm from './EditGoalForm.vue';
+import CreateGoalForm from './form/CreateGoalForm.vue';
+import EditGoalForm from './form/EditGoalForm.vue';
 
 defineProps<{ goals: Goal[] }>();
 

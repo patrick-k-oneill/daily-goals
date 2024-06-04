@@ -15,8 +15,8 @@ import { Goal } from '../../types';
 const props = defineProps<{ goal: Goal }>();
 
 const emit = defineEmits<{
-  (e: 'edit-clicked', value: string): void;
-  (e: 'delete-clicked', value: string): void;
+  (e: 'edit-clicked', id: string): void;
+  (e: 'delete-clicked', id: string): void;
 }>();
 
 const editClicked = () => {
