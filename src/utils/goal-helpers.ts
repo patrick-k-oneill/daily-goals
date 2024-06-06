@@ -1,6 +1,6 @@
 import { RemovableRef } from '@vueuse/core';
 import { v4 as uuidv4 } from 'uuid';
-import { Goal, GoalCreateArgs, GoalStatus, GoalUpdateArgs } from '../types';
+import { Day, Goal, GoalCreateArgs, GoalStatus, GoalUpdateArgs } from '../types';
 
 export const createGoal = async (
   args: GoalCreateArgs,
@@ -11,8 +11,8 @@ export const createGoal = async (
       id: uuidv4(),
       ...args,
       status: GoalStatus.Active,
-      createdAt: new Date(Date.now()).toISOString(),
-      updatedAt: new Date(Date.now()).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       deletedAt: null,
     };
     goalsRef.value.push(newGoal);
@@ -41,7 +41,7 @@ export const updateGoal = async (
       ...args,
       status: goal.status,
       createdAt: goal.createdAt,
-      updatedAt: new Date(Date.now()).toISOString(),
+      updatedAt: new Date().toISOString(),
       deletedAt: null,
     };
 
@@ -70,10 +70,29 @@ export const deleteGoal = async (
     const goal: Goal = goals[goalIndex];
 
     const deletedGoal: Goal = Object.assign({}, goal);
-    deletedGoal.deletedAt = new Date(Date.now()).toISOString();
+    deletedGoal.deletedAt = new Date().toISOString();
 
     goals.splice(goalIndex, 1, deletedGoal);
     goalsRef.value = goals;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const createDay = async (
+  dayRef: RemovableRef<Day>,
+) => {
+  try {
+    dayRef.value = {
+      id: uuidv4(),
+      data: {
+        daily: [],
+        weekly: [],
+        annual: [],
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
   } catch (error) {
     throw error;
   }

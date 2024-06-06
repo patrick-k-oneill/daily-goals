@@ -1,7 +1,7 @@
 export enum GoalCategory {
-  Daily = 'Daily',
-  Weekly = 'Weekly',
-  Annual = 'Annual',
+  Daily = 'daily',
+  Weekly = 'weekly',
+  Annual = 'annual',
 }
 
 export enum GoalStatus {
@@ -18,10 +18,9 @@ export type Goal = {
   category: GoalCategory;
   status: GoalStatus;
 
-  // created/maintained by backend
-  createdAt?: string; // set at creation, never updated
-  updatedAt?: string; // update each time you update the goal
-  deletedAt?: null | string; // for handling soft deletes
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: null | string;
 };
 
 export type GoalForm = {
@@ -43,79 +42,13 @@ export interface GoalUpdateArgs {
   category: GoalCategory;
 }
 
-export type GoalGroup = {
-  name: GoalCategory;
-  goals: Goal[];
+export type Day = {
+  id: string;
+  data: Record<GoalCategory, Goal[]>;
+
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: null | string;
 };
 
-// const goalCategories = reactive<GoalGroup[]>([
-//     {
-//         name: GoalCategory.Daily,
-//         goals: [
-//             {
-//                 id: '1',
-//                 name: 'Read a book',
-//                 description: 'Read a book',
-//                 category: GoalCategory.Daily,
-//                 progress: 0,
-//                 target: 1,
-//                 isCompleted: true,
-//             },
-//             {
-//                 id: '2',
-//                 name: 'Learn a new language',
-//                 description: 'Learn a new language',
-//                 category: GoalCategory.Daily,
-//                 progress: 0,
-//                 target: 1,
-//                 isCompleted: false,
-//             },
-//         ],
-//     },
-//     {
-//         name: GoalCategory.Weekly,
-//         goals: [
-//             {
-//                 id: '3',
-//                 name: 'Learn a new language',
-//                 description: 'Learn a new language',
-//                 category: GoalCategory.Weekly,
-//                 progress: 0,
-//                 target: 1,
-//                 isCompleted: false,
-//             },
-//             {
-//                 id: '4',
-//                 name: 'Read a book',
-//                 description: 'Read a book',
-//                 category: GoalCategory.Weekly,
-//                 progress: 0,
-//                 target: 1,
-//                 isCompleted: false,
-//             },
-//         ],
-//     },
-//     {
-//         name: GoalCategory.Annual,
-//         goals: [
-//             {
-//                 id: '5',
-//                 name: 'Read a book',
-//                 description: 'Read a book',
-//                 category: GoalCategory.Annual,
-//                 progress: 0,
-//                 target: 1,
-//                 isCompleted: false,
-//             },
-//             {
-//                 id: '6',
-//                 name: 'Learn a new language',
-//                 description: 'Learn a new language',
-//                 category: GoalCategory.Annual,
-//                 progress: 0,
-//                 target: 1,
-//                 isCompleted: false,
-//             },
-//         ],
-//     },
-// ])
+export type Days = Record<string, Day>;

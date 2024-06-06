@@ -39,11 +39,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import GoalSingle from '../components/goal-items/GoalSingle.vue';
-import { Goal, GoalCreateArgs, GoalUpdateArgs } from '../types';
+import { Goal, GoalCategory, GoalCreateArgs, GoalUpdateArgs } from '../types';
 import CreateGoalForm from './form/CreateGoalForm.vue';
 import EditGoalForm from './form/EditGoalForm.vue';
 
-defineProps<{ goals: Goal[] }>();
+defineProps<{ goals: Goal[], category: GoalCategory }>();
 
 const emit = defineEmits<{
   (e: 'create-goal', args: GoalCreateArgs): void;
