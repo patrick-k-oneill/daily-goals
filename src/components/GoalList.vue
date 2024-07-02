@@ -1,39 +1,36 @@
 <template>
-  <div v-if="goals.length">
-    <h2>Goals</h2>
-    <ul>
-      <li v-for="goal in goals">
-        <EditGoalForm
-          v-if="editingGoalId === goal.id"
-          :key="`${goal.id}-edit`"
-          :goal="goal"
-          @update="handleGoalUpdated"
-          @close-edit="setEditingGoalId('')"
-        />
-        <GoalSingle
-          v-else
-          :key="goal.id"
-          :goal="goal"
-          :class="{ deleted: goal.deletedAt }"
-          @edit-clicked="setEditingGoalId(goal.id)"
-          @delete-clicked="handleGoalDeleted(goal.id)"
-        />
-      </li>
-      <li v-if="showCreateGoalForm">
-        <CreateGoalForm
-          @create="handleGoalCreated"
-          @close-create="showCreateGoalForm = false"
-        />
-      </li>
-      <button
+  <ul>
+    <li v-for="goal in goals">
+      <EditGoalForm
+        v-if="editingGoalId === goal.id"
+        :key="`${goal.id}-edit`"
+        :goal="goal"
+        @update="handleGoalUpdated"
+        @close-edit="setEditingGoalId('')"
+      />
+      <GoalSingle
         v-else
-        :disabled="showCreateGoalForm"
-        @click="showCreateGoalForm = true"
-      >
-        Create Goal
-      </button>
-    </ul>
-  </div>
+        :key="goal.id"
+        :goal="goal"
+        :class="{ deleted: goal.deletedAt }"
+        @edit-clicked="setEditingGoalId(goal.id)"
+        @delete-clicked="handleGoalDeleted(goal.id)"
+      />
+    </li>
+    <li v-if="showCreateGoalForm">
+      <CreateGoalForm
+        @create="handleGoalCreated"
+        @close-create="showCreateGoalForm = false"
+      />
+    </li>
+    <button
+      v-else
+      :disabled="showCreateGoalForm"
+      @click="showCreateGoalForm = true"
+    >
+      Create Goal
+    </button>
+  </ul>
 </template>
 
 <script setup lang="ts">
@@ -43,7 +40,7 @@ import { Goal, GoalCategory, GoalCreateArgs, GoalUpdateArgs } from '../types';
 import CreateGoalForm from './form/CreateGoalForm.vue';
 import EditGoalForm from './form/EditGoalForm.vue';
 
-defineProps<{ goals: Goal[], category: GoalCategory }>();
+defineProps<{ goals: Goal[]; category: GoalCategory }>();
 
 const emit = defineEmits<{
   (e: 'create-goal', args: GoalCreateArgs): void;

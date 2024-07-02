@@ -1,7 +1,8 @@
 import { RemovableRef } from '@vueuse/core';
 import { v4 as uuidv4 } from 'uuid';
-import { Day, Goal, GoalCreateArgs, GoalStatus, GoalUpdateArgs } from '../types';
+import { Days, Goal, GoalCreateArgs, GoalStatus, GoalUpdateArgs } from '../types';
 
+// TODO: replace all with pinia store.ts
 export const createGoal = async (
   args: GoalCreateArgs,
   goalsRef: RemovableRef<Goal[]>,
@@ -80,11 +81,12 @@ export const deleteGoal = async (
 };
 
 export const createDay = async (
-  dayRef: RemovableRef<Day>,
+  daysRef: RemovableRef<Days>,
 ) => {
   try {
-    dayRef.value = {
-      id: uuidv4(),
+    const id = uuidv4();
+    daysRef.value[id] = {
+      id,
       data: {
         daily: [],
         weekly: [],
