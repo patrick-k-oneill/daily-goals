@@ -1,15 +1,6 @@
 <template>
   <div class="GoalsPage">
-    <br />
-    <h1>Daily Goals</h1>
-    <GoalList :category="GoalCategory.Daily" />
-    <br />
-    <h1>Weekly Goals</h1>
-    <GoalList :category="GoalCategory.Weekly" />
-    <br />
-    <h1>Annual Goals</h1>
-    <GoalList :category="GoalCategory.Annual" />
-    <br />
+    <GoalList v-for="category in GoalCategory" :category="category" />
   </div>
 </template>
 
@@ -20,7 +11,6 @@ import { GoalCategory } from '../types';
 
 const { initializeStore } = useStore();
 initializeStore();
-
 </script>
 
 <style>

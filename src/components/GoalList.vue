@@ -1,4 +1,5 @@
 <template>
+  <h1>{{ title }}</h1>
   <ul>
     <li v-for="goal in getCurrentGoalsByCategory(category)">
       <EditGoalForm
@@ -41,12 +42,14 @@ import { GoalCategory } from '../types';
 import CreateGoalForm from './form/CreateGoalForm.vue';
 import EditGoalForm from './form/EditGoalForm.vue';
 
-defineProps<{ category: GoalCategory }>();
+const props = defineProps<{ category: GoalCategory }>();
 
 const { getCurrentGoalsByCategory, createGoal, updateGoal, deleteGoal } =
   useStore();
 
 const showCreateGoalForm = ref(false);
+const title =
+  props.category.charAt(0).toUpperCase() + props.category.slice(1) + ' Goals';
 
 const editingGoalId = ref('');
 const setEditingGoalId = (id: string) => {
