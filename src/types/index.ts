@@ -39,6 +39,12 @@ export interface GoalUpdateArgs {
   id: string;
   name: string;
   description: string;
+  newCategory: GoalCategory;
+  previousCategory: GoalCategory
+}
+
+export interface GoalDeleteArgs {
+  id: string;
   category: GoalCategory;
 }
 

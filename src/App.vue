@@ -1,5 +1,5 @@
 <template>
-  <goals-page />
+  <GoalsPage />
 </template>
 
 <script setup lang="ts" type="module">

@@ -1,11 +1,11 @@
 <template>
   <ul>
-    <li v-for="goal in goals">
+    <li v-for="goal in getCurrentGoalsByCategory(category)">
       <EditGoalForm
         v-if="editingGoalId === goal.id"
         :key="`${goal.id}-edit`"
         :goal="goal"
-        @update="handleGoalUpdated"
+        @update="updateGoal"
         @close-edit="setEditingGoalId('')"
       />
       <GoalSingle
@@ -14,12 +14,12 @@
         :goal="goal"
         :class="{ deleted: goal.deletedAt }"
         @edit-clicked="setEditingGoalId(goal.id)"
-        @delete-clicked="handleGoalDeleted(goal.id)"
+        @delete-clicked="deleteGoal({ id: goal.id, category })"
       />
     </li>
     <li v-if="showCreateGoalForm">
       <CreateGoalForm
-        @create="handleGoalCreated"
+        @create="createGoal"
         @close-create="showCreateGoalForm = false"
       />
     </li>
@@ -36,35 +36,21 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import GoalSingle from '../components/goal-items/GoalSingle.vue';
-import { Goal, GoalCategory, GoalCreateArgs, GoalUpdateArgs } from '../types';
+import { useStore } from '../store/store';
+import { GoalCategory } from '../types';
 import CreateGoalForm from './form/CreateGoalForm.vue';
 import EditGoalForm from './form/EditGoalForm.vue';
 
-defineProps<{ goals: Goal[]; category: GoalCategory }>();
+defineProps<{ category: GoalCategory }>();
 
-const emit = defineEmits<{
-  (e: 'create-goal', args: GoalCreateArgs): void;
-  (e: 'update-goal', args: GoalUpdateArgs): void;
-  (e: 'delete-goal', id: string): void;
-}>();
+const { getCurrentGoalsByCategory, createGoal, updateGoal, deleteGoal } =
+  useStore();
 
 const showCreateGoalForm = ref(false);
 
 const editingGoalId = ref('');
 const setEditingGoalId = (id: string) => {
   editingGoalId.value = id;
-};
-
-const handleGoalCreated = (args: GoalCreateArgs) => {
-  emit('create-goal', args);
-};
-
-const handleGoalUpdated = (args: GoalUpdateArgs) => {
-  emit('update-goal', args);
-};
-
-const handleGoalDeleted = (id: string) => {
-  emit('delete-goal', id);
 };
 </script>
 

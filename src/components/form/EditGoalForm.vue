@@ -26,7 +26,13 @@ const form = {
 
 const update = (form: GoalFormType) => {
   const { id } = props.goal;
-  emit('update', { id, ...form });
+  emit('update', {
+    id,
+    name: form.name,
+    description: form.description,
+    previousCategory: props.goal.category,
+    newCategory: form.category,
+  });
   emit('close-edit');
 };
 
