@@ -1,7 +1,47 @@
 # Daily Goals
 
-✅ Create, track, and achieve your goals!
+A digital legal pad. Every morning, on paper, I write the day's goals under an underlined **Daily Goals** header, keep **Weekly Goals** with rows of checkboxes, jot upcoming events at the bottom of the page — and write a **Gratitude Journal** entry about the previous day. This app is that ritual, as software.
 
-✅ Track your Daily, Weekly, and Annual Goals Separately
+Built with Expo (React Native + TypeScript), one codebase for **web, iOS, and Android**.
 
-✅ Lightweight, accessible UI built with Vue 3, Typescript, and Vite
+## Features
+
+- **Daily / Weekly / Annual goal pages** — recurring goals materialize onto each new page automatically; one-offs are written per page.
+- **Pad-style checks** — a goal can have multiple checkboxes (e.g. `Daily Prod` ×8). Taps cycle blank → ✓ done → ✕ missed, like pen marks. Star the day's key goal and it floats to the top.
+- **Gratitude Journal** — written each morning _about yesterday_, exactly like writing on the previous day's page. Autosaves, tracks the streak, keeps history.
+- **Upcoming events** — quick jottings ("Sun 8/23: IRC @ 4pm–5:30pm") on the Today page.
+- **Legal-pad look** — warm paper, blue rule lines, red margin, handwriting headers. Light and dark.
+
+## Getting started
+
+```bash
+nvm use          # Node 22 (≥ 20.19.4 required)
+npm install
+npm run web      # or: npm run ios / npm run android
+```
+
+## Quality
+
+```bash
+npm run check:all   # typecheck + lint + tests + format check
+npm run doctor      # react-doctor full scan
+```
+
+CI runs the same gates plus a web export build on every push and PR.
+
+## Architecture
+
+```
+src/
+  app/                 # expo-router routes (thin)
+  components/ui/       # design-system primitives (Screen, SectionHeader, CheckBox)
+  constants/theme.ts   # design tokens — paper palette, spacing, fonts
+  features/
+    goals/             # templates, per-period entries, check-state logic
+    gratitude/         # journal entries, streaks
+    events/            # upcoming-event jottings
+  hooks/               # color scheme / theme
+  lib/                 # dates & period keys, storage adapter, platform shims
+```
+
+Each feature owns its `types.ts`, pure `logic.ts` (unit-tested), zustand `store.ts` (persisted via AsyncStorage), and `components/`. Storage is swappable in one file (`src/lib/storage.ts`).
