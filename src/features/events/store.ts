@@ -5,6 +5,7 @@ import { newId } from '@/lib/id';
 import { appStorage } from '@/lib/storage';
 import type { DayKey } from '@/lib/dates';
 
+import { applyEventUpdate, trimOptional, type EventPatch } from './logic';
 import type { UpcomingEvent } from './types';
 
 interface EventsState {
@@ -12,6 +13,7 @@ interface EventsState {
   events: UpcomingEvent[];
   setHydrated: () => void;
   addEvent: (input: { date: DayKey; title: string; timeLabel?: string; note?: string }) => void;
+  updateEvent: (id: string, patch: EventPatch) => void;
   removeEvent: (id: string) => void;
 }
 
@@ -34,12 +36,15 @@ export const useEventsStore = create<EventsState>()(
                 id: newId(),
                 date,
                 title: trimmed,
-                timeLabel: timeLabel?.trim() || undefined,
-                note: note?.trim() || undefined,
+                timeLabel: trimOptional(timeLabel),
+                note: trimOptional(note),
               },
             ],
           };
         }),
+
+      updateEvent: (id, patch) =>
+        set((state) => ({ events: applyEventUpdate(state.events, id, patch) })),
 
       removeEvent: (id) => set((state) => ({ events: state.events.filter((e) => e.id !== id) })),
     }),

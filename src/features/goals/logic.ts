@@ -14,6 +14,39 @@ export function periodKeyFor(cadence: Cadence, dayKey: DayKey): string {
   }
 }
 
+/** A period is "current" when it contains today — the only period templates materialize into. */
+export function isCurrentPeriod(cadence: Cadence, periodKey: string, today: DayKey): boolean {
+  return periodKeyFor(cadence, today) === periodKey;
+}
+
+/** Box size and gap must match check-box.tsx and goal-row.tsx checks styles. */
+export const CHECK_BOX_SIZE = 28;
+export const CHECK_BOX_GAP = 4;
+
+/**
+ * Minimum room a real title needs before inline is worth it. 160 makes
+ * 7-check goals stack at true phone widths (402pt iPhone rows ≈ 344pt)
+ * while everything seeded stays inline on desktop rows (≈ 650pt).
+ */
+const MIN_INLINE_TITLE_WIDTH = 160;
+
+export type GoalRowLayout = 'inline' | 'stacked';
+
+export function checksGroupWidth(checkCount: number): number {
+  const count = Math.max(1, checkCount);
+  return count * CHECK_BOX_SIZE + (count - 1) * CHECK_BOX_GAP;
+}
+
+/**
+ * Inline keeps star · checks · title on one ruled line; stacked puts the
+ * title on line 1 and the checks group on line 2. An unmeasured row
+ * (width ≤ 0) stays inline — the desktop default — until onLayout reports.
+ */
+export function goalRowLayout(rowWidth: number, checkCount: number): GoalRowLayout {
+  if (rowWidth <= 0) return 'inline';
+  return checksGroupWidth(checkCount) + MIN_INLINE_TITLE_WIDTH <= rowWidth ? 'inline' : 'stacked';
+}
+
 export function emptyChecks(targetCount: number): CheckState[] {
   return Array.from({ length: Math.max(1, targetCount) }, () => 'empty' as CheckState);
 }

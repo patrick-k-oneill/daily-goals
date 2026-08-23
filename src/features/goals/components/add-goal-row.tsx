@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -20,6 +20,8 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
   const [targetCount, setTargetCount] = useState(1);
   const [repeats, setRepeats] = useState(false);
 
+  const canSubmit = Boolean(title.trim());
+
   const reset = () => {
     setOpen(false);
     setTitle('');
@@ -28,7 +30,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
   };
 
   const submit = () => {
-    if (!title.trim()) return;
+    if (!canSubmit) return;
     addGoal({ cadence, periodKey, title, targetCount, repeats });
     reset();
   };
@@ -63,7 +65,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Fewer checks"
-            hitSlop={8}
+            style={styles.stepperButton}
             onPress={() => setTargetCount((n) => Math.max(1, n - 1))}>
             <ThemedText type="subtitle" themeColor="textSecondary">
               −
@@ -75,7 +77,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="More checks"
-            hitSlop={8}
+            style={styles.stepperButton}
             onPress={() => setTargetCount((n) => Math.min(MAX_TARGET, n + 1))}>
             <ThemedText type="subtitle" themeColor="textSecondary">
               +
@@ -90,7 +92,9 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
           <Switch
             value={repeats}
             onValueChange={setRepeats}
-            trackColor={{ true: theme.accent }}
+            trackColor={{ false: theme.border, true: theme.accent }}
+            // Web renders no platform track, so the knob needs its own contrast.
+            thumbColor={Platform.OS === 'web' ? theme.text : undefined}
             accessibilityLabel="Repeats every period"
           />
         </View>
@@ -99,9 +103,15 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
       <View style={styles.actionsRow}>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ disabled: !canSubmit }}
+          disabled={!canSubmit}
           onPress={submit}
-          style={[styles.addButton, { backgroundColor: theme.accent }]}>
-          <ThemedText type="smallBold" style={{ color: '#FFFFFF' }}>
+          style={[
+            styles.addButton,
+            { backgroundColor: theme.accent },
+            !canSubmit && styles.buttonDisabled,
+          ]}>
+          <ThemedText type="smallBold" style={styles.addLabel}>
             Add
           </ThemedText>
         </Pressable>
@@ -145,6 +155,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
   },
+  // A real 44×44pt box (hitSlop doesn't extend DOM hit areas on web); negative
+  // margins keep the visual footprint of the old 28×30pt glyph box.
+  stepperButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -7,
+    marginHorizontal: -8,
+  },
   repeatToggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -159,5 +179,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
+  },
+  buttonDisabled: {
+    opacity: 0.4,
+  },
+  addLabel: {
+    color: '#FFFFFF',
   },
 });

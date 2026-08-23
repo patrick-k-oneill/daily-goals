@@ -26,7 +26,7 @@ export const Colors = {
     background: '#171410',
     backgroundElement: '#211D15',
     backgroundSelected: '#2C271C',
-    rule: '#2E4049',
+    rule: '#3D5A69',
     margin: '#C96158',
     accent: '#E07B72',
     missed: '#D98078',

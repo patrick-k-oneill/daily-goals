@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { CheckBox } from '@/components/ui/check-box';
@@ -8,67 +16,130 @@ import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
 import { selectionTap } from '@/lib/haptics';
 
+import { goalRowLayout } from '../logic';
 import { useGoalsStore } from '../store';
 import type { GoalEntry } from '../types';
 
 const MAX_TARGET = 10;
 
+/** ThemedText's default lineHeight — one title line. */
+const TITLE_LINE_HEIGHT = 24;
+
 /**
  * One ruled line of the pad: margin star, the goal's checkboxes, then its
- * title. Tap the title to edit it in place.
+ * title. Tap the title to edit it in place. When the checks group plus a
+ * readable title can't fit the measured row (phone widths), the goal takes
+ * two ruled lines instead: star + title, then the checks beneath the title.
  */
 export function GoalRow({ entry }: { entry: GoalEntry }) {
   const theme = useTheme();
-  const cycleCheck = useGoalsStore((s) => s.cycleCheck);
-  const toggleStar = useGoalsStore((s) => s.toggleStar);
   const [editing, setEditing] = useState(false);
+  const [rowWidth, setRowWidth] = useState(0);
+  const [titleHeight, setTitleHeight] = useState(0);
 
   if (editing) {
     return <GoalRowEditor entry={entry} onDone={() => setEditing(false)} />;
   }
 
-  return (
-    <View style={[styles.row, { borderBottomColor: theme.rule }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={
-          entry.starred ? `Unstar ${entry.title}` : `Star ${entry.title} as a key goal`
-        }
-        hitSlop={8}
-        onPress={() => {
-          selectionTap();
-          toggleStar(entry.id);
-        }}>
-        <ThemedText
-          type="subtitle"
-          themeColor={entry.starred ? 'accent' : 'border'}
-          style={styles.star}>
-          {entry.starred ? '★' : '☆'}
-        </ThemedText>
-      </Pressable>
+  const measure = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width);
+  const measureTitle = (e: LayoutChangeEvent) => setTitleHeight(e.nativeEvent.layout.height);
+  // A wrapped inline title is the row's tallest child, so the star must anchor
+  // to the first text line instead of centering against the whole block.
+  const titleWrapped = titleHeight > TITLE_LINE_HEIGHT * 1.5;
 
-      <View style={styles.checks}>
-        {/* A check's position is its identity — checks never reorder, so index keys are stable. */}
-        {entry.checks.map((state, i) => (
-          <CheckBox
-            // react-doctor-disable-next-line react-doctor/no-array-index-as-key
-            key={i}
-            state={state}
-            label={entry.checkLabels?.[i]}
-            accessibilityLabel={`${entry.title}, check ${i + 1} of ${entry.checks.length}`}
-            onCycle={() => cycleCheck(entry.id, i)}
-          />
-        ))}
+  if (goalRowLayout(rowWidth, entry.checks.length) === 'stacked') {
+    return (
+      <View
+        onLayout={measure}
+        style={[styles.row, styles.rowStacked, { borderBottomColor: theme.rule }]}>
+        <StarButton entry={entry} style={styles.starFirstLine} />
+        <View style={styles.stackedBody}>
+          <TitleButton entry={entry} onEdit={() => setEditing(true)} />
+          <ChecksGroup entry={entry} />
+        </View>
       </View>
+    );
+  }
 
-      <Pressable
+  return (
+    <View onLayout={measure} style={[styles.row, { borderBottomColor: theme.rule }]}>
+      <StarButton entry={entry} style={titleWrapped ? styles.starFirstLine : undefined} />
+      <ChecksGroup entry={entry} />
+      <TitleButton
+        entry={entry}
+        onEdit={() => setEditing(true)}
+        onLayout={measureTitle}
         style={styles.titlePress}
-        accessibilityRole="button"
-        accessibilityLabel={`Edit ${entry.title}`}
-        onPress={() => setEditing(true)}>
-        <ThemedText>{entry.title}</ThemedText>
-      </Pressable>
+      />
     </View>
+  );
+}
+
+function StarButton({ entry, style }: { entry: GoalEntry; style?: StyleProp<ViewStyle> }) {
+  const toggleStar = useGoalsStore((s) => s.toggleStar);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        entry.starred ? `Unstar ${entry.title}` : `Star ${entry.title} as a key goal`
+      }
+      hitSlop={8}
+      style={style}
+      onPress={() => {
+        selectionTap();
+        toggleStar(entry.id);
+      }}>
+      <ThemedText
+        type="subtitle"
+        themeColor={entry.starred ? 'accent' : 'border'}
+        style={styles.star}>
+        {entry.starred ? '★' : '☆'}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+function ChecksGroup({ entry }: { entry: GoalEntry }) {
+  const cycleCheck = useGoalsStore((s) => s.cycleCheck);
+
+  return (
+    <View style={styles.checks}>
+      {/* A check's position is its identity — checks never reorder, so index keys are stable. */}
+      {entry.checks.map((state, i) => (
+        <CheckBox
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key
+          key={i}
+          state={state}
+          label={entry.checkLabels?.[i]}
+          accessibilityLabel={`${entry.title}, check ${i + 1} of ${entry.checks.length}`}
+          onCycle={() => cycleCheck(entry.id, i)}
+        />
+      ))}
+    </View>
+  );
+}
+
+function TitleButton({
+  entry,
+  onEdit,
+  onLayout,
+  style,
+}: {
+  entry: GoalEntry;
+  onEdit: () => void;
+  onLayout?: (e: LayoutChangeEvent) => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Pressable
+      style={style}
+      onLayout={onLayout}
+      accessibilityRole="button"
+      accessibilityLabel={`Edit ${entry.title}`}
+      onPress={onEdit}>
+      <ThemedText>{entry.title}</ThemedText>
+    </Pressable>
   );
 }
 
@@ -85,6 +156,7 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
   const [targetCount, setTargetCount] = useState(entry.checks.length);
 
   const recurring = Boolean(entry.templateId);
+  const canSave = Boolean(title.trim());
 
   const save = () => {
     updateGoal(entry.id, { title, targetCount });
@@ -121,7 +193,7 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Fewer checks"
-            hitSlop={8}
+            style={styles.stepperButton}
             onPress={() => setTargetCount((n) => Math.max(1, n - 1))}>
             <ThemedText type="subtitle" themeColor="textSecondary">
               −
@@ -133,7 +205,7 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="More checks"
-            hitSlop={8}
+            style={styles.stepperButton}
             onPress={() => setTargetCount((n) => Math.min(MAX_TARGET, n + 1))}>
             <ThemedText type="subtitle" themeColor="textSecondary">
               +
@@ -144,8 +216,14 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ disabled: !canSave }}
+            disabled={!canSave}
             onPress={save}
-            style={[styles.saveButton, { backgroundColor: theme.accent }]}>
+            style={[
+              styles.saveButton,
+              { backgroundColor: theme.accent },
+              !canSave && styles.buttonDisabled,
+            ]}>
             <ThemedText type="smallBold" style={styles.saveLabel}>
               Save
             </ThemedText>
@@ -175,14 +253,26 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  rowStacked: {
+    alignItems: 'flex-start',
+  },
   star: {
     lineHeight: 28,
+  },
+  // Anchors the star to the title's first line: top-aligned, with the star's
+  // 28pt line box centered on the 24pt text line.
+  starFirstLine: {
+    alignSelf: 'flex-start',
+    marginTop: -2,
+  },
+  stackedBody: {
+    flex: 1,
+    gap: Spacing.one,
   },
   checks: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.one,
-    maxWidth: '60%',
   },
   titlePress: {
     flex: 1,
@@ -213,6 +303,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
   },
+  // A real 44×44pt box (hitSlop doesn't extend DOM hit areas on web); negative
+  // margins keep the visual footprint of the old 28×30pt glyph box.
+  stepperButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -7,
+    marginHorizontal: -8,
+  },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -222,6 +322,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
+  },
+  buttonDisabled: {
+    opacity: 0.4,
   },
   saveLabel: {
     color: '#FFFFFF',

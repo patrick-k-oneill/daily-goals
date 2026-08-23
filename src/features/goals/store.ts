@@ -5,7 +5,14 @@ import { newId } from '@/lib/id';
 import { todayKey } from '@/lib/dates';
 import { appStorage } from '@/lib/storage';
 
-import { applyGoalEdit, cycleState, emptyChecks, missingEntries, nextSortOrder } from './logic';
+import {
+  applyGoalEdit,
+  cycleState,
+  emptyChecks,
+  isCurrentPeriod,
+  missingEntries,
+  nextSortOrder,
+} from './logic';
 import type { Cadence, GoalEntry, GoalTemplate } from './types';
 
 interface AddGoalInput {
@@ -75,7 +82,11 @@ export const useGoalsStore = create<GoalsState>()(
       ensurePeriod: (cadence, periodKey) =>
         set((state) => {
           const templates = state.seeded ? state.templates : seedTemplates();
-          const additions = missingEntries(templates, state.entries, cadence, periodKey);
+          // Templates only materialize into the current period: a past page
+          // renders exactly what was written on it, like paper.
+          const additions = isCurrentPeriod(cadence, periodKey, todayKey())
+            ? missingEntries(templates, state.entries, cadence, periodKey)
+            : [];
           if (state.seeded && additions.length === 0) return state;
           return { seeded: true, templates, entries: [...state.entries, ...additions] };
         }),

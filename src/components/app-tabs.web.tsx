@@ -22,9 +22,6 @@ export default function AppTabs() {
           <TabTrigger name="index" href="/" asChild>
             <TabButton>Today</TabButton>
           </TabTrigger>
-          <TabTrigger name="week" href="/week" asChild>
-            <TabButton>Week</TabButton>
-          </TabTrigger>
           <TabTrigger name="journal" href="/journal" asChild>
             <TabButton>Journal</TabButton>
           </TabTrigger>

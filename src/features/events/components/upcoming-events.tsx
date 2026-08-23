@@ -49,32 +49,71 @@ export function UpcomingEvents() {
 function EventRow({ event }: { event: UpcomingEvent }) {
   const theme = useTheme();
   const removeEvent = useEventsStore((s) => s.removeEvent);
+  const updateEvent = useEventsStore((s) => s.updateEvent);
+  const [editing, setEditing] = useState(false);
+
+  const confirmRemove = () =>
+    confirmAction('Remove event', `Remove “${event.title}”?`, () => removeEvent(event.id));
+
+  if (editing) {
+    return (
+      <EventForm
+        initial={{
+          date: event.date,
+          title: event.title,
+          timeLabel: event.timeLabel ?? '',
+          note: event.note ?? '',
+        }}
+        submitLabel="Save"
+        onSubmit={(draft) => {
+          updateEvent(event.id, draft);
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+      />
+    );
+  }
 
   const dayLabel = `${WEEKDAY_LABELS[weekdayIndex(event.date)]} ${formatDayShort(event.date)}`;
 
   return (
-    <Pressable
-      accessibilityRole="text"
-      onLongPress={() =>
-        confirmAction('Remove event', `Remove “${event.title}”?`, () => removeEvent(event.id))
-      }
-      delayLongPress={400}
-      style={[styles.eventRow, { borderBottomColor: theme.rule }]}>
-      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.eventDay}>
-        {dayLabel}
-      </ThemedText>
-      <ThemedText style={styles.eventTitle}>{event.title}</ThemedText>
-      {event.timeLabel ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          @ {event.timeLabel}
+    <View style={[styles.eventRow, { borderBottomColor: theme.rule }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${event.title}`}
+        onPress={() => setEditing(true)}
+        onLongPress={confirmRemove}
+        delayLongPress={400}
+        style={styles.eventBody}>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.eventDay}>
+          {dayLabel}
         </ThemedText>
-      ) : null}
-      {event.note ? (
-        <ThemedText type="handSmall" themeColor="accent" style={styles.eventNote}>
-          {event.note}
-        </ThemedText>
-      ) : null}
-    </Pressable>
+        <ThemedText style={styles.eventTitle}>{event.title}</ThemedText>
+        {event.timeLabel ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            @ {event.timeLabel}
+          </ThemedText>
+        ) : null}
+        {event.note ? (
+          <ThemedText type="handSmall" themeColor="accent" style={styles.eventNote}>
+            {event.note}
+          </ThemedText>
+        ) : null}
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${event.title}`}
+        onPress={confirmRemove}
+        style={styles.removeButton}>
+        {({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => (
+          <ThemedText
+            themeColor={pressed || hovered ? 'missed' : 'textSecondary'}
+            style={styles.removeGlyph}>
+            ×
+          </ThemedText>
+        )}
+      </Pressable>
+    </View>
   );
 }
 
@@ -85,35 +124,33 @@ interface EventDraft {
   note: string;
 }
 
-function AddEventRow() {
+/** The inline jotting form, shared by "+ Add event" and tap-to-edit. */
+function EventForm({
+  initial,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  initial: EventDraft;
+  submitLabel: string;
+  onSubmit: (draft: EventDraft) => void;
+  onCancel: () => void;
+}) {
   const theme = useTheme();
-  const addEvent = useEventsStore((s) => s.addEvent);
 
-  // One draft object; null means the form is closed.
-  const [draft, setDraft] = useState<EventDraft | null>(null);
-  const patchDraft = (patch: Partial<EventDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
+  // Draft snapshot, intentional: the form mounts fresh per add/edit session
+  // and nothing mutates the event while it's open, so resyncing would be wrong.
+  // react-doctor-disable-next-line react-doctor/no-derived-useState
+  const [draft, setDraft] = useState(initial);
+  const patchDraft = (patch: Partial<EventDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const nextWeek = Array.from({ length: 7 }, (_, i) => addDays(todayKey(), i));
+  const canSubmit = Boolean(draft.title.trim());
 
   const submit = () => {
-    if (!draft?.title.trim()) return;
-    addEvent(draft);
-    setDraft(null);
+    if (!canSubmit) return;
+    onSubmit(draft);
   };
-
-  if (!draft) {
-    return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Add an event"
-        onPress={() => setDraft({ date: todayKey(), title: '', timeLabel: '', note: '' })}
-        style={styles.collapsed}>
-        <ThemedText type="small" themeColor="textSecondary">
-          + Add event
-        </ThemedText>
-      </Pressable>
-    );
-  }
 
   return (
     <View style={[styles.form, { borderColor: theme.border }]}>
@@ -167,19 +204,56 @@ function AddEventRow() {
       <View style={styles.actionsRow}>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ disabled: !canSubmit }}
+          disabled={!canSubmit}
           onPress={submit}
-          style={[styles.addButton, { backgroundColor: theme.accent }]}>
-          <ThemedText type="smallBold" style={{ color: '#FFFFFF' }}>
-            Add
+          style={[
+            styles.submitButton,
+            { backgroundColor: theme.accent },
+            !canSubmit && styles.buttonDisabled,
+          ]}>
+          <ThemedText type="smallBold" style={styles.submitLabel}>
+            {submitLabel}
           </ThemedText>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => setDraft(null)} hitSlop={8}>
+        <Pressable accessibilityRole="button" onPress={onCancel} hitSlop={8}>
           <ThemedText type="small" themeColor="textSecondary">
             Cancel
           </ThemedText>
         </Pressable>
       </View>
     </View>
+  );
+}
+
+function AddEventRow() {
+  const addEvent = useEventsStore((s) => s.addEvent);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Add an event"
+        onPress={() => setOpen(true)}
+        style={styles.collapsed}>
+        <ThemedText type="small" themeColor="textSecondary">
+          + Add event
+        </ThemedText>
+      </Pressable>
+    );
+  }
+
+  return (
+    <EventForm
+      initial={{ date: todayKey(), title: '', timeLabel: '', note: '' }}
+      submitLabel="Add"
+      onSubmit={(draft) => {
+        addEvent(draft);
+        setOpen(false);
+      }}
+      onCancel={() => setOpen(false)}
+    />
   );
 }
 
@@ -197,10 +271,15 @@ const styles = StyleSheet.create({
   },
   eventRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  eventBody: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'baseline',
     gap: Spacing.two,
     paddingVertical: Spacing.two,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   eventDay: {
     minWidth: 72,
@@ -211,6 +290,20 @@ const styles = StyleSheet.create({
   eventNote: {
     fontSize: 18,
     lineHeight: 22,
+  },
+  // A real 44×44pt box (hitSlop doesn't extend DOM hit areas on web); negative
+  // margins keep the old 28×28pt visual footprint. The × is the later sibling,
+  // so it wins hit-testing where it overhangs the row body.
+  removeButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: -8,
+  },
+  removeGlyph: {
+    fontSize: 20,
+    lineHeight: 24,
   },
   collapsed: {
     paddingVertical: Spacing.two,
@@ -243,9 +336,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.four,
   },
-  addButton: {
+  submitButton: {
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
+  },
+  buttonDisabled: {
+    opacity: 0.4,
+  },
+  submitLabel: {
+    color: '#FFFFFF',
   },
 });

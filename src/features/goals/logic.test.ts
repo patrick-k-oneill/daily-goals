@@ -1,9 +1,12 @@
 import {
   applyGoalEdit,
+  checksGroupWidth,
   cycleState,
   doneCount,
   emptyChecks,
   entriesForPeriod,
+  goalRowLayout,
+  isCurrentPeriod,
   missingEntries,
   nextSortOrder,
   periodKeyFor,
@@ -42,6 +45,68 @@ describe('periodKeyFor', () => {
     expect(periodKeyFor('daily', '2026-08-21')).toBe('2026-08-21');
     expect(periodKeyFor('weekly', '2026-08-21')).toBe('2026-W34');
     expect(periodKeyFor('annual', '2026-08-21')).toBe('2026');
+  });
+});
+
+describe('isCurrentPeriod', () => {
+  // 2026-08-21 is a Friday in ISO week 2026-W34 (Mon 8/17 – Sun 8/23).
+  it('matches each cadence against today', () => {
+    expect(isCurrentPeriod('daily', '2026-08-21', '2026-08-21')).toBe(true);
+    expect(isCurrentPeriod('daily', '2026-08-20', '2026-08-21')).toBe(false);
+    expect(isCurrentPeriod('weekly', '2026-W34', '2026-08-21')).toBe(true);
+    expect(isCurrentPeriod('weekly', '2026-W33', '2026-08-21')).toBe(false);
+    expect(isCurrentPeriod('annual', '2026', '2026-08-21')).toBe(true);
+    expect(isCurrentPeriod('annual', '2025', '2026-08-21')).toBe(false);
+  });
+
+  it('rolls the weekly period over the Sunday→Monday boundary', () => {
+    expect(isCurrentPeriod('weekly', '2026-W34', '2026-08-23')).toBe(true); // Sunday
+    expect(isCurrentPeriod('weekly', '2026-W34', '2026-08-24')).toBe(false); // Monday
+    expect(isCurrentPeriod('weekly', '2026-W35', '2026-08-24')).toBe(true);
+  });
+
+  it('rolls the annual period at New Year', () => {
+    expect(isCurrentPeriod('annual', '2025', '2025-12-31')).toBe(true);
+    expect(isCurrentPeriod('annual', '2025', '2026-01-01')).toBe(false);
+  });
+});
+
+describe('goal row fit rule', () => {
+  it('computes the checks group width as n boxes plus gaps', () => {
+    expect(checksGroupWidth(1)).toBe(28);
+    expect(checksGroupWidth(7)).toBe(7 * 28 + 6 * 4);
+    expect(checksGroupWidth(8)).toBe(8 * 28 + 7 * 4);
+  });
+
+  // Measured row widths: 375pt viewport → ~317pt; 402pt (iPhone 17 Pro) → ~344pt;
+  // desktop content column → ~650–678pt.
+  it('stacks the 7- and 8-check goals at phone width', () => {
+    expect(goalRowLayout(317, 7)).toBe('stacked');
+    expect(goalRowLayout(317, 8)).toBe('stacked');
+  });
+
+  it('stacks a 7-check goal at real-device width (402pt viewport)', () => {
+    expect(goalRowLayout(344, 7)).toBe('stacked');
+  });
+
+  it('keeps every seeded goal inline at desktop width', () => {
+    for (const count of [1, 6, 7, 8]) {
+      expect(goalRowLayout(650, count)).toBe('inline');
+      expect(goalRowLayout(678, count)).toBe('inline');
+    }
+  });
+
+  it('keeps a 1-check goal inline down to the narrowest supported viewport', () => {
+    expect(goalRowLayout(262, 1)).toBe('inline'); // 320pt viewport → ~262pt row
+  });
+
+  it('flips exactly where checks plus the minimum title width stop fitting', () => {
+    expect(goalRowLayout(380, 7)).toBe('inline'); // 220 checks + 160 title
+    expect(goalRowLayout(379, 7)).toBe('stacked');
+  });
+
+  it('treats an unmeasured row as inline', () => {
+    expect(goalRowLayout(0, 8)).toBe('inline');
   });
 });
 

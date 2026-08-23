@@ -17,11 +17,6 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Icon sf="checklist" md="checklist" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="week">
-        <NativeTabs.Trigger.Label>Week</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
-      </NativeTabs.Trigger>
-
       <NativeTabs.Trigger name="journal">
         <NativeTabs.Trigger.Label>Journal</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon

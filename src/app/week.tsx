@@ -1,18 +1,9 @@
-import { SectionHeader } from '@/components/ui/section-header';
-import { Screen } from '@/components/ui/screen';
-import { GoalList } from '@/features/goals/components/goal-list';
-import { formatWeekRange, todayKey, weekKeyOf, yearKeyOf } from '@/lib/dates';
+import { Redirect } from 'expo-router';
 
-export default function WeekScreen() {
-  const today = todayKey();
-
-  return (
-    <Screen>
-      <SectionHeader title="Weekly Goals" detail={formatWeekRange(today)} />
-      <GoalList cadence="weekly" periodKey={weekKeyOf(today)} />
-
-      <SectionHeader title="Annual Goals" detail={yearKeyOf(today)} />
-      <GoalList cadence="annual" periodKey={yearKeyOf(today)} />
-    </Screen>
-  );
+/**
+ * The Week tab was retired — it rendered a strict subset of Today. The route
+ * stays as a redirect so bookmarks and muscle-memory URLs land on the page.
+ */
+export default function WeekRedirect() {
+  return <Redirect href="/" />;
 }

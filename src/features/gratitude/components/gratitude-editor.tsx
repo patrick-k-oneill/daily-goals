@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,51 +9,24 @@ import { formatDayLong } from '@/lib/dates';
 import { currentReflectionDate, currentStreak } from '../logic';
 import { useGratitudeStore } from '../store';
 
-const SAVE_DEBOUNCE_MS = 600;
-
 /**
  * The morning ritual card: written today, about yesterday — exactly like
- * writing on the previous day's pad page. Autosaves as you write.
+ * writing on the previous day's pad page. Fully controlled by the store, so
+ * every mount of the same reflection date (Today page + Journal) shares one
+ * source of truth and stays in live sync; zustand persist saves each edit.
  * Pass `reflectionDate` to edit a past page's entry instead.
  */
 export function GratitudeEditor({ reflectionDate: forDate }: { reflectionDate?: string }) {
+  const theme = useTheme();
   const hydrated = useGratitudeStore((s) => s.hydrated);
   const entries = useGratitudeStore((s) => s.entries);
+  const saveEntry = useGratitudeStore((s) => s.saveEntry);
 
   const reflectionDate = forDate ?? currentReflectionDate();
   if (!hydrated) return null;
 
-  return (
-    <EditorCard
-      // Remount on rollover so the draft state starts from the new day's text.
-      key={reflectionDate}
-      reflectionDate={reflectionDate}
-      initialText={entries[reflectionDate]?.text ?? ''}
-    />
-  );
-}
-
-function EditorCard({
-  reflectionDate,
-  initialText,
-}: {
-  reflectionDate: string;
-  initialText: string;
-}) {
-  const theme = useTheme();
-  const entries = useGratitudeStore((s) => s.entries);
-  const saveEntry = useGratitudeStore((s) => s.saveEntry);
-
-  const savedText = entries[reflectionDate]?.text ?? '';
+  const text = entries[reflectionDate]?.text ?? '';
   const streak = currentStreak(entries, reflectionDate);
-
-  const [text, setText] = useState(initialText);
-
-  useEffect(() => {
-    if (text === savedText) return;
-    const timer = setTimeout(() => saveEntry(reflectionDate, text), SAVE_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [text, savedText, reflectionDate, saveEntry]);
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
@@ -75,7 +47,7 @@ function EditorCard({
 
       <TextInput
         value={text}
-        onChangeText={setText}
+        onChangeText={(next) => saveEntry(reflectionDate, next)}
         multiline
         placeholder="Amy, Leto, sharing a great night, eating tasty food…"
         placeholderTextColor={theme.textSecondary}
@@ -83,7 +55,7 @@ function EditorCard({
         accessibilityLabel="Gratitude journal entry"
       />
 
-      {text === savedText && text.trim().length > 0 && (
+      {text.trim().length > 0 && (
         <ThemedText type="small" themeColor="textSecondary" style={styles.saved}>
           Saved ✓
         </ThemedText>
