@@ -6,4 +6,6 @@ export interface UpcomingEvent {
   title: string;
   /** Freeform, the way it's written on the pad: "4pm–5:30pm". */
   timeLabel?: string;
+  /** The aside scribbled above the entry — "omg lol". */
+  note?: string;
 }

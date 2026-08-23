@@ -89,6 +89,61 @@ export function daysOfWeek(key: DayKey): DayKey[] {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
+const MONTH_LABELS_FULL = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+/** First day of the month containing `key`. */
+export function monthStart(key: DayKey): DayKey {
+  return `${key.slice(0, 7)}-01`;
+}
+
+/** First day of the month `n` months away from the month containing `key`. */
+export function addMonths(key: DayKey, n: number): DayKey {
+  const [y, m] = key.split('-').map(Number);
+  const date = new Date(y, m - 1 + n, 1);
+  return dayKeyOf(date);
+}
+
+/**
+ * Monday-first calendar grid for the month containing `key`: an array of
+ * weeks of 7 cells, where cells outside the month are null.
+ */
+export function monthGrid(key: DayKey): (DayKey | null)[][] {
+  const start = monthStart(key);
+  const month = start.slice(0, 7);
+  const weeks: (DayKey | null)[][] = [];
+  let cursor = addDays(start, -weekdayIndex(start));
+
+  while (weeks.length < 6) {
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const day = addDays(cursor, i);
+      return day.slice(0, 7) === month ? day : null;
+    });
+    weeks.push(week);
+    cursor = addDays(cursor, 7);
+    if (cursor.slice(0, 7) > month) break;
+  }
+  return weeks;
+}
+
+/** "August 2026" */
+export function formatMonth(key: DayKey): string {
+  const date = parseDayKey(key);
+  return `${MONTH_LABELS_FULL[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 /** "Fri 8/21/26" — the way it's written at the top of the legal pad. */
 export function formatPadDate(key: DayKey): string {
   const date = parseDayKey(key);

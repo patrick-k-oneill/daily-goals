@@ -11,7 +11,7 @@ interface EventsState {
   hydrated: boolean;
   events: UpcomingEvent[];
   setHydrated: () => void;
-  addEvent: (input: { date: DayKey; title: string; timeLabel?: string }) => void;
+  addEvent: (input: { date: DayKey; title: string; timeLabel?: string; note?: string }) => void;
   removeEvent: (id: string) => void;
 }
 
@@ -23,14 +23,20 @@ export const useEventsStore = create<EventsState>()(
 
       setHydrated: () => set({ hydrated: true }),
 
-      addEvent: ({ date, title, timeLabel }) =>
+      addEvent: ({ date, title, timeLabel, note }) =>
         set((state) => {
           const trimmed = title.trim();
           if (!trimmed) return state;
           return {
             events: [
               ...state.events,
-              { id: newId(), date, title: trimmed, timeLabel: timeLabel?.trim() || undefined },
+              {
+                id: newId(),
+                date,
+                title: trimmed,
+                timeLabel: timeLabel?.trim() || undefined,
+                note: note?.trim() || undefined,
+              },
             ],
           };
         }),

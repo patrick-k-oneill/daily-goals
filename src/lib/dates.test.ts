@@ -1,9 +1,13 @@
 import {
   addDays,
+  addMonths,
   dayKeyOf,
   daysOfWeek,
+  formatMonth,
   formatPadDate,
   formatWeekRange,
+  monthGrid,
+  monthStart,
   parseDayKey,
   weekdayIndex,
   weekKeyOf,
@@ -42,6 +46,37 @@ describe('ISO weeks', () => {
     expect(weekdayIndex('2026-08-23')).toBe(6);
     expect(daysOfWeek('2026-08-21')).toHaveLength(7);
     expect(daysOfWeek('2026-08-21')[6]).toBe('2026-08-23');
+  });
+});
+
+describe('month grids', () => {
+  it('finds the month start and steps between months', () => {
+    expect(monthStart('2026-08-22')).toBe('2026-08-01');
+    expect(addMonths('2026-08-22', 1)).toBe('2026-09-01');
+    expect(addMonths('2026-01-15', -1)).toBe('2025-12-01');
+    expect(addMonths('2026-12-31', 1)).toBe('2027-01-01');
+  });
+
+  it('lays out August 2026 with leading and trailing blanks', () => {
+    const grid = monthGrid('2026-08-22');
+    expect(grid).toHaveLength(6);
+    // Aug 1 2026 is a Saturday: five blanks lead the first week.
+    expect(grid[0]).toEqual([null, null, null, null, null, '2026-08-01', '2026-08-02']);
+    expect(grid[5][0]).toBe('2026-08-31');
+    expect(grid[5].slice(1)).toEqual([null, null, null, null, null, null]);
+  });
+
+  it('lays out a month that fits exactly in four weeks', () => {
+    // Feb 2027 starts on a Monday and has 28 days.
+    const grid = monthGrid('2027-02-10');
+    expect(grid).toHaveLength(4);
+    expect(grid[0][0]).toBe('2027-02-01');
+    expect(grid[3][6]).toBe('2027-02-28');
+    expect(grid.flat().filter(Boolean)).toHaveLength(28);
+  });
+
+  it('formats the month heading', () => {
+    expect(formatMonth('2026-08-22')).toBe('August 2026');
   });
 });
 

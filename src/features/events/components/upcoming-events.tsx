@@ -12,6 +12,7 @@ import {
   todayKey,
   WEEKDAY_LABELS,
   weekdayIndex,
+  type DayKey,
 } from '@/lib/dates';
 
 import { upcomingEvents, useEventsStore } from '../store';
@@ -68,40 +69,44 @@ function EventRow({ event }: { event: UpcomingEvent }) {
           @ {event.timeLabel}
         </ThemedText>
       ) : null}
+      {event.note ? (
+        <ThemedText type="handSmall" themeColor="accent" style={styles.eventNote}>
+          {event.note}
+        </ThemedText>
+      ) : null}
     </Pressable>
   );
+}
+
+interface EventDraft {
+  date: DayKey;
+  title: string;
+  timeLabel: string;
+  note: string;
 }
 
 function AddEventRow() {
   const theme = useTheme();
   const addEvent = useEventsStore((s) => s.addEvent);
 
-  const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(() => todayKey());
-  const [title, setTitle] = useState('');
-  const [timeLabel, setTimeLabel] = useState('');
+  // One draft object; null means the form is closed.
+  const [draft, setDraft] = useState<EventDraft | null>(null);
+  const patchDraft = (patch: Partial<EventDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
 
   const nextWeek = Array.from({ length: 7 }, (_, i) => addDays(todayKey(), i));
 
-  const reset = () => {
-    setOpen(false);
-    setDate(todayKey());
-    setTitle('');
-    setTimeLabel('');
-  };
-
   const submit = () => {
-    if (!title.trim()) return;
-    addEvent({ date, title, timeLabel });
-    reset();
+    if (!draft?.title.trim()) return;
+    addEvent(draft);
+    setDraft(null);
   };
 
-  if (!open) {
+  if (!draft) {
     return (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Add an event"
-        onPress={() => setOpen(true)}
+        onPress={() => setDraft({ date: todayKey(), title: '', timeLabel: '', note: '' })}
         style={styles.collapsed}>
         <ThemedText type="small" themeColor="textSecondary">
           + Add event
@@ -114,13 +119,13 @@ function AddEventRow() {
     <View style={[styles.form, { borderColor: theme.border }]}>
       <View style={styles.chipRow}>
         {nextWeek.map((day) => {
-          const selected = day === date;
+          const selected = day === draft.date;
           return (
             <Pressable
               key={day}
               accessibilityRole="button"
               accessibilityLabel={`Event on ${formatDayLong(day)}`}
-              onPress={() => setDate(day)}
+              onPress={() => patchDraft({ date: day })}
               style={[
                 styles.chip,
                 { borderColor: selected ? theme.accent : theme.border },
@@ -135,17 +140,24 @@ function AddEventRow() {
       </View>
 
       <TextInput
-        value={title}
-        onChangeText={setTitle}
+        value={draft.title}
+        onChangeText={(title) => patchDraft({ title })}
         placeholder="Event name…"
         placeholderTextColor={theme.textSecondary}
         autoFocus
         style={[styles.input, { color: theme.text, borderBottomColor: theme.rule }]}
       />
       <TextInput
-        value={timeLabel}
-        onChangeText={setTimeLabel}
+        value={draft.timeLabel}
+        onChangeText={(timeLabel) => patchDraft({ timeLabel })}
         placeholder="Time, e.g. 4pm–5:30pm (optional)"
+        placeholderTextColor={theme.textSecondary}
+        style={[styles.input, { color: theme.text, borderBottomColor: theme.rule }]}
+      />
+      <TextInput
+        value={draft.note}
+        onChangeText={(note) => patchDraft({ note })}
+        placeholder="Scribbled aside, e.g. omg lol (optional)"
         placeholderTextColor={theme.textSecondary}
         returnKeyType="done"
         onSubmitEditing={submit}
@@ -161,7 +173,7 @@ function AddEventRow() {
             Add
           </ThemedText>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={reset} hitSlop={8}>
+        <Pressable accessibilityRole="button" onPress={() => setDraft(null)} hitSlop={8}>
           <ThemedText type="small" themeColor="textSecondary">
             Cancel
           </ThemedText>
@@ -195,6 +207,10 @@ const styles = StyleSheet.create({
   },
   eventTitle: {
     flexShrink: 1,
+  },
+  eventNote: {
+    fontSize: 18,
+    lineHeight: 22,
   },
   collapsed: {
     paddingVertical: Spacing.two,
