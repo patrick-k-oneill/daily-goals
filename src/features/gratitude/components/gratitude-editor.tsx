@@ -27,6 +27,12 @@ export function GratitudeEditor({ reflectionDate: forDate }: { reflectionDate?: 
 
   const text = entries[reflectionDate]?.text ?? '';
   const streak = currentStreak(entries, reflectionDate);
+  // Only the current morning gets the example prompt; a catch-up editor must
+  // never show placeholder text that could read as a written entry.
+  const placeholder =
+    reflectionDate === currentReflectionDate()
+      ? 'Amy, Leto, sharing a great night, eating tasty food…'
+      : 'Nothing written for this morning yet…';
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
@@ -49,7 +55,7 @@ export function GratitudeEditor({ reflectionDate: forDate }: { reflectionDate?: 
         value={text}
         onChangeText={(next) => saveEntry(reflectionDate, next)}
         multiline
-        placeholder="Amy, Leto, sharing a great night, eating tasty food…"
+        placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         style={[styles.input, { color: theme.text }]}
         accessibilityLabel="Gratitude journal entry"

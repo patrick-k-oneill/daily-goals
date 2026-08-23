@@ -5,6 +5,7 @@ import {
   doneCount,
   emptyChecks,
   entriesForPeriod,
+  goalListLayouts,
   goalRowLayout,
   isCurrentPeriod,
   missingEntries,
@@ -107,6 +108,37 @@ describe('goal row fit rule', () => {
 
   it('treats an unmeasured row as inline', () => {
     expect(goalRowLayout(0, 8)).toBe('inline');
+  });
+});
+
+describe('goalListLayouts (one rhythm per section)', () => {
+  it('stacks every multi-check row when any one of them must stack', () => {
+    // Native 402pt content ≈ 344pt: the 6-check row would fit alone, but the
+    // 7-check rows force the whole section into the stacked rhythm.
+    expect(goalListLayouts(344, [7, 7, 6])).toEqual(['stacked', 'stacked', 'stacked']);
+    expect(goalListLayouts(317, [7, 7, 6])).toEqual(['stacked', 'stacked', 'stacked']);
+  });
+
+  it('keeps a fitting section fully inline', () => {
+    for (const width of [650, 678]) {
+      expect(goalListLayouts(width, [7, 7, 6])).toEqual(['inline', 'inline', 'inline']);
+      expect(goalListLayouts(width, [1, 8])).toEqual(['inline', 'inline']);
+    }
+  });
+
+  it('always keeps 1-check rows inline, even inside a stacked section', () => {
+    expect(goalListLayouts(317, [1, 8])).toEqual(['inline', 'stacked']);
+    expect(goalListLayouts(344, [1, 8])).toEqual(['inline', 'stacked']);
+  });
+
+  it('harmonizes exactly at the widest row’s own boundary', () => {
+    expect(goalListLayouts(380, [7, 6])).toEqual(['inline', 'inline']);
+    expect(goalListLayouts(379, [7, 6])).toEqual(['stacked', 'stacked']);
+  });
+
+  it('handles empty lists and unmeasured widths', () => {
+    expect(goalListLayouts(344, [])).toEqual([]);
+    expect(goalListLayouts(0, [7, 7, 6])).toEqual(['inline', 'inline', 'inline']);
   });
 });
 

@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, type Ref } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,9 +9,16 @@ import { useTheme } from '@/hooks/use-theme';
 /**
  * A legal-pad page: paper background, red margin line down the left,
  * content capped at a readable width. Native gets bottom-tab clearance;
- * web's tab bar is in-flow above the page.
+ * web's tab bar is in-flow above the page. `scrollRef` exposes the page's
+ * ScrollView for routes that need to scroll programmatically.
  */
-export function Screen({ children }: { children: ReactNode }) {
+export function Screen({
+  children,
+  scrollRef,
+}: {
+  children: ReactNode;
+  scrollRef?: Ref<ScrollView>;
+}) {
   const theme = useTheme();
 
   return (
@@ -21,6 +28,7 @@ export function Screen({ children }: { children: ReactNode }) {
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
+            ref={scrollRef}
             style={styles.flex}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled">

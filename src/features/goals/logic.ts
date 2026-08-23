@@ -47,6 +47,18 @@ export function goalRowLayout(rowWidth: number, checkCount: number): GoalRowLayo
   return checksGroupWidth(checkCount) + MIN_INLINE_TITLE_WIDTH <= rowWidth ? 'inline' : 'stacked';
 }
 
+/**
+ * One rhythm per section: if any multi-check row must stack at this width,
+ * every multi-check row in the list stacks with it, so adjacent lines never
+ * flip between checks-first and title-first. Single-check rows stay inline.
+ */
+export function goalListLayouts(rowWidth: number, checkCounts: number[]): GoalRowLayout[] {
+  const anyStacked = checkCounts.some(
+    (count) => count >= 2 && goalRowLayout(rowWidth, count) === 'stacked',
+  );
+  return checkCounts.map((count) => (count >= 2 && anyStacked ? 'stacked' : 'inline'));
+}
+
 export function emptyChecks(targetCount: number): CheckState[] {
   return Array.from({ length: Math.max(1, targetCount) }, () => 'empty' as CheckState);
 }

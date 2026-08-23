@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 
-import { entriesForPeriod } from '../logic';
+import { entriesForPeriod, goalListLayouts } from '../logic';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
 
@@ -13,12 +13,14 @@ import { GoalRow } from './goal-row';
 
 /**
  * The goal lines for one page (period): materializes recurring goals on
- * mount, renders each line, and offers the next blank line.
+ * mount, renders each line, and offers the next blank line. Measures itself
+ * once so the whole section shares one layout rhythm (see goalListLayouts).
  */
 export function GoalList({ cadence, periodKey }: { cadence: Cadence; periodKey: string }) {
   const hydrated = useGoalsStore((s) => s.hydrated);
   const ensurePeriod = useGoalsStore((s) => s.ensurePeriod);
   const entries = useGoalsStore((s) => s.entries);
+  const [listWidth, setListWidth] = useState(0);
 
   useEffect(() => {
     if (hydrated) ensurePeriod(cadence, periodKey);
@@ -30,11 +32,17 @@ export function GoalList({ cadence, periodKey }: { cadence: Cadence; periodKey: 
     entries.filter((e) => e.cadence === cadence),
     periodKey,
   );
+  const layouts = goalListLayouts(
+    listWidth,
+    list.map((entry) => entry.checks.length),
+  );
+
+  const measure = (e: LayoutChangeEvent) => setListWidth(e.nativeEvent.layout.width);
 
   return (
-    <View style={styles.list}>
-      {list.map((entry) => (
-        <GoalRow key={entry.id} entry={entry} />
+    <View style={styles.list} onLayout={measure}>
+      {list.map((entry, i) => (
+        <GoalRow key={entry.id} entry={entry} layout={layouts[i]} />
       ))}
       {list.length === 0 && (
         <ThemedText themeColor="textSecondary" style={styles.empty}>

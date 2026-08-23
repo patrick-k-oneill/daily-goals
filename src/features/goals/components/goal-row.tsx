@@ -1,5 +1,12 @@
 import { useState } from 'react';
+// LayoutAnimation is deliberate: it drives Core Animation natively (not the JS
+// thread) for one occasional 300ms settle on a user tap. Reanimated layout
+// transitions would wrap every row in Animated.View and also animate the
+// width-driven stack/inline re-harmonization, which must stay instant.
 import {
+  // react-doctor-disable-next-line react-doctor/rn-prefer-reanimated
+  LayoutAnimation,
+  Platform,
   Pressable,
   StyleSheet,
   TextInput,
@@ -16,7 +23,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
 import { selectionTap } from '@/lib/haptics';
 
-import { goalRowLayout } from '../logic';
+import type { GoalRowLayout } from '../logic';
 import { useGoalsStore } from '../store';
 import type { GoalEntry } from '../types';
 
@@ -27,31 +34,28 @@ const TITLE_LINE_HEIGHT = 24;
 
 /**
  * One ruled line of the pad: margin star, the goal's checkboxes, then its
- * title. Tap the title to edit it in place. When the checks group plus a
- * readable title can't fit the measured row (phone widths), the goal takes
- * two ruled lines instead: star + title, then the checks beneath the title.
+ * title. Tap the title to edit it in place. The list decides each row's
+ * layout (goalListLayouts) so a section keeps one rhythm: inline rows read
+ * checks-first on one line, stacked rows take two ruled lines — star + title,
+ * then the checks beneath the title.
  */
-export function GoalRow({ entry }: { entry: GoalEntry }) {
+export function GoalRow({ entry, layout }: { entry: GoalEntry; layout: GoalRowLayout }) {
   const theme = useTheme();
   const [editing, setEditing] = useState(false);
-  const [rowWidth, setRowWidth] = useState(0);
   const [titleHeight, setTitleHeight] = useState(0);
 
   if (editing) {
     return <GoalRowEditor entry={entry} onDone={() => setEditing(false)} />;
   }
 
-  const measure = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width);
   const measureTitle = (e: LayoutChangeEvent) => setTitleHeight(e.nativeEvent.layout.height);
   // A wrapped inline title is the row's tallest child, so the star must anchor
   // to the first text line instead of centering against the whole block.
   const titleWrapped = titleHeight > TITLE_LINE_HEIGHT * 1.5;
 
-  if (goalRowLayout(rowWidth, entry.checks.length) === 'stacked') {
+  if (layout === 'stacked') {
     return (
-      <View
-        onLayout={measure}
-        style={[styles.row, styles.rowStacked, { borderBottomColor: theme.rule }]}>
+      <View style={[styles.row, styles.rowStacked, { borderBottomColor: theme.rule }]}>
         <StarButton entry={entry} style={styles.starFirstLine} />
         <View style={styles.stackedBody}>
           <TitleButton entry={entry} onEdit={() => setEditing(true)} />
@@ -62,7 +66,7 @@ export function GoalRow({ entry }: { entry: GoalEntry }) {
   }
 
   return (
-    <View onLayout={measure} style={[styles.row, { borderBottomColor: theme.rule }]}>
+    <View style={[styles.row, { borderBottomColor: theme.rule }]}>
       <StarButton entry={entry} style={titleWrapped ? styles.starFirstLine : undefined} />
       <ChecksGroup entry={entry} />
       <TitleButton
@@ -88,6 +92,10 @@ function StarButton({ entry, style }: { entry: GoalEntry; style?: StyleProp<View
       style={style}
       onPress={() => {
         selectionTap();
+        // Soften the float-to-top reorder; LayoutAnimation is a no-op on web.
+        if (Platform.OS !== 'web') {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        }
         toggleStar(entry.id);
       }}>
       <ThemedText

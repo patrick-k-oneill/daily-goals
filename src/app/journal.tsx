@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, type ScrollView } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -15,12 +15,26 @@ import { formatPadDate, todayKey, type DayKey } from '@/lib/dates';
 export default function JournalScreen() {
   const entries = useGratitudeStore((s) => s.entries);
   const [selectedDay, setSelectedDay] = useState<DayKey | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const reflectionDate = currentReflectionDate();
   const history = sortedEntries(entries).filter((e) => e.forDate !== reflectionDate);
 
+  // The current morning's editor already sits at the top of the page — point
+  // at it instead of selecting a second editor for the same entry. Instant
+  // scroll: a smooth one gets canceled when the catch-up editor unmounts and
+  // the browser clamps the shortened page, and 0 is valid at any height.
+  const selectDay = (day: DayKey | null) => {
+    if (day === reflectionDate) {
+      setSelectedDay(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      return;
+    }
+    setSelectedDay(day);
+  };
+
   return (
-    <Screen>
+    <Screen scrollRef={scrollRef}>
       <SectionHeader title="Gratitude Journal" detail={formatPadDate(todayKey())} />
       <GratitudeEditor reflectionDate={reflectionDate} />
 
@@ -28,7 +42,7 @@ export default function JournalScreen() {
         <ThemedText type="handSmall" themeColor="textSecondary">
           Past mornings
         </ThemedText>
-        <JournalCalendar selected={selectedDay} onSelectDay={setSelectedDay} />
+        <JournalCalendar selected={selectedDay} onSelectDay={selectDay} />
         {selectedDay && selectedDay !== reflectionDate && (
           <GratitudeEditor reflectionDate={selectedDay} />
         )}

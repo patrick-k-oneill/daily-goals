@@ -89,6 +89,7 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
 
             const written = Boolean(entries[day]?.text.trim());
             const finished = day < today;
+            const isToday = day === today;
             const isSelected = day === selected;
 
             return (
@@ -96,7 +97,9 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
                 key={day}
                 disabled={!finished}
                 accessibilityRole="button"
-                accessibilityLabel={`${formatDayLong(day)}${written ? ', written' : ''}`}
+                accessibilityLabel={`${formatDayLong(day)}${isToday ? ', today' : ''}${
+                  written ? ', written' : ''
+                }`}
                 accessibilityState={{ selected: isSelected }}
                 onPress={() => onSelectDay(isSelected ? null : day)}
                 style={[
@@ -105,13 +108,17 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
                 ]}>
                 <ThemedText
                   type="small"
-                  themeColor={finished ? 'text' : 'border'}
+                  // Today gets the accent so it stands apart from future days.
+                  themeColor={isToday ? 'accent' : finished ? 'text' : 'border'}
                   style={styles.dayNumber}>
                   {parseDayKey(day).getDate()}
                 </ThemedText>
-                <ThemedText type="small" themeColor={written ? 'accent' : 'border'}>
-                  {written ? '✓' : '·'}
-                </ThemedText>
+                {/* Blank means blank: only written mornings get a mark. */}
+                {written && (
+                  <ThemedText type="small" themeColor="accent">
+                    ✓
+                  </ThemedText>
+                )}
               </Pressable>
             );
           })}

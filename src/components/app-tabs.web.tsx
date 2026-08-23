@@ -52,8 +52,9 @@ function TopBar(props: TabListProps) {
   return (
     <ThemedView style={[styles.barOuter, { borderBottomColor: theme.rule }]}>
       <View {...props} style={styles.barInner}>
-        <ThemedText type="handSmall" style={styles.brand}>
-          Daily Goals
+        {/* ★ monogram: the page heading already says "Daily Goals" below. */}
+        <ThemedText type="handSmall" themeColor="margin" style={styles.brand}>
+          ★
         </ThemedText>
         {props.children}
       </View>
