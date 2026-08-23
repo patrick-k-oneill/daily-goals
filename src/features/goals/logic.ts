@@ -69,6 +69,37 @@ export function resizeChecks(checks: CheckState[], targetCount: number): CheckSt
   return [...checks, ...emptyChecks(size - checks.length)];
 }
 
+export interface GoalEditPatch {
+  title?: string;
+  targetCount?: number;
+}
+
+/**
+ * Apply an in-place edit to a goal entry. Edits to a recurring goal also
+ * update its template, so future pages inherit the new title/target.
+ */
+export function applyGoalEdit(
+  entries: GoalEntry[],
+  templates: GoalTemplate[],
+  entryId: string,
+  patch: GoalEditPatch,
+): { entries: GoalEntry[]; templates: GoalTemplate[] } {
+  const entry = entries.find((e) => e.id === entryId);
+  if (!entry) return { entries, templates };
+
+  const title = patch.title?.trim() || entry.title;
+  const targetCount = patch.targetCount ?? entry.checks.length;
+
+  return {
+    entries: entries.map((e) =>
+      e.id === entryId ? { ...e, title, checks: resizeChecks(e.checks, targetCount) } : e,
+    ),
+    templates: entry.templateId
+      ? templates.map((t) => (t.id === entry.templateId ? { ...t, title, targetCount } : t))
+      : templates,
+  };
+}
+
 export function doneCount(entry: GoalEntry): number {
   return entry.checks.filter((c) => c === 'done').length;
 }

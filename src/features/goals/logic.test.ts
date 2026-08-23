@@ -1,4 +1,5 @@
 import {
+  applyGoalEdit,
   cycleState,
   doneCount,
   emptyChecks,
@@ -89,6 +90,47 @@ describe('check states', () => {
   it('counts completed checks', () => {
     expect(doneCount(entry({ checks: ['done', 'missed', 'done', 'empty'] }))).toBe(2);
     expect(emptyChecks(3)).toEqual(['empty', 'empty', 'empty']);
+  });
+});
+
+describe('applyGoalEdit', () => {
+  it('renames the entry and its template together', () => {
+    const result = applyGoalEdit(
+      [entry({ id: 'e1', templateId: 't1', title: 'Daily Prod' })],
+      [template({ id: 't1', title: 'Daily Prod' })],
+      'e1',
+      { title: 'Deep Work' },
+    );
+    expect(result.entries[0].title).toBe('Deep Work');
+    expect(result.templates[0].title).toBe('Deep Work');
+  });
+
+  it('resizes checks preserving marks and syncs the template target', () => {
+    const result = applyGoalEdit(
+      [entry({ id: 'e1', templateId: 't1', checks: ['done', 'missed', 'empty'] })],
+      [template({ id: 't1', targetCount: 3 })],
+      'e1',
+      { targetCount: 5 },
+    );
+    expect(result.entries[0].checks).toEqual(['done', 'missed', 'empty', 'empty', 'empty']);
+    expect(result.templates[0].targetCount).toBe(5);
+  });
+
+  it('leaves templates untouched for one-off goals', () => {
+    const templates = [template()];
+    const result = applyGoalEdit([entry({ id: 'e1' })], templates, 'e1', { title: 'Renamed' });
+    expect(result.entries[0].title).toBe('Renamed');
+    expect(result.templates).toBe(templates);
+  });
+
+  it('ignores a blank title and unknown entries', () => {
+    const result = applyGoalEdit([entry({ id: 'e1', title: 'Keep me' })], [], 'e1', {
+      title: '   ',
+    });
+    expect(result.entries[0].title).toBe('Keep me');
+
+    const untouched = applyGoalEdit([entry({ id: 'e1' })], [], 'missing', { title: 'X' });
+    expect(untouched.entries[0].title).toBe('One-off');
   });
 });
 

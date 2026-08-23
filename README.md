@@ -6,7 +6,8 @@ Built with Expo (React Native + TypeScript), one codebase for **web, iOS, and An
 
 ## Features
 
-- **Daily / Weekly / Annual goal pages** — recurring goals materialize onto each new page automatically; one-offs are written per page.
+- **The pad page** — Today mirrors the paper layout top to bottom: date at the top-left, centered underlined headings, Daily → Weekly → Annual goal categories, upcoming events, and the gratitude journal at the bottom. Recurring goals materialize onto each new page automatically; one-offs are written per page.
+- **Edit in place** — tap any goal title to rename it, resize its checks, or remove it. Edits to a recurring goal carry into future pages.
 - **Pad-style checks** — a goal can have multiple checkboxes (e.g. `Daily Prod` ×8). Taps cycle blank → ✓ done → ✕ missed, like pen marks. Star the day's key goal and it floats to the top.
 - **Gratitude Journal** — written each morning _about yesterday_, exactly like writing on the previous day's page. Autosaves, tracks the streak, keeps history.
 - **Upcoming events** — quick jottings ("Sun 8/23: IRC @ 4pm–5:30pm") on the Today page.

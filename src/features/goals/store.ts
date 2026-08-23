@@ -5,7 +5,7 @@ import { newId } from '@/lib/id';
 import { todayKey } from '@/lib/dates';
 import { appStorage } from '@/lib/storage';
 
-import { cycleState, emptyChecks, missingEntries, nextSortOrder, resizeChecks } from './logic';
+import { applyGoalEdit, cycleState, emptyChecks, missingEntries, nextSortOrder } from './logic';
 import type { Cadence, GoalEntry, GoalTemplate } from './types';
 
 interface AddGoalInput {
@@ -137,17 +137,7 @@ export const useGoalsStore = create<GoalsState>()(
         })),
 
       updateGoal: (entryId, patch) =>
-        set((state) => ({
-          entries: state.entries.map((e) => {
-            if (e.id !== entryId) return e;
-            return {
-              ...e,
-              title: patch.title?.trim() || e.title,
-              checks:
-                patch.targetCount != null ? resizeChecks(e.checks, patch.targetCount) : e.checks,
-            };
-          }),
-        })),
+        set((state) => applyGoalEdit(state.entries, state.templates, entryId, patch)),
 
       removeGoal: (entryId, opts) =>
         set((state) => {
