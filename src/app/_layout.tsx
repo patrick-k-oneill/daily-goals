@@ -19,6 +19,10 @@ export default function RootLayout() {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
+  // Text must not render before the handwriting font registers — native
+  // Fabric won't re-resolve a font family on a re-render with equal styles.
+  if (!fontsLoaded && !fontError) return null;
+
   const base = dark ? DarkTheme : DefaultTheme;
   const navTheme = {
     ...base,
