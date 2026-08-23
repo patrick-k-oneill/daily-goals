@@ -15,12 +15,13 @@ const SAVE_DEBOUNCE_MS = 600;
 /**
  * The morning ritual card: written today, about yesterday — exactly like
  * writing on the previous day's pad page. Autosaves as you write.
+ * Pass `reflectionDate` to edit a past page's entry instead.
  */
-export function GratitudeEditor() {
+export function GratitudeEditor({ reflectionDate: forDate }: { reflectionDate?: string }) {
   const hydrated = useGratitudeStore((s) => s.hydrated);
   const entries = useGratitudeStore((s) => s.entries);
 
-  const reflectionDate = currentReflectionDate();
+  const reflectionDate = forDate ?? currentReflectionDate();
   if (!hydrated) return null;
 
   return (
