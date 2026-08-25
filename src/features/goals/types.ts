@@ -17,7 +17,6 @@ export interface GoalTemplate {
   checkLabels?: string[];
   active: boolean;
   sortOrder: number;
-  createdAt: string;
 }
 
 /** A goal line on a specific period's page — recurring instance or one-off. */
@@ -34,4 +33,10 @@ export interface GoalEntry {
   /** The star drawn in the pad margin next to the day's key item. */
   starred: boolean;
   sortOrder: number;
+}
+
+/** Everything ever written in the goal sections: the templates and every period's entries. */
+export interface Goals {
+  templates: GoalTemplate[];
+  entries: GoalEntry[];
 }

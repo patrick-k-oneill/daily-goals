@@ -4,17 +4,11 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { Screen } from '@/components/ui/screen';
 import { UpcomingEvents } from '@/features/events/components/upcoming-events';
 import { GoalList } from '@/features/goals/components/goal-list';
+import { periodLabel } from '@/features/goals/logic';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
 import { reflectionDateFor } from '@/features/gratitude/logic';
 import { useToday } from '@/lib/clock';
-import {
-  addDays,
-  formatPadDate,
-  formatWeekRange,
-  weekKeyOf,
-  yearKeyOf,
-  type DayKey,
-} from '@/lib/dates';
+import { addDays, type DayKey } from '@/lib/dates';
 
 /**
  * The whole pad page, top to bottom, the way it's written every morning.
@@ -36,19 +30,19 @@ export default function TodayScreen() {
     <Screen>
       <SectionHeader
         title="Daily Goals"
-        detail={formatPadDate(day)}
+        detail={periodLabel('daily', day)}
         detailHighlight={!isToday}
         onPrev={() => setPinnedDay(addDays(day, -1))}
         onNext={isToday ? undefined : flipForward}
         onDetailPress={isToday ? undefined : () => setPinnedDay(null)}
       />
-      <GoalList cadence="daily" periodKey={day} />
+      <GoalList cadence="daily" day={day} />
 
-      <SectionHeader title="Weekly Goals" detail={formatWeekRange(day)} />
-      <GoalList cadence="weekly" periodKey={weekKeyOf(day)} />
+      <SectionHeader title="Weekly Goals" detail={periodLabel('weekly', day)} />
+      <GoalList cadence="weekly" day={day} />
 
-      <SectionHeader title="Annual Goals" detail={yearKeyOf(day)} />
-      <GoalList cadence="annual" periodKey={yearKeyOf(day)} />
+      <SectionHeader title="Annual Goals" detail={periodLabel('annual', day)} />
+      <GoalList cadence="annual" day={day} />
 
       {isToday && <UpcomingEvents />}
 

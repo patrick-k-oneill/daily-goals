@@ -26,9 +26,8 @@ import { useGoalsStore } from '../store';
 import type { GoalEntry } from '../types';
 
 import { CheckBox } from './check-box';
+import { MAX_CHECKS } from '../logic';
 import { CHECK_BOX_GAP, MIN_INLINE_TITLE_WIDTH, type GoalRowLayout } from './goal-row-layout';
-
-const MAX_TARGET = 10;
 
 /**
  * One ruled line of the pad: margin star, the goal's checkboxes, then its
@@ -175,7 +174,7 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
       recurring
         ? `Remove “${entry.title}” from this page and stop it repeating in future periods?`
         : `Remove “${entry.title}” from this page?`,
-      () => removeGoal(entry.id, { stopRepeating: recurring }),
+      () => removeGoal(entry.id),
     );
   };
 
@@ -212,7 +211,7 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
             accessibilityRole="button"
             accessibilityLabel="More checks"
             style={styles.stepperButton}
-            onPress={() => setTargetCount((n) => Math.min(MAX_TARGET, n + 1))}>
+            onPress={() => setTargetCount((n) => Math.min(MAX_CHECKS, n + 1))}>
             <ThemedText type="subtitle" themeColor="textSecondary">
               +
             </ThemedText>

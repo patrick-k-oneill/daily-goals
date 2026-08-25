@@ -5,10 +5,9 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+import { MAX_CHECKS } from '../logic';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
-
-const MAX_TARGET = 10;
 
 /** The blank next line on the pad — tap to write a new goal on this page. */
 export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey: string }) {
@@ -78,7 +77,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
             accessibilityRole="button"
             accessibilityLabel="More checks"
             style={styles.stepperButton}
-            onPress={() => setTargetCount((n) => Math.min(MAX_TARGET, n + 1))}>
+            onPress={() => setTargetCount((n) => Math.min(MAX_CHECKS, n + 1))}>
             <ThemedText type="subtitle" themeColor="textSecondary">
               +
             </ThemedText>

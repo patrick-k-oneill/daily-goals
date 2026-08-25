@@ -3,8 +3,9 @@ import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import type { DayKey } from '@/lib/dates';
 
-import { entriesForPeriod } from '../logic';
+import { entriesForPeriod, periodKeyFor } from '../logic';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
 
@@ -13,11 +14,13 @@ import { GoalRow } from './goal-row';
 import { goalListLayouts } from './goal-row-layout';
 
 /**
- * The goal lines for one page (period): materializes recurring goals on
- * mount, renders each line, and offers the next blank line. Measures itself
- * once so the whole section shares one layout rhythm (see goalListLayouts).
+ * One cadence's section of the page for the period containing `day`:
+ * materializes recurring goals on mount, renders each line, and offers the
+ * next blank line. Measures itself once so the whole section shares one
+ * layout rhythm (see goalListLayouts).
  */
-export function GoalList({ cadence, periodKey }: { cadence: Cadence; periodKey: string }) {
+export function GoalList({ cadence, day }: { cadence: Cadence; day: DayKey }) {
+  const periodKey = periodKeyFor(cadence, day);
   const ensurePeriod = useGoalsStore((s) => s.ensurePeriod);
   const entries = useGoalsStore((s) => s.entries);
   const [listWidth, setListWidth] = useState(0);
@@ -26,10 +29,7 @@ export function GoalList({ cadence, periodKey }: { cadence: Cadence; periodKey: 
     ensurePeriod(cadence, periodKey);
   }, [cadence, periodKey, ensurePeriod]);
 
-  const list = entriesForPeriod(
-    entries.filter((e) => e.cadence === cadence),
-    periodKey,
-  );
+  const list = entriesForPeriod(entries, periodKey);
   const layouts = goalListLayouts(
     listWidth,
     list.map((entry) => entry.checks.length),
