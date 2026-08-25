@@ -1,6 +1,14 @@
 import type { DayKey } from '@/lib/dates';
+import { newId } from '@/lib/id';
 
 import type { UpcomingEvent } from './types';
+
+export interface EventInput {
+  date: DayKey;
+  title: string;
+  timeLabel?: string;
+  note?: string;
+}
 
 export interface EventPatch {
   date?: DayKey;
@@ -9,17 +17,28 @@ export interface EventPatch {
   note?: string;
 }
 
-/** addEvent's trimming rule for optional fields: blank collapses to undefined. */
-export function trimOptional(text: string | undefined): string | undefined {
-  return text?.trim() || undefined;
+/** Jot a new event. Fields are trimmed and blank optionals dropped; a blank title jots nothing. */
+export function addEvent(events: UpcomingEvent[], input: EventInput): UpcomingEvent[] {
+  const title = input.title.trim();
+  if (!title) return events;
+  return [
+    ...events,
+    {
+      id: newId(),
+      date: input.date,
+      title,
+      timeLabel: trimOptional(input.timeLabel),
+      note: trimOptional(input.note),
+    },
+  ];
 }
 
 /**
  * Update one event in place, trimming like addEvent. A patch that blanks the
  * title is rejected wholesale (events always keep a title) and returns the
- * input array untouched, as do unknown ids.
+ * input untouched, as does an unknown id.
  */
-export function applyEventUpdate(
+export function updateEvent(
   events: UpcomingEvent[],
   id: string,
   patch: EventPatch,
@@ -39,4 +58,23 @@ export function applyEventUpdate(
         }
       : e,
   );
+}
+
+export function removeEvent(events: UpcomingEvent[], id: string): UpcomingEvent[] {
+  if (!events.some((e) => e.id === id)) return events;
+  return events.filter((e) => e.id !== id);
+}
+
+/** Events from `fromDate` on, soonest first; same-day events alphabetical. */
+export function upcomingEvents(events: UpcomingEvent[], fromDate: DayKey): UpcomingEvent[] {
+  return events
+    .filter((e) => e.date >= fromDate)
+    .sort((a, b) =>
+      a.date === b.date ? a.title.localeCompare(b.title) : a.date < b.date ? -1 : 1,
+    );
+}
+
+/** Blank collapses to absent, so an empty time or note never renders as "@ ". */
+function trimOptional(text: string | undefined): string | undefined {
+  return text?.trim() || undefined;
 }

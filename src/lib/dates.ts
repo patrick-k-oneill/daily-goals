@@ -10,7 +10,7 @@ export type YearKey = string;
 
 const DAY_MS = 86_400_000;
 
-export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 const MONTH_LABELS = [
   'Jan',
@@ -25,6 +25,21 @@ const MONTH_LABELS = [
   'Oct',
   'Nov',
   'Dec',
+] as const;
+
+const MONTH_LABELS_FULL = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ] as const;
 
 export function dayKeyOf(date: Date): DayKey {
@@ -70,7 +85,7 @@ export function yearKeyOf(key: DayKey): YearKey {
 }
 
 /** Monday-first weekday index: Mon = 0 … Sun = 6. */
-export function weekdayIndex(key: DayKey): number {
+function weekdayIndex(key: DayKey): number {
   return (parseDayKey(key).getDay() + 6) % 7;
 }
 
@@ -84,21 +99,6 @@ export function daysOfWeek(key: DayKey): DayKey[] {
   const start = weekStart(key);
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
-
-const MONTH_LABELS_FULL = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-] as const;
 
 /** First day of the month containing `key`. */
 export function monthStart(key: DayKey): DayKey {
@@ -143,9 +143,8 @@ export function formatMonth(key: DayKey): string {
 /** "Fri 8/21/26" — the way it's written at the top of the legal pad. */
 export function formatPadDate(key: DayKey): string {
   const date = parseDayKey(key);
-  const weekday = WEEKDAY_LABELS[weekdayIndex(key)];
   const yy = String(date.getFullYear()).slice(2);
-  return `${weekday} ${date.getMonth() + 1}/${date.getDate()}/${yy}`;
+  return `${WEEKDAY_LABELS[weekdayIndex(key)]} ${date.getMonth() + 1}/${date.getDate()}/${yy}`;
 }
 
 /** "Fri, Aug 21" */
@@ -154,10 +153,10 @@ export function formatDayLong(key: DayKey): string {
   return `${WEEKDAY_LABELS[weekdayIndex(key)]}, ${MONTH_LABELS[date.getMonth()]} ${date.getDate()}`;
 }
 
-/** "8/21" */
-export function formatDayShort(key: DayKey): string {
+/** "Sun 8/23" — the way an event is jotted at the bottom of the page. */
+export function formatDayWithWeekday(key: DayKey): string {
   const date = parseDayKey(key);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  return `${WEEKDAY_LABELS[weekdayIndex(key)]} ${date.getMonth() + 1}/${date.getDate()}`;
 }
 
 /** "Aug 18 – 24" or "Aug 31 – Sep 6" for the ISO week containing `key`. */

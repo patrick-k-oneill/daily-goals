@@ -3,13 +3,13 @@ import {
   addMonths,
   dayKeyOf,
   daysOfWeek,
+  formatDayWithWeekday,
   formatMonth,
   formatPadDate,
   formatWeekRange,
   monthGrid,
   monthStart,
   parseDayKey,
-  weekdayIndex,
   weekKeyOf,
   weekStart,
   yearKeyOf,
@@ -42,8 +42,6 @@ describe('ISO weeks', () => {
 
   it('weeks start on Monday', () => {
     expect(weekStart('2026-08-21')).toBe('2026-08-17');
-    expect(weekdayIndex('2026-08-17')).toBe(0);
-    expect(weekdayIndex('2026-08-23')).toBe(6);
     expect(daysOfWeek('2026-08-21')).toHaveLength(7);
     expect(daysOfWeek('2026-08-21')[6]).toBe('2026-08-23');
   });
@@ -83,6 +81,7 @@ describe('month grids', () => {
 describe('formatting', () => {
   it('writes the date the way the pad does', () => {
     expect(formatPadDate('2026-08-21')).toBe('Fri 8/21/26');
+    expect(formatDayWithWeekday('2026-08-23')).toBe('Sun 8/23');
   });
 
   it('formats week ranges within and across months', () => {

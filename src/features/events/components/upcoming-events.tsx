@@ -6,16 +6,10 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
 import { useToday } from '@/lib/clock';
-import {
-  addDays,
-  formatDayLong,
-  formatDayShort,
-  WEEKDAY_LABELS,
-  weekdayIndex,
-  type DayKey,
-} from '@/lib/dates';
+import { addDays, formatDayLong, formatDayWithWeekday, type DayKey } from '@/lib/dates';
 
-import { upcomingEvents, useEventsStore } from '../store';
+import { upcomingEvents } from '../logic';
+import { useEventsStore } from '../store';
 import type { UpcomingEvent } from '../types';
 
 /** The bottom-of-page jottings: "Sun 8/23: IRC @ 4pm–5:30pm". */
@@ -72,7 +66,7 @@ function EventRow({ event }: { event: UpcomingEvent }) {
     );
   }
 
-  const dayLabel = `${WEEKDAY_LABELS[weekdayIndex(event.date)]} ${formatDayShort(event.date)}`;
+  const dayLabel = formatDayWithWeekday(event.date);
 
   return (
     <View style={[styles.eventRow, { borderBottomColor: theme.rule }]}>
@@ -168,7 +162,7 @@ function EventForm({
                 selected && { backgroundColor: theme.backgroundSelected },
               ]}>
               <ThemedText type="small" themeColor={selected ? 'text' : 'textSecondary'}>
-                {WEEKDAY_LABELS[weekdayIndex(day)]} {formatDayShort(day)}
+                {formatDayWithWeekday(day)}
               </ThemedText>
             </Pressable>
           );

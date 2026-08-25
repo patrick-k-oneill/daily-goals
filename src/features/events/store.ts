@@ -1,57 +1,28 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { newId } from '@/lib/id';
 import { persistOptions } from '@/lib/persisted-store';
-import type { DayKey } from '@/lib/dates';
 
-import { applyEventUpdate, trimOptional, type EventPatch } from './logic';
+import * as logic from './logic';
 import type { UpcomingEvent } from './types';
 
 interface EventsState {
   events: UpcomingEvent[];
-  addEvent: (input: { date: DayKey; title: string; timeLabel?: string; note?: string }) => void;
-  updateEvent: (id: string, patch: EventPatch) => void;
+  addEvent: (input: logic.EventInput) => void;
+  updateEvent: (id: string, patch: logic.EventPatch) => void;
   removeEvent: (id: string) => void;
 }
 
+/** The events feature's React binding: each action is one pure transition from ./logic. */
 export const useEventsStore = create<EventsState>()(
   persist(
     (set) => ({
       events: [],
 
-      addEvent: ({ date, title, timeLabel, note }) =>
-        set((state) => {
-          const trimmed = title.trim();
-          if (!trimmed) return state;
-          return {
-            events: [
-              ...state.events,
-              {
-                id: newId(),
-                date,
-                title: trimmed,
-                timeLabel: trimOptional(timeLabel),
-                note: trimOptional(note),
-              },
-            ],
-          };
-        }),
-
-      updateEvent: (id, patch) =>
-        set((state) => ({ events: applyEventUpdate(state.events, id, patch) })),
-
-      removeEvent: (id) => set((state) => ({ events: state.events.filter((e) => e.id !== id) })),
+      addEvent: (input) => set((s) => ({ events: logic.addEvent(s.events, input) })),
+      updateEvent: (id, patch) => set((s) => ({ events: logic.updateEvent(s.events, id, patch) })),
+      removeEvent: (id) => set((s) => ({ events: logic.removeEvent(s.events, id) })),
     }),
     persistOptions('events'),
   ),
 );
-
-/** Events from `fromDate` on, soonest first. */
-export function upcomingEvents(events: UpcomingEvent[], fromDate: DayKey): UpcomingEvent[] {
-  return events
-    .filter((e) => e.date >= fromDate)
-    .sort((a, b) =>
-      a.date === b.date ? a.title.localeCompare(b.title) : a.date < b.date ? -1 : 1,
-    );
-}
