@@ -4,12 +4,13 @@ import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 
-import { entriesForPeriod, goalListLayouts } from '../logic';
+import { entriesForPeriod } from '../logic';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
 
 import { AddGoalRow } from './add-goal-row';
 import { GoalRow } from './goal-row';
+import { goalListLayouts } from './goal-row-layout';
 
 /**
  * The goal lines for one page (period): materializes recurring goals on

@@ -3,6 +3,9 @@ import { StyleSheet, Text, type TextProps } from 'react-native';
 import { Fonts, HandwritingFont, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+/** One line of body text; rows anchor marginalia to it. */
+export const BODY_LINE_HEIGHT = 24;
+
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'subtitle' | 'small' | 'smallBold' | 'hand' | 'handSmall' | 'code';
   themeColor?: ThemeColor;
@@ -17,7 +20,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 const styles = StyleSheet.create({
   default: {
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: BODY_LINE_HEIGHT,
     fontWeight: 500,
   },
   title: {

@@ -2,9 +2,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import type { CheckState } from '@/features/goals/types';
 import { useTheme } from '@/hooks/use-theme';
 import { selectionTap } from '@/lib/haptics';
+
+import type { CheckState } from '../types';
+
+import { CHECK_BOX_SIZE } from './goal-row-layout';
 
 interface CheckBoxProps {
   state: CheckState;
@@ -60,8 +63,8 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   box: {
-    width: 28,
-    height: 28,
+    width: CHECK_BOX_SIZE,
+    height: CHECK_BOX_SIZE,
     borderWidth: 1.5,
     borderRadius: 7,
     alignItems: 'center',

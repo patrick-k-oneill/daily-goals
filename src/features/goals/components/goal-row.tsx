@@ -16,21 +16,19 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { CheckBox } from '@/components/ui/check-box';
+import { BODY_LINE_HEIGHT, ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
 import { selectionTap } from '@/lib/haptics';
 
-import type { GoalRowLayout } from '../logic';
 import { useGoalsStore } from '../store';
 import type { GoalEntry } from '../types';
 
-const MAX_TARGET = 10;
+import { CheckBox } from './check-box';
+import { CHECK_BOX_GAP, MIN_INLINE_TITLE_WIDTH, type GoalRowLayout } from './goal-row-layout';
 
-/** ThemedText's default lineHeight — one title line. */
-const TITLE_LINE_HEIGHT = 24;
+const MAX_TARGET = 10;
 
 /**
  * One ruled line of the pad: margin star, the goal's checkboxes, then its
@@ -51,7 +49,7 @@ export function GoalRow({ entry, layout }: { entry: GoalEntry; layout: GoalRowLa
   const measureTitle = (e: LayoutChangeEvent) => setTitleHeight(e.nativeEvent.layout.height);
   // A wrapped inline title is the row's tallest child, so the star must anchor
   // to the first text line instead of centering against the whole block.
-  const titleWrapped = titleHeight > TITLE_LINE_HEIGHT * 1.5;
+  const titleWrapped = titleHeight > BODY_LINE_HEIGHT * 1.5;
 
   if (layout === 'stacked') {
     return (
@@ -280,11 +278,11 @@ const styles = StyleSheet.create({
   checks: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.one,
+    gap: CHECK_BOX_GAP,
   },
   titlePress: {
     flex: 1,
-    minWidth: 120,
+    minWidth: MIN_INLINE_TITLE_WIDTH,
   },
   editor: {
     gap: Spacing.three,

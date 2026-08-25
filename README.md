@@ -35,7 +35,7 @@ CI runs the same gates plus a web export build on every push and PR.
 ```
 src/
   app/                 # expo-router routes (thin)
-  components/ui/       # design-system primitives (Screen, SectionHeader, CheckBox)
+  components/ui/       # design-system primitives (Screen, SectionHeader)
   constants/theme.ts   # design tokens — paper palette, spacing, fonts
   features/
     goals/             # templates, per-period entries, check-state logic
