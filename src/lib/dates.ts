@@ -49,10 +49,6 @@ export function addDays(key: DayKey, days: number): DayKey {
   return dayKeyOf(date);
 }
 
-export function yesterdayKey(): DayKey {
-  return addDays(todayKey(), -1);
-}
-
 /** ISO 8601 week: weeks start Monday; week 1 contains the year's first Thursday. */
 export function isoWeekOf(key: DayKey): { year: number; week: number } {
   const date = parseDayKey(key);

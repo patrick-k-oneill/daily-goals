@@ -5,11 +5,11 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
+import { useToday } from '@/lib/clock';
 import {
   addDays,
   formatDayLong,
   formatDayShort,
-  todayKey,
   WEEKDAY_LABELS,
   weekdayIndex,
   type DayKey,
@@ -22,8 +22,9 @@ import type { UpcomingEvent } from '../types';
 export function UpcomingEvents() {
   const theme = useTheme();
   const events = useEventsStore((s) => s.events);
+  const today = useToday();
 
-  const upcoming = upcomingEvents(events, todayKey());
+  const upcoming = upcomingEvents(events, today);
 
   return (
     <View style={styles.section}>
@@ -141,7 +142,8 @@ function EventForm({
   const [draft, setDraft] = useState(initial);
   const patchDraft = (patch: Partial<EventDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
-  const nextWeek = Array.from({ length: 7 }, (_, i) => addDays(todayKey(), i));
+  const today = useToday();
+  const nextWeek = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const canSubmit = Boolean(draft.title.trim());
 
   const submit = () => {
@@ -225,6 +227,7 @@ function EventForm({
 
 function AddEventRow() {
   const addEvent = useEventsStore((s) => s.addEvent);
+  const today = useToday();
   const [open, setOpen] = useState(false);
 
   if (!open) {
@@ -243,7 +246,7 @@ function AddEventRow() {
 
   return (
     <EventForm
-      initial={{ date: todayKey(), title: '', timeLabel: '', note: '' }}
+      initial={{ date: today, title: '', timeLabel: '', note: '' }}
       submitLabel="Add"
       onSubmit={(draft) => {
         addEvent(draft);

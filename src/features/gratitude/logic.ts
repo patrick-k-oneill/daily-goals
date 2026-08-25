@@ -1,10 +1,10 @@
-import { addDays, yesterdayKey, type DayKey } from '@/lib/dates';
+import { addDays, type DayKey } from '@/lib/dates';
 
 import type { GratitudeEntry } from './types';
 
-/** The day this morning's journal reflects on. */
-export function currentReflectionDate(): DayKey {
-  return yesterdayKey();
+/** The day a morning's journal reflects on: the day before. */
+export function reflectionDateFor(today: DayKey): DayKey {
+  return addDays(today, -1);
 }
 
 /**

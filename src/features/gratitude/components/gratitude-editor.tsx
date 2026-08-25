@@ -4,9 +4,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDayLong } from '@/lib/dates';
+import { useToday } from '@/lib/clock';
+import { formatDayLong, type DayKey } from '@/lib/dates';
 
-import { currentReflectionDate, currentStreak } from '../logic';
+import { currentStreak, reflectionDateFor } from '../logic';
 import { useGratitudeStore } from '../store';
 
 /**
@@ -14,21 +15,19 @@ import { useGratitudeStore } from '../store';
  * writing on the previous day's pad page. Fully controlled by the store, so
  * every mount of the same reflection date (Today page + Journal) shares one
  * source of truth and stays in live sync; zustand persist saves each edit.
- * Pass `reflectionDate` to edit a past page's entry instead.
  */
-export function GratitudeEditor({ reflectionDate: forDate }: { reflectionDate?: string }) {
+export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) {
   const theme = useTheme();
+  const today = useToday();
   const entries = useGratitudeStore((s) => s.entries);
   const saveEntry = useGratitudeStore((s) => s.saveEntry);
-
-  const reflectionDate = forDate ?? currentReflectionDate();
 
   const text = entries[reflectionDate]?.text ?? '';
   const streak = currentStreak(entries, reflectionDate);
   // Only the current morning gets the example prompt; a catch-up editor must
   // never show placeholder text that could read as a written entry.
   const placeholder =
-    reflectionDate === currentReflectionDate()
+    reflectionDate === reflectionDateFor(today)
       ? 'Amy, Leto, sharing a great night, eating tasty food…'
       : 'Nothing written for this morning yet…';
 

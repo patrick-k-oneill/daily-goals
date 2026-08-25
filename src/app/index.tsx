@@ -5,14 +5,15 @@ import { Screen } from '@/components/ui/screen';
 import { UpcomingEvents } from '@/features/events/components/upcoming-events';
 import { GoalList } from '@/features/goals/components/goal-list';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
-import { currentReflectionDate } from '@/features/gratitude/logic';
+import { reflectionDateFor } from '@/features/gratitude/logic';
+import { useToday } from '@/lib/clock';
 import {
   addDays,
   formatPadDate,
   formatWeekRange,
-  todayKey,
   weekKeyOf,
   yearKeyOf,
+  type DayKey,
 } from '@/lib/dates';
 
 /**
@@ -20,9 +21,16 @@ import {
  * The ‹ chevron flips back to earlier pages; forward is capped at today.
  */
 export default function TodayScreen() {
-  const today = todayKey();
-  const [day, setDay] = useState(() => todayKey());
+  const today = useToday();
+  // null means today's page, so the page turns with the clock at midnight.
+  const [pinnedDay, setPinnedDay] = useState<DayKey | null>(null);
+  const day = pinnedDay ?? today;
   const isToday = day === today;
+
+  const flipForward = () => {
+    const next = addDays(day, 1);
+    setPinnedDay(next === today ? null : next);
+  };
 
   return (
     <Screen>
@@ -30,9 +38,9 @@ export default function TodayScreen() {
         title="Daily Goals"
         detail={formatPadDate(day)}
         detailHighlight={!isToday}
-        onPrev={() => setDay(addDays(day, -1))}
-        onNext={isToday ? undefined : () => setDay(addDays(day, 1))}
-        onDetailPress={isToday ? undefined : () => setDay(today)}
+        onPrev={() => setPinnedDay(addDays(day, -1))}
+        onNext={isToday ? undefined : flipForward}
+        onDetailPress={isToday ? undefined : () => setPinnedDay(null)}
       />
       <GoalList cadence="daily" periodKey={day} />
 
@@ -44,7 +52,7 @@ export default function TodayScreen() {
 
       {isToday && <UpcomingEvents />}
 
-      <GratitudeEditor reflectionDate={isToday ? currentReflectionDate() : day} />
+      <GratitudeEditor reflectionDate={isToday ? reflectionDateFor(today) : day} />
     </Screen>
   );
 }

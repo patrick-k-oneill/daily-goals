@@ -7,17 +7,19 @@ import { Screen } from '@/components/ui/screen';
 import { GratitudeCard } from '@/features/gratitude/components/gratitude-card';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
 import { JournalCalendar } from '@/features/gratitude/components/journal-calendar';
-import { currentReflectionDate, sortedEntries } from '@/features/gratitude/logic';
+import { reflectionDateFor, sortedEntries } from '@/features/gratitude/logic';
 import { useGratitudeStore } from '@/features/gratitude/store';
 import { Spacing } from '@/constants/theme';
-import { formatPadDate, todayKey, type DayKey } from '@/lib/dates';
+import { useToday } from '@/lib/clock';
+import { formatPadDate, type DayKey } from '@/lib/dates';
 
 export default function JournalScreen() {
+  const today = useToday();
   const entries = useGratitudeStore((s) => s.entries);
   const [selectedDay, setSelectedDay] = useState<DayKey | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
-  const reflectionDate = currentReflectionDate();
+  const reflectionDate = reflectionDateFor(today);
   const history = sortedEntries(entries).filter((e) => e.forDate !== reflectionDate);
 
   // The current morning's editor already sits at the top of the page — point
@@ -35,7 +37,7 @@ export default function JournalScreen() {
 
   return (
     <Screen scrollRef={scrollRef}>
-      <SectionHeader title="Gratitude Journal" detail={formatPadDate(todayKey())} />
+      <SectionHeader title="Gratitude Journal" detail={formatPadDate(today)} />
       <GratitudeEditor reflectionDate={reflectionDate} />
 
       <View style={{ gap: Spacing.three }}>
@@ -43,6 +45,7 @@ export default function JournalScreen() {
           Past mornings
         </ThemedText>
         <JournalCalendar selected={selectedDay} onSelectDay={selectDay} />
+        {/* Midnight can turn a selected past day into the current morning, already edited above. */}
         {selectedDay && selectedDay !== reflectionDate && (
           <GratitudeEditor reflectionDate={selectedDay} />
         )}

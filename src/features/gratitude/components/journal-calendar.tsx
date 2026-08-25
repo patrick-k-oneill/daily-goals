@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useToday } from '@/lib/clock';
 import {
   addMonths,
   formatDayLong,
@@ -11,7 +12,6 @@ import {
   monthGrid,
   monthStart,
   parseDayKey,
-  todayKey,
   type DayKey,
 } from '@/lib/dates';
 
@@ -30,7 +30,7 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
   const theme = useTheme();
   const entries = useGratitudeStore((s) => s.entries);
 
-  const today = todayKey();
+  const today = useToday();
   const currentMonth = monthStart(today);
   const [month, setMonth] = useState(currentMonth);
 
