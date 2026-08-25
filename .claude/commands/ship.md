@@ -17,9 +17,11 @@ If at any point the change looks larger than "small/easy," stop and recommend `/
 ## Steps
 
 1. **Setup via `dg-ops`** — one Agent call (`subagent_type: dg-ops`, foreground) with this prompt:
+
    > Set up from: <input>. If it's an issue URL or `#<num>`, fetch the issue; `git fetch origin`; if the working tree is dirty return `{blocked, reason}`; `git checkout main && git pull --ff-only origin main`; `git checkout -b <branch>`. Return `{number, title, body, branch}`.
 
    On `blocked`, relay the reason and stop.
+
 2. **Implement.** Keep it clean, simple, and complete. Follow `CLAUDE.md` and the repo's conventions (read neighboring files first). Architecture rules: routes stay thin in `src/app/`, domain logic is pure functions in `src/features/*/logic.ts` with tests, UI primitives live in `src/components/ui/`.
 3. **Quality gates** (all must pass before any commit):
    - `npm run check:all` (typecheck + lint + tests + format check)
