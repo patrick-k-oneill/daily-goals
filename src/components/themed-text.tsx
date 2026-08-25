@@ -1,13 +1,13 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, HandwritingFont, ThemeColor } from '@/constants/theme';
+import { HandwritingFont, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /** One line of body text; rows anchor marginalia to it. */
 export const BODY_LINE_HEIGHT = 24;
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'subtitle' | 'small' | 'smallBold' | 'hand' | 'handSmall' | 'code';
+  type?: 'default' | 'subtitle' | 'small' | 'smallBold' | 'hand' | 'handSmall';
   themeColor?: ThemeColor;
 };
 
@@ -22,11 +22,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: BODY_LINE_HEIGHT,
     fontWeight: 500,
-  },
-  title: {
-    fontSize: 34,
-    lineHeight: 40,
-    fontWeight: 600,
   },
   subtitle: {
     fontSize: 22,
@@ -52,10 +47,5 @@ const styles = StyleSheet.create({
     fontFamily: HandwritingFont,
     fontSize: 24,
     lineHeight: 30,
-  },
-  code: {
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    fontWeight: 500,
   },
 });

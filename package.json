@@ -59,9 +59,6 @@
   "private": true,
   "jest": {
     "preset": "jest-expo",
-    "moduleNameMapper": {
-      "\\.css$": "<rootDir>/__mocks__/style-mock.js"
-    },
     "testMatch": [
       "**/*.test.ts",
       "**/*.test.tsx"
