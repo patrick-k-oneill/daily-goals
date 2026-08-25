@@ -1,0 +1,3 @@
+# Feature cores are pure transitions behind a thin zustand binding
+
+Each feature's `logic.ts` is the module: pure functions from the feature's data (`Goals`, `UpcomingEvent[]`, `GratitudeEntries`) to new data, with the clock passed in as `today` or `writtenAt`. `store.ts` maps each action to exactly one transition and adds persistence; components only ever call the store. Tests target the transition interface with fixed dates, and each `store.test.ts` is a one-test wiring check. Chosen over logic inside store actions (which needed the real clock and was half-tested in practice) and over testing through the store (which couples every test to zustand and `todayKey()`). Don't "simplify" a store by inlining a transition into it.

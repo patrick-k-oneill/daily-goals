@@ -35,14 +35,14 @@ CI runs the same gates plus a web export build on every push and PR.
 ```
 src/
   app/                 # expo-router routes (thin)
-  components/ui/       # design-system primitives (Screen, SectionHeader, and the inline form kit: InlineForm, FormInput, FormActions, AddLine)
-  constants/theme.ts   # design tokens — paper palette, spacing, fonts
+  components/ui/       # design-system primitives (Screen, SectionHeader, inline form kit)
+  constants/theme.ts   # design tokens — paper palette, spacing
   features/
-    goals/             # templates, per-period entries, check-state logic
+    goals/             # templates, per-period entries, check transitions, row geometry
     gratitude/         # journal entries, streaks
     events/            # upcoming-event jottings
   hooks/               # color scheme / theme
-  lib/                 # dates & period keys, storage adapter, platform shims
+  lib/                 # dates & period keys, live clock (useToday), persistence config, platform shims
 ```
 
-Each feature owns its `types.ts`, pure `logic.ts` (unit-tested), zustand `store.ts` (persisted via AsyncStorage), and `components/`. Storage is configured in one file (`src/lib/persisted-store.ts`), and the root layout waits for every store to rehydrate before the first paint.
+Each feature owns its `types.ts`, a pure `logic.ts` core (every transition and query, unit-tested at that interface), a thin zustand `store.ts` (one action per transition, persisted via AsyncStorage), and `components/`. Persistence is configured in one file (`src/lib/persisted-store.ts`), and the root layout waits for every store to rehydrate before the first paint. The domain language lives in `CONTEXT.md`; decisions in `docs/adr/`.

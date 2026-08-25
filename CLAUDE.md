@@ -13,18 +13,16 @@ Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and A
 ## Architecture
 
 - `src/app/` — expo-router routes only; keep them thin (compose feature components, no logic).
-- `src/features/<feature>/` — `types.ts`, `logic.ts` (pure functions, unit-tested), `store.ts` (zustand + persist), `components/`.
+- `src/features/<feature>/` — `types.ts`; `logic.ts`, the module's core: pure transitions and queries over plain data with `today` and timestamps injected, unit-tested at that interface; `store.ts`, a thin zustand `persist` binding with one action per transition; `components/`.
 - `src/components/ui/` — design-system primitives (Screen, SectionHeader, and the inline form kit: InlineForm, FormInput, FormActions, AddLine).
-- `src/constants/theme.ts` — all design tokens (paper palette, spacing, fonts). Never hardcode colors in components; every color exists in light and dark.
-- `src/lib/` — storage adapter, date/period-key helpers, cross-platform shims (confirm, haptics).
+- `src/constants/theme.ts` — all design tokens (paper palette, spacing). Never hardcode colors in components; every color exists in light and dark.
+- `src/lib/` — `dates.ts` (period keys and formatting), `clock.ts` (`useToday()`, the only render-time source of "today"), `persisted-store.ts` (persistence config and hydration), cross-platform shims (confirm, haptics).
 - Persistence is zustand `persist` over AsyncStorage, configured once in `src/lib/persisted-store.ts`; the root layout gates first render on every store having rehydrated.
+- Tests exercise the `logic.ts` interface; `store.test.ts` files are one-test wiring checks. Don't add tests that reach past the interface into private helpers.
 
-## Domain glossary
+## Domain
 
-- **Period key**: `2026-08-21` (day) / `2026-W34` (ISO week) / `2026` (year) — indexes goal pages.
-- **Check state**: each goal has N checkboxes; taps cycle `empty → done → missed → empty`, like pen marks on the pad.
-- **Template vs entry**: recurring goals are templates, materialized into per-period entries by `ensurePeriod` (idempotent).
-- **Reflection date**: a gratitude entry is written each morning _about yesterday_ — keyed by the day reflected on, not the writing day.
+The domain language lives in `CONTEXT.md` (page, section, period, cadence, template, entry, check, star, reflection date …); use those terms in code and prose. Decisions not to re-litigate are in `docs/adr/`.
 
 ## Code style
 
