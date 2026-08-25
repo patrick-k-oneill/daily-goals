@@ -4,38 +4,23 @@ import { persist } from 'zustand/middleware';
 import { persistOptions } from '@/lib/persisted-store';
 import type { DayKey } from '@/lib/dates';
 
-import type { GratitudeEntry } from './types';
+import * as logic from './logic';
 
 interface GratitudeState {
-  entries: Record<DayKey, GratitudeEntry>;
+  entries: logic.GratitudeEntries;
   saveEntry: (forDate: DayKey, text: string) => void;
-  deleteEntry: (forDate: DayKey) => void;
 }
 
+/** The gratitude feature's React binding: each action is one pure transition from ./logic. */
 export const useGratitudeStore = create<GratitudeState>()(
   persist(
     (set) => ({
       entries: {},
 
       saveEntry: (forDate, text) =>
-        set((state) => {
-          if (!text.trim()) {
-            const { [forDate]: _removed, ...rest } = state.entries;
-            return { entries: rest };
-          }
-          return {
-            entries: {
-              ...state.entries,
-              [forDate]: { forDate, writtenAt: new Date().toISOString(), text },
-            },
-          };
-        }),
-
-      deleteEntry: (forDate) =>
-        set((state) => {
-          const { [forDate]: _removed, ...rest } = state.entries;
-          return { entries: rest };
-        }),
+        set((s) => ({
+          entries: logic.saveEntry(s.entries, forDate, text, new Date().toISOString()),
+        })),
     }),
     persistOptions('gratitude'),
   ),

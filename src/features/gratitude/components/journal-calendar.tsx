@@ -15,6 +15,7 @@ import {
   type DayKey,
 } from '@/lib/dates';
 
+import { hasEntry } from '../logic';
 import { useGratitudeStore } from '../store';
 
 interface JournalCalendarProps {
@@ -87,7 +88,7 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
               return <View key={i} style={styles.dayCell} />;
             }
 
-            const written = Boolean(entries[day]?.text.trim());
+            const written = hasEntry(entries, day);
             const finished = day < today;
             const isToday = day === today;
             const isSelected = day === selected;

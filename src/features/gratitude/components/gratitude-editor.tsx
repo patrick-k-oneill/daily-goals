@@ -7,7 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { formatDayLong, type DayKey } from '@/lib/dates';
 
-import { currentStreak, reflectionDateFor } from '../logic';
+import { currentStreak, hasEntry, reflectionDateFor } from '../logic';
 import { useGratitudeStore } from '../store';
 
 /**
@@ -58,7 +58,7 @@ export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) 
         accessibilityLabel="Gratitude journal entry"
       />
 
-      {text.trim().length > 0 && (
+      {hasEntry(entries, reflectionDate) && (
         <ThemedText type="small" themeColor="textSecondary" style={styles.saved}>
           Saved ✓
         </ThemedText>
