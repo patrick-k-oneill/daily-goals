@@ -46,3 +46,17 @@ Fix regressions before committing, and report the score. Full triage pass, rule 
 ## Workflow commands
 
 `/ship` (auto: issue → PR), `/ticket-start` (supervised), `/ticket-pr`, `/pr-watch`, `/ticket-ready` (human-gated merge) — see `.claude/commands/`. GitHub Issues is the tracker; merging is always human-gated.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `patrick-k-oneill/daily-goals`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root, created lazily by `/domain-modeling`. See `docs/agents/domain.md`.
