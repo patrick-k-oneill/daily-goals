@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { AddLine, FormActions, FormInput, InlineForm } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
@@ -66,8 +67,6 @@ function EventRow({ event }: { event: UpcomingEvent }) {
     );
   }
 
-  const dayLabel = formatDayWithWeekday(event.date);
-
   return (
     <View style={[styles.eventRow, { borderBottomColor: theme.rule }]}>
       <Pressable
@@ -78,7 +77,7 @@ function EventRow({ event }: { event: UpcomingEvent }) {
         delayLongPress={400}
         style={styles.eventBody}>
         <ThemedText type="smallBold" themeColor="textSecondary" style={styles.eventDay}>
-          {dayLabel}
+          {formatDayWithWeekday(event.date)}
         </ThemedText>
         <ThemedText style={styles.eventTitle}>{event.title}</ThemedText>
         {event.timeLabel ? (
@@ -129,6 +128,7 @@ function EventForm({
   onCancel: () => void;
 }) {
   const theme = useTheme();
+  const today = useToday();
 
   // Draft snapshot, intentional: the form mounts fresh per add/edit session
   // and nothing mutates the event while it's open, so resyncing would be wrong.
@@ -136,7 +136,6 @@ function EventForm({
   const [draft, setDraft] = useState(initial);
   const patchDraft = (patch: Partial<EventDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
-  const today = useToday();
   const nextWeek = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const canSubmit = Boolean(draft.title.trim());
 
@@ -146,7 +145,7 @@ function EventForm({
   };
 
   return (
-    <View style={[styles.form, { borderColor: theme.border }]}>
+    <InlineForm>
       <View style={styles.chipRow}>
         {nextWeek.map((day) => {
           const selected = day === draft.date;
@@ -169,53 +168,32 @@ function EventForm({
         })}
       </View>
 
-      <TextInput
+      <FormInput
         value={draft.title}
         onChangeText={(title) => patchDraft({ title })}
         placeholder="Event name…"
-        placeholderTextColor={theme.textSecondary}
         autoFocus
-        style={[styles.input, { color: theme.text, borderBottomColor: theme.rule }]}
       />
-      <TextInput
+      <FormInput
         value={draft.timeLabel}
         onChangeText={(timeLabel) => patchDraft({ timeLabel })}
         placeholder="Time, e.g. 4pm–5:30pm (optional)"
-        placeholderTextColor={theme.textSecondary}
-        style={[styles.input, { color: theme.text, borderBottomColor: theme.rule }]}
       />
-      <TextInput
+      <FormInput
         value={draft.note}
         onChangeText={(note) => patchDraft({ note })}
         placeholder="Scribbled aside, e.g. omg lol (optional)"
-        placeholderTextColor={theme.textSecondary}
         returnKeyType="done"
         onSubmitEditing={submit}
-        style={[styles.input, { color: theme.text, borderBottomColor: theme.rule }]}
       />
 
-      <View style={styles.actionsRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canSubmit }}
-          disabled={!canSubmit}
-          onPress={submit}
-          style={[
-            styles.submitButton,
-            { backgroundColor: theme.accent },
-            !canSubmit && styles.buttonDisabled,
-          ]}>
-          <ThemedText type="smallBold" style={styles.submitLabel}>
-            {submitLabel}
-          </ThemedText>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={onCancel} hitSlop={8}>
-          <ThemedText type="small" themeColor="textSecondary">
-            Cancel
-          </ThemedText>
-        </Pressable>
-      </View>
-    </View>
+      <FormActions
+        submitLabel={submitLabel}
+        canSubmit={canSubmit}
+        onSubmit={submit}
+        onCancel={onCancel}
+      />
+    </InlineForm>
   );
 }
 
@@ -226,15 +204,12 @@ function AddEventRow() {
 
   if (!open) {
     return (
-      <Pressable
-        accessibilityRole="button"
+      <AddLine
+        label="+ Add event"
         accessibilityLabel="Add an event"
+        type="small"
         onPress={() => setOpen(true)}
-        style={styles.collapsed}>
-        <ThemedText type="small" themeColor="textSecondary">
-          + Add event
-        </ThemedText>
-      </Pressable>
+      />
     );
   }
 
@@ -299,15 +274,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
   },
-  collapsed: {
-    paddingVertical: Spacing.two,
-  },
-  form: {
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -318,27 +284,5 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     borderWidth: 1,
     borderRadius: Spacing.five,
-  },
-  input: {
-    fontSize: 16,
-    lineHeight: 22,
-    paddingVertical: Spacing.one,
-    borderBottomWidth: 1,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.four,
-  },
-  submitButton: {
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
-  submitLabel: {
-    color: '#FFFFFF',
   },
 });

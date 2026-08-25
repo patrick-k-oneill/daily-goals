@@ -9,7 +9,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  TextInput,
   View,
   type LayoutChangeEvent,
   type StyleProp,
@@ -26,7 +25,7 @@ import { useGoalsStore } from '../store';
 import type { GoalEntry } from '../types';
 
 import { CheckBox } from './check-box';
-import { MAX_CHECKS } from '../logic';
+import { GoalForm } from './goal-form';
 import { CHECK_BOX_GAP, MIN_INLINE_TITLE_WIDTH, type GoalRowLayout } from './goal-row-layout';
 
 /**
@@ -149,24 +148,9 @@ function TitleButton({
 }
 
 function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void }) {
-  const theme = useTheme();
   const updateGoal = useGoalsStore((s) => s.updateGoal);
   const removeGoal = useGoalsStore((s) => s.removeGoal);
-
-  // Draft snapshot, intentional: the editor mounts fresh per edit session and
-  // nothing mutates the entry while it's open, so resyncing would be wrong.
-  // react-doctor-disable-next-line react-doctor/no-derived-useState
-  const [title, setTitle] = useState(entry.title);
-  // react-doctor-disable-next-line react-doctor/no-derived-useState
-  const [targetCount, setTargetCount] = useState(entry.checks.length);
-
   const recurring = Boolean(entry.templateId);
-  const canSave = Boolean(title.trim());
-
-  const save = () => {
-    updateGoal(entry.id, { title, targetCount });
-    onDone();
-  };
 
   const remove = () => {
     confirmAction(
@@ -179,74 +163,28 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
   };
 
   return (
-    <View style={[styles.editor, { borderColor: theme.border }]}>
-      <TextInput
-        value={title}
-        onChangeText={setTitle}
-        autoFocus
-        selectTextOnFocus
-        returnKeyType="done"
-        onSubmitEditing={save}
-        placeholder="Goal title…"
-        placeholderTextColor={theme.textSecondary}
-        style={[styles.input, { color: theme.text, borderBottomColor: theme.rule }]}
-        accessibilityLabel="Goal title"
-      />
-
-      <View style={styles.editorRow}>
-        <View style={styles.stepper}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Fewer checks"
-            style={styles.stepperButton}
-            onPress={() => setTargetCount((n) => Math.max(1, n - 1))}>
-            <ThemedText type="subtitle" themeColor="textSecondary">
-              −
-            </ThemedText>
-          </Pressable>
-          <ThemedText type="smallBold">
-            {targetCount} {targetCount === 1 ? 'check' : 'checks'}
+    <GoalForm
+      initial={{ title: entry.title, targetCount: entry.checks.length }}
+      placeholder="Goal title…"
+      submitLabel="Save"
+      style={styles.editor}
+      onSubmit={(draft) => {
+        updateGoal(entry.id, draft);
+        onDone();
+      }}
+      onCancel={onDone}
+      footer={
+        <Pressable
+          accessibilityRole="button"
+          onPress={remove}
+          hitSlop={4}
+          style={styles.removePress}>
+          <ThemedText type="small" themeColor="missed">
+            Remove{recurring ? ' & stop repeating' : ''}
           </ThemedText>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="More checks"
-            style={styles.stepperButton}
-            onPress={() => setTargetCount((n) => Math.min(MAX_CHECKS, n + 1))}>
-            <ThemedText type="subtitle" themeColor="textSecondary">
-              +
-            </ThemedText>
-          </Pressable>
-        </View>
-
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canSave }}
-            disabled={!canSave}
-            onPress={save}
-            style={[
-              styles.saveButton,
-              { backgroundColor: theme.accent },
-              !canSave && styles.buttonDisabled,
-            ]}>
-            <ThemedText type="smallBold" style={styles.saveLabel}>
-              Save
-            </ThemedText>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={onDone} hitSlop={8}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Cancel
-            </ThemedText>
-          </Pressable>
-        </View>
-      </View>
-
-      <Pressable accessibilityRole="button" onPress={remove} hitSlop={4} style={styles.removePress}>
-        <ThemedText type="small" themeColor="missed">
-          Remove{recurring ? ' & stop repeating' : ''}
-        </ThemedText>
-      </Pressable>
-    </View>
+        </Pressable>
+      }
+    />
   );
 }
 
@@ -284,55 +222,7 @@ const styles = StyleSheet.create({
     minWidth: MIN_INLINE_TITLE_WIDTH,
   },
   editor: {
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Spacing.two,
     marginVertical: Spacing.one,
-  },
-  input: {
-    fontSize: 16,
-    lineHeight: 22,
-    paddingVertical: Spacing.one,
-    borderBottomWidth: 1,
-  },
-  editorRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
-  },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-  },
-  // A real 44×44pt box (hitSlop doesn't extend DOM hit areas on web); negative
-  // margins keep the visual footprint of the old 28×30pt glyph box.
-  stepperButton: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: -7,
-    marginHorizontal: -8,
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.four,
-  },
-  saveButton: {
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
-  saveLabel: {
-    color: '#FFFFFF',
   },
   removePress: {
     alignSelf: 'flex-start',
