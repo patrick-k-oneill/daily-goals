@@ -4,24 +4,32 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import AppTabs from '@/components/app-tabs';
-import { Colors } from '@/constants/theme';
+import { useEventsStore } from '@/features/events/store';
+import { useGoalsStore } from '@/features/goals/store';
+import { useGratitudeStore } from '@/features/gratitude/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/hooks/use-theme';
+import { useHydrated } from '@/lib/persisted-store';
 
 SplashScreen.preventAutoHideAsync();
 
+const persistedStores = [useGoalsStore, useGratitudeStore, useEventsStore];
+
 export default function RootLayout() {
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
-  const palette = Colors[dark ? 'dark' : 'light'];
+  const dark = useColorScheme() === 'dark';
+  const palette = useTheme();
   const [fontsLoaded, fontError] = useFonts({ Caveat_700Bold });
+  const storesHydrated = useHydrated(persistedStores);
+  const ready = (fontsLoaded || Boolean(fontError)) && storesHydrated;
 
   useEffect(() => {
-    if (fontsLoaded || fontError) SplashScreen.hideAsync();
-  }, [fontsLoaded, fontError]);
+    if (ready) SplashScreen.hideAsync();
+  }, [ready]);
 
-  // Text must not render before the handwriting font registers — native
-  // Fabric won't re-resolve a font family on a re-render with equal styles.
-  if (!fontsLoaded && !fontError) return null;
+  // Nothing paints until the handwriting font registers (native Fabric won't
+  // re-resolve a font family on re-render) and every store has rehydrated, so
+  // no page renders empty and then pops.
+  if (!ready) return null;
 
   const base = dark ? DarkTheme : DefaultTheme;
   const navTheme = {

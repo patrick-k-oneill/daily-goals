@@ -45,4 +45,4 @@ src/
   lib/                 # dates & period keys, storage adapter, platform shims
 ```
 
-Each feature owns its `types.ts`, pure `logic.ts` (unit-tested), zustand `store.ts` (persisted via AsyncStorage), and `components/`. Storage is swappable in one file (`src/lib/storage.ts`).
+Each feature owns its `types.ts`, pure `logic.ts` (unit-tested), zustand `store.ts` (persisted via AsyncStorage), and `components/`. Storage is configured in one file (`src/lib/persisted-store.ts`), and the root layout waits for every store to rehydrate before the first paint.

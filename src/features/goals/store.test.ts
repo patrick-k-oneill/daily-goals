@@ -7,7 +7,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 function resetStore() {
-  useGoalsStore.setState({ hydrated: true, seeded: false, templates: [], entries: [] });
+  useGoalsStore.setState({ seeded: false, templates: [], entries: [] });
 }
 
 describe('ensurePeriod', () => {

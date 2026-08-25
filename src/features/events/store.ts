@@ -2,16 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { newId } from '@/lib/id';
-import { appStorage } from '@/lib/storage';
+import { persistOptions } from '@/lib/persisted-store';
 import type { DayKey } from '@/lib/dates';
 
 import { applyEventUpdate, trimOptional, type EventPatch } from './logic';
 import type { UpcomingEvent } from './types';
 
 interface EventsState {
-  hydrated: boolean;
   events: UpcomingEvent[];
-  setHydrated: () => void;
   addEvent: (input: { date: DayKey; title: string; timeLabel?: string; note?: string }) => void;
   updateEvent: (id: string, patch: EventPatch) => void;
   removeEvent: (id: string) => void;
@@ -20,10 +18,7 @@ interface EventsState {
 export const useEventsStore = create<EventsState>()(
   persist(
     (set) => ({
-      hydrated: false,
       events: [],
-
-      setHydrated: () => set({ hydrated: true }),
 
       addEvent: ({ date, title, timeLabel, note }) =>
         set((state) => {
@@ -48,13 +43,7 @@ export const useEventsStore = create<EventsState>()(
 
       removeEvent: (id) => set((state) => ({ events: state.events.filter((e) => e.id !== id) })),
     }),
-    {
-      name: 'daily-goals/events',
-      version: 1,
-      storage: appStorage(),
-      partialize: ({ hydrated: _hydrated, ...rest }) => rest,
-      onRehydrateStorage: () => (state) => state?.setHydrated(),
-    },
+    persistOptions('events'),
   ),
 );
 

@@ -21,10 +21,7 @@ import type { UpcomingEvent } from '../types';
 /** The bottom-of-page jottings: "Sun 8/23: IRC @ 4pm–5:30pm". */
 export function UpcomingEvents() {
   const theme = useTheme();
-  const hydrated = useEventsStore((s) => s.hydrated);
   const events = useEventsStore((s) => s.events);
-
-  if (!hydrated) return null;
 
   const upcoming = upcomingEvents(events, todayKey());
 

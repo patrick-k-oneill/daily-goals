@@ -6,7 +6,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 
 describe('saveEntry', () => {
   beforeEach(() => {
-    useGratitudeStore.setState({ hydrated: true, entries: {} });
+    useGratitudeStore.setState({ entries: {} });
   });
 
   it('keeps only the latest of sequential saves for the same date', () => {

@@ -17,16 +17,13 @@ import { GoalRow } from './goal-row';
  * once so the whole section shares one layout rhythm (see goalListLayouts).
  */
 export function GoalList({ cadence, periodKey }: { cadence: Cadence; periodKey: string }) {
-  const hydrated = useGoalsStore((s) => s.hydrated);
   const ensurePeriod = useGoalsStore((s) => s.ensurePeriod);
   const entries = useGoalsStore((s) => s.entries);
   const [listWidth, setListWidth] = useState(0);
 
   useEffect(() => {
-    if (hydrated) ensurePeriod(cadence, periodKey);
-  }, [hydrated, cadence, periodKey, ensurePeriod]);
-
-  if (!hydrated) return null;
+    ensurePeriod(cadence, periodKey);
+  }, [cadence, periodKey, ensurePeriod]);
 
   const list = entriesForPeriod(
     entries.filter((e) => e.cadence === cadence),

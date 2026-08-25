@@ -18,12 +18,10 @@ import { useGratitudeStore } from '../store';
  */
 export function GratitudeEditor({ reflectionDate: forDate }: { reflectionDate?: string }) {
   const theme = useTheme();
-  const hydrated = useGratitudeStore((s) => s.hydrated);
   const entries = useGratitudeStore((s) => s.entries);
   const saveEntry = useGratitudeStore((s) => s.saveEntry);
 
   const reflectionDate = forDate ?? currentReflectionDate();
-  if (!hydrated) return null;
 
   const text = entries[reflectionDate]?.text ?? '';
   const streak = currentStreak(entries, reflectionDate);

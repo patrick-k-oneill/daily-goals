@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 import { newId } from '@/lib/id';
 import { todayKey } from '@/lib/dates';
-import { appStorage } from '@/lib/storage';
+import { persistOptions } from '@/lib/persisted-store';
 
 import {
   applyGoalEdit,
@@ -26,11 +26,9 @@ interface AddGoalInput {
 }
 
 interface GoalsState {
-  hydrated: boolean;
   seeded: boolean;
   templates: GoalTemplate[];
   entries: GoalEntry[];
-  setHydrated: () => void;
   /** Seed defaults on first run, then materialize recurring goals for a period. */
   ensurePeriod: (cadence: Cadence, periodKey: string) => void;
   addGoal: (input: AddGoalInput) => void;
@@ -72,12 +70,9 @@ function seedTemplates(): GoalTemplate[] {
 export const useGoalsStore = create<GoalsState>()(
   persist(
     (set) => ({
-      hydrated: false,
       seeded: false,
       templates: [],
       entries: [],
-
-      setHydrated: () => set({ hydrated: true }),
 
       ensurePeriod: (cadence, periodKey) =>
         set((state) => {
@@ -165,12 +160,6 @@ export const useGoalsStore = create<GoalsState>()(
           };
         }),
     }),
-    {
-      name: 'daily-goals/goals',
-      version: 1,
-      storage: appStorage(),
-      partialize: ({ hydrated: _hydrated, ...rest }) => rest,
-      onRehydrateStorage: () => (state) => state?.setHydrated(),
-    },
+    persistOptions('goals'),
   ),
 );
