@@ -6,7 +6,7 @@ Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and A
 
 ## Commands
 
-- `npm run web` / `ios` / `android` — dev server (Node ≥ 20.19.4; `.nvmrc` pins v22)
+- `npm run web` — dev server in the browser; `npm run ios` / `android` — build the native dev client and launch it on a simulator (Node ≥ 20.19.4; `.nvmrc` pins v22)
 - `npm run check` — the commit-point gate: typecheck, eslint + prettier on changed files, jest, `react-doctor --scope changed` (see Commit points)
 - `npm run check:all` — typecheck + lint + tests + format check over the whole tree (what CI runs)
 - `npm test`, `npm run lint`, `npm run typecheck`, `npm run format`
