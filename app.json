@@ -8,6 +8,8 @@
     "scheme": "dailygoals",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.patrickoneill.dailygoals",
+      "buildNumber": "1",
       "icon": "./assets/expo.icon"
     },
     "android": {
