@@ -21,6 +21,13 @@ npm install
 npm run web      # or: npm run ios / npm run android
 ```
 
+On an iPhone (needs Xcode, CocoaPods, and an Apple Developer team — see #1):
+
+```bash
+npx expo run:ios --device            # build and install on a plugged-in iPhone
+eas build -p ios --profile preview   # installable internal build via EAS (npx eas-cli login first)
+```
+
 ## Quality
 
 ```bash
