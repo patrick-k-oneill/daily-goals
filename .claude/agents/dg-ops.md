@@ -1,6 +1,6 @@
 ---
 name: dg-ops
-description: Fast, cheap GitHub/git setup for daily-goals' /ship and /ticket-start — fetch a GitHub issue and prepare a clean branch. Personal repo (patrick-k-oneill/daily-goals): no Linear, no Slack. Never writes application code.
+description: Fast, cheap GitHub/git setup for daily-goals' /p-ship and /p-start — fetch a GitHub issue and prepare a clean branch. Personal repo (patrick-k-oneill/daily-goals): no Linear, no Slack. Never writes application code.
 model: sonnet
 effort: low
 color: cyan

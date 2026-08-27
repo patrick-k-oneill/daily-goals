@@ -16,4 +16,4 @@ You are opening a PR for the **current branch**. Optional arg (issue URL or `#<n
    - Title: `[#<num>] <title>` (or a clear title when there's no issue)
    - Body: short summary + what-changed checklist + `Closes #<num>` when an issue exists
      On approval: `gh pr create --base main --title "<title>" --body "<body>"`.
-6. Print the PR URL and remind: run `/pr-watch` to babysit CI, or `/ticket-ready` once checks are green.
+6. Print the PR URL and remind: run `/p-watch` to babysit CI, or `/p-ready` once checks are green.

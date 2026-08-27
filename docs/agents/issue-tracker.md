@@ -4,7 +4,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 ## This repo
 
-`patrick-k-oneill/daily-goals` is a personal repo: no Linear, no Slack, no status labels. The existing workflow commands (`/ship`, `/ticket-start`, `/ticket-pr`) accept an issue URL or `#<num>`; branches are `dg-<num>/<kebab-slug>` from an issue, `dg/<kebab-slug>` without one. Merging is always human-gated.
+`patrick-k-oneill/daily-goals` is a personal repo: no Linear, no Slack, no status labels. The existing workflow commands (`/p-ship`, `/p-start`, `/p-pr`) accept an issue URL or `#<num>`; branches are `dg-<num>/<kebab-slug>` from an issue, `dg/<kebab-slug>` without one. Merging is always human-gated.
 
 ## Conventions
 

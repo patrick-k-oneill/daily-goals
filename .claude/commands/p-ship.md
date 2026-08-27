@@ -7,7 +7,7 @@ allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, Skill
 You are running the **fully-automated issue→PR workflow** for a small, well-scoped change.
 Input: **$ARGUMENTS**
 
-If at any point the change looks larger than "small/easy," stop and recommend `/ticket-start` (supervised) instead.
+If at any point the change looks larger than "small/easy," stop and recommend `/p-start` (supervised) instead.
 
 ## Setup & conventions
 
@@ -30,6 +30,6 @@ If at any point the change looks larger than "small/easy," stop and recommend `/
    - Body: short summary + what-changed checklist + `Closes #<num>` when an issue exists
      On approval: `gh pr create --base main --title "<title>" --body "<body>"`.
 6. Print the PR URL.
-7. **Start the post-push watcher:** run `/pr-watch` on the new PR. It polls CI and hands off to `/ticket-ready` when green.
+7. **Start the post-push watcher:** run `/p-watch` on the new PR. It polls CI and hands off to `/p-ready` when green.
 
-Do **not** merge the PR in this command — merging is `/ticket-ready`'s human-gated call.
+Do **not** merge the PR in this command — merging is `/p-ready`'s human-gated call.
