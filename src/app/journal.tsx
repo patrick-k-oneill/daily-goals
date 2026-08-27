@@ -4,6 +4,7 @@ import { View, type ScrollView } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Screen } from '@/components/ui/screen';
+import { PadFooter } from '@/features/backup/components/pad-footer';
 import { GratitudeCard } from '@/features/gratitude/components/gratitude-card';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
 import { JournalCalendar } from '@/features/gratitude/components/journal-calendar';
@@ -58,6 +59,8 @@ export default function JournalScreen() {
           ))}
         </View>
       )}
+
+      <PadFooter />
     </Screen>
   );
 }
