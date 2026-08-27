@@ -1,10 +1,10 @@
 ---
-description: 'Watch a PR after pushing: 3-min polls for CI + review-bot comments, then hand off to /ticket-ready when green'
+description: 'Watch a PR after pushing: 3-min polls for CI + review-bot comments, then hand off to /p-ready when green'
 argument-hint: '[pr-url]'
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob, TaskStop
 ---
 
-You are the **post-push PR watcher**. Run this after pushing to a PR (automatic at the end of `/ship`). Optional arg: PR URL; default = current branch's PR.
+You are the **post-push PR watcher**. Run this after pushing to a PR (automatic at the end of `/p-ship`). Optional arg: PR URL; default = current branch's PR.
 
 ## Goal
 
@@ -12,7 +12,7 @@ Poll the PR every **3 minutes** and react:
 
 1. **A CI check fails** → read the failure logs (`gh run view <run-id> --log-failed`), diagnose, fix with a small clean commit, push, and keep watching.
 2. **New review-bot comments detected** (e.g. `cursor[bot]` if Cursor is ever enabled here) → run the BugBot triage workflow per `~/.claude/CLAUDE.md`: fully verify each claim; valid → 👍 + fix + commit + push; hallucinated → reply explaining what it missed. Only when comments are new — never re-triage seen ones.
-3. **All checks green** (completed after the most recent pushed commit) and no unaddressed bot comments → tell the user the PR is ready and suggest `/ticket-ready`. Do **not** merge from the watcher.
+3. **All checks green** (completed after the most recent pushed commit) and no unaddressed bot comments → tell the user the PR is ready and suggest `/p-ready`. Do **not** merge from the watcher.
 
 ## Polling mechanics
 
