@@ -22,7 +22,7 @@ The goal is to get to a reviewable state and then **pause** — you do NOT open 
 
 2. **Judge the size of the lift** from the request and the affected code:
    - **Large / complex:** produce a clear implementation **plan** (files to touch, approach, edge cases, risks, test strategy). Do **not** write code yet. Present the plan and stop for the go-ahead.
-   - **Small / medium:** implement on the branch, run `npm run check:all` and `npx react-doctor@latest --verbose --scope changed`, then **stop without committing** — leave the working-tree diff for review in the IDE.
+   - **Small / medium:** implement on the branch, run `npm run check` (report the react-doctor score), then **stop without committing** — leave the working-tree diff for review in the IDE.
 3. Summarize: branch name, and either the plan or a diff summary. Remind: _review in your IDE, iterate as needed, then run `/ticket-pr` when the changes are ready to become a PR._
 
 Do not commit, push, or open a PR in this command — the point is to pause for human review.

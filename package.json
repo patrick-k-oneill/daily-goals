@@ -47,6 +47,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "doctor": "npx react-doctor@latest --verbose",
+    "check": "node scripts/check.mjs",
     "check:all": "npm run typecheck && npm run lint && npm run test && npm run format:check"
   },
   "private": true,

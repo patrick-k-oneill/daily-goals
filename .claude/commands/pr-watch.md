@@ -26,5 +26,5 @@ When re-invoked: perform the indicated action(s), update state, then relaunch th
 
 ## Guardrails
 
-- Fixes follow the normal small-clean-commit rules and must pass `npm run check:all` locally before pushing; pushing restarts the green-after-latest-commit clock.
+- Fixes follow the normal small-clean-commit rules and must pass `npm run check` locally before pushing; pushing restarts the green-after-latest-commit clock.
 - If the user interjects, prefer their instruction; kill the background watcher (TaskStop) before exiting the workflow.

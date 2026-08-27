@@ -24,7 +24,8 @@ npm run web      # or: npm run ios / npm run android
 ## Quality
 
 ```bash
-npm run check:all   # typecheck + lint + tests + format check
+npm run check       # commit-point gate: typecheck, lint + prettier on changed files, tests, react-doctor --scope changed
+npm run check:all   # typecheck + lint + tests + format check, whole tree
 npm run doctor      # react-doctor full scan
 ```
 

@@ -9,7 +9,7 @@ You are opening a PR for the **current branch**. Optional arg (issue URL or `#<n
 ## Steps
 
 1. Current branch = `git branch --show-current` (expected `dg-<num>/<slug>` or `dg/<slug>`); extract the issue number if present (or from the arg).
-2. **Quality gates:** `npm run check:all` and `npx react-doctor@latest --verbose --scope changed` must pass. Fix regressions before continuing; report the doctor score.
+2. **Quality gate:** `npm run check` must pass. Fix regressions before continuing; report the react-doctor score.
 3. **Uncommitted changes?** If `git status --porcelain` is non-empty, show the diff, propose clear concise commit message(s) (imperative, one logical change each), and after confirmation, commit.
 4. **Push:** `git push -u origin <branch>` (first push) or `git push`.
 5. **Confirm before publishing.** Show the proposed:

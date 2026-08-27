@@ -9,13 +9,13 @@ Scans React code for security, performance, correctness, and architecture issues
 
 ## At every commit point (default behavior)
 
-Before committing or opening a PR on React changes:
+`npm run check` runs `react-doctor --scope changed` as its last step and prints the score and any findings — use it at commit points instead of a separate react-doctor run. Fix any regression before committing. Report the score in your summary. Do not commit past a dropped score without telling the user.
+
+For a standalone regression check outside `npm run check`:
 
 ```bash
 npx react-doctor@latest --verbose --scope changed
 ```
-
-Fix any regression before committing. Report the score in your summary. Do not commit past a dropped score without telling the user.
 
 ## Full cleanup pass — `/doctor`
 
@@ -33,7 +33,7 @@ For a full-codebase scan outside the playbook: `npx react-doctor@latest --verbos
 
 ## Explaining or disabling a rule
 
-When the user wants to understand a rule, disagrees with one, or wants to tune which rules run — don't guess. Start with `npx react-doctor@latest rules explain <rule>`, fetch the rule's recipe from `https://www.react.doctor/prompts/rules/<plugin>/<rule>.md` if more depth is needed, then apply the narrowest control.
+When the user wants to understand a rule, disagrees with one, or wants to tune which rules run — don't guess. Read [references/explain.md](references/explain.md) and follow it. Start with `npx react-doctor@latest rules explain <rule>`, then apply the narrowest control.
 
 ## Flags
 

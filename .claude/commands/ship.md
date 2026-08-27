@@ -23,9 +23,7 @@ If at any point the change looks larger than "small/easy," stop and recommend `/
    On `blocked`, relay the reason and stop.
 
 2. **Implement.** Keep it clean, simple, and complete. Follow `CLAUDE.md` and the repo's conventions (read neighboring files first). Architecture rules: routes stay thin in `src/app/`, domain logic is pure functions in `src/features/*/logic.ts` with tests, UI primitives live in `src/components/ui/`.
-3. **Quality gates** (all must pass before any commit):
-   - `npm run check:all` (typecheck + lint + tests + format check)
-   - `npx react-doctor@latest --verbose --scope changed` — fix any regression; report the score.
+3. **Quality gate** (must pass before any commit): `npm run check` — typecheck, eslint + prettier on changed files, jest, `react-doctor --scope changed`. Fix any regression; report the react-doctor score.
 4. **Commit** in clear, concise, imperative messages (one logical change per commit). After the first commit run `git push -u origin <branch>`; push subsequent commits normally.
 5. **Confirm before publishing** (opening a PR is an outward action). Show the diff summary and the proposed:
    - Title: `[#<num>] <issue title>` (or just a clear title when there's no issue)

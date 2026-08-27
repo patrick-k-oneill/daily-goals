@@ -7,7 +7,8 @@ Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and A
 ## Commands
 
 - `npm run web` / `ios` / `android` — dev server (Node ≥ 20.19.4; `.nvmrc` pins v22)
-- `npm run check:all` — typecheck + lint + tests + format check (the pre-commit gate)
+- `npm run check` — the commit-point gate: typecheck, eslint + prettier on changed files, jest, `react-doctor --scope changed` (see Commit points)
+- `npm run check:all` — typecheck + lint + tests + format check over the whole tree (what CI runs)
 - `npm test`, `npm run lint`, `npm run typecheck`, `npm run format`
 
 ## Architecture
@@ -33,13 +34,17 @@ The domain language lives in `CONTEXT.md` (page, section, period, cadence, templ
 
 ## Commit points
 
-Before `git commit` or opening a PR on React changes, run:
+Before `git commit` or opening a PR, run:
 
 ```bash
-npx react-doctor@latest --verbose --scope changed
+npm run check
 ```
 
-Fix regressions before committing, and report the score. Full triage pass, rule explanations, and rule config: see the `react-doctor` skill (`.claude/skills/react-doctor/SKILL.md`). Also run `npm run check:all` before every commit.
+It runs typecheck, then eslint and prettier on changed files, the jest suite, and `react-doctor --scope changed`: one PASS/FAIL (or SKIP) line per step, failing output only, plus react-doctor's score and findings. Fix regressions before committing, and report the react-doctor score. Full triage pass, rule explanations, and rule config: see the `react-doctor` skill (`.claude/skills/react-doctor/SKILL.md`).
+
+## Tests
+
+Write tests where there is an independent truth to assert against: transitions and queries in `logic.ts`, period keys and date formatting, row geometry. Markup- or style-only component changes get no test; say so in the build report.
 
 ## Workflow commands
 
