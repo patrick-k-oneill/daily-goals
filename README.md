@@ -18,14 +18,15 @@ Built with Expo (React Native + TypeScript), one codebase for **web, iOS, and An
 ```bash
 nvm use          # Node 22 (≥ 20.19.4 required)
 npm install
-npm run web      # or: npm run ios / npm run android
+npm run web      # dev server in the browser
+npm run ios      # build the native dev client and launch it in the iOS Simulator (needs Xcode + CocoaPods)
 ```
 
 On an iPhone (needs Xcode, CocoaPods, and an Apple Developer team — see #1):
 
 ```bash
-npx expo run:ios --device            # build and install on a plugged-in iPhone
-eas build -p ios --profile preview   # installable internal build via EAS (npx eas-cli login first)
+npx expo run:ios --device                   # build and install on a plugged-in iPhone
+npx eas-cli build -p ios --profile preview  # installable internal build via EAS (npx eas-cli login first)
 ```
 
 ## Quality
