@@ -65,3 +65,9 @@ Consecutive reflection dates with a gratitude entry, counted back from the curre
 **Upcoming event**:
 A dated jotting at the bottom of today's page — a title, an optional time label, an optional aside — shown from its date onward.
 _Avoid_: appointment, reminder, calendar item
+
+### Backup
+
+**Pad file**:
+The whole pad — templates, entries, gratitude entries and upcoming events — written to one JSON file under a schema version. Importing one replaces the pad wholesale; merging belongs to sync.
+_Avoid_: backup file, snapshot, dump

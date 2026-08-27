@@ -1,10 +1,12 @@
-export type Cadence = 'daily' | 'weekly' | 'annual';
+export const CADENCES = ['daily', 'weekly', 'annual'] as const;
+export type Cadence = (typeof CADENCES)[number];
 
 /**
  * A single checkbox on the pad: blank, checked off, or crossed out (missed).
  * Tapping cycles empty → done → missed → empty.
  */
-export type CheckState = 'empty' | 'done' | 'missed';
+export const CHECK_STATES = ['empty', 'done', 'missed'] as const;
+export type CheckState = (typeof CHECK_STATES)[number];
 
 /** A recurring goal that materializes into an entry each new period. */
 export interface GoalTemplate {

@@ -15,6 +15,8 @@ interface GoalsState extends Goals {
   toggleStar: (entryId: string) => void;
   updateGoal: (entryId: string, patch: logic.GoalEditPatch) => void;
   removeGoal: (entryId: string) => void;
+  /** Replace every template and entry with an imported pad's. */
+  replaceGoals: (goals: Goals) => void;
 }
 
 /**
@@ -35,6 +37,7 @@ export const useGoalsStore = create<GoalsState>()(
       toggleStar: (entryId) => set((goals) => logic.toggleStar(goals, entryId)),
       updateGoal: (entryId, patch) => set((goals) => logic.updateGoal(goals, entryId, patch)),
       removeGoal: (entryId) => set((goals) => logic.removeGoal(goals, entryId)),
+      replaceGoals: ({ templates, entries }) => set({ templates, entries }),
     }),
     persistOptions<GoalsState>('goals', {
       version: 2,
