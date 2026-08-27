@@ -11,6 +11,8 @@ interface EventsState {
   addEvent: (input: logic.EventInput) => void;
   updateEvent: (id: string, patch: logic.EventPatch) => void;
   removeEvent: (id: string) => void;
+  /** Replace every jotting with an imported pad's. */
+  replaceEvents: (events: UpcomingEvent[]) => void;
 }
 
 /** The events feature's React binding: each action is one pure transition from ./logic. */
@@ -22,6 +24,7 @@ export const useEventsStore = create<EventsState>()(
       addEvent: (input) => set((s) => ({ events: logic.addEvent(s.events, input) })),
       updateEvent: (id, patch) => set((s) => ({ events: logic.updateEvent(s.events, id, patch) })),
       removeEvent: (id) => set((s) => ({ events: logic.removeEvent(s.events, id) })),
+      replaceEvents: (events) => set({ events }),
     }),
     persistOptions('events'),
   ),
