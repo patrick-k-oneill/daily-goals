@@ -7,7 +7,7 @@ import { Spacing } from '@/constants/theme';
 
 import { MAX_CHECKS } from '../logic';
 
-export interface GoalDraft {
+interface GoalDraft {
   title: string;
   targetCount: number;
 }

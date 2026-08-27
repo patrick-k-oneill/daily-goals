@@ -5,8 +5,6 @@
  */
 
 export type DayKey = string;
-export type WeekKey = string;
-export type YearKey = string;
 
 const DAY_MS = 86_400_000;
 
@@ -65,7 +63,7 @@ export function addDays(key: DayKey, days: number): DayKey {
 }
 
 /** ISO 8601 week: weeks start Monday; week 1 contains the year's first Thursday. */
-export function isoWeekOf(key: DayKey): { year: number; week: number } {
+function isoWeekOf(key: DayKey): { year: number; week: number } {
   const date = parseDayKey(key);
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
@@ -75,12 +73,12 @@ export function isoWeekOf(key: DayKey): { year: number; week: number } {
   return { year: d.getUTCFullYear(), week };
 }
 
-export function weekKeyOf(key: DayKey): WeekKey {
+export function weekKeyOf(key: DayKey): string {
   const { year, week } = isoWeekOf(key);
   return `${year}-W${String(week).padStart(2, '0')}`;
 }
 
-export function yearKeyOf(key: DayKey): YearKey {
+export function yearKeyOf(key: DayKey): string {
   return key.slice(0, 4);
 }
 
