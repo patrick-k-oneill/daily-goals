@@ -29,6 +29,12 @@ npx expo run:ios --device                   # build and install on a plugged-in 
 npx eas-cli build -p ios --profile preview  # installable internal build via EAS (npx eas-cli login first)
 ```
 
+## On the Mac (desktop web app)
+
+Every push to `main` deploys the web build to <https://patrick-k-oneill.github.io/daily-goals/>. Open it in Safari and choose **File → Add to Dock**: the pad launches as a standalone window with the app icon and the paper theme color, and the pad survives reload and relaunch.
+
+Data is per browser until iCloud sync (#6). To move a pad between the phone and the Mac, use **Export** / **Import** in the Pad footer at the bottom of the Journal tab.
+
 ## Quality
 
 ```bash
@@ -42,8 +48,9 @@ CI runs the same gates plus a web export build on every push and PR.
 ## Architecture
 
 ```
+public/                # copied as-is into the web export: manifest.json, PWA icons
 src/
-  app/                 # expo-router routes (thin)
+  app/                 # expo-router routes (thin) and the static HTML shell (+html.tsx)
   components/ui/       # design-system primitives (Screen, SectionHeader, inline form kit)
   constants/theme.ts   # design tokens — paper palette, spacing
   features/
