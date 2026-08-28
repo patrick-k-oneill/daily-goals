@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.patrickoneill.dailygoals",
+      "supportsTablet": true,
       "buildNumber": "1",
       "icon": "./assets/expo.icon"
     },
