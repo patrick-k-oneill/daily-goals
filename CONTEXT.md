@@ -71,3 +71,7 @@ _Avoid_: appointment, reminder, calendar item
 **Pad file**:
 The whole pad — templates, entries, gratitude entries and upcoming events — written to one JSON file under a schema version. Importing one replaces the pad wholesale; merging belongs to sync.
 _Avoid_: backup file, snapshot, dump
+
+**Footprint**:
+The pad's size on this device — the bytes of each store's persisted JSON, and their total — shown in the Pad footer and projected for future years in ADR 0004.
+_Avoid_: storage usage, disk size, quota
