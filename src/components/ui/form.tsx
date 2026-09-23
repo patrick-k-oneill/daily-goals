@@ -11,6 +11,7 @@ import {
 
 import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 
 /** The bordered card a pad line turns into while it's being written or edited. */
@@ -25,13 +26,22 @@ export function InlineForm({
   return <View style={[styles.form, { borderColor: theme.border }, style]}>{children}</View>;
 }
 
+type FormInputProps = TextInputProps & {
+  /** Esc from a hardware keyboard; pair with `onSubmitEditing` so Return submits. */
+  onEscape?: () => void;
+};
+
 /** One ruled input line: ink text over a blue rule, grey placeholder. */
-export function FormInput({ style, ...props }: TextInputProps) {
+export function FormInput({ style, onEscape, onKeyPress, ...props }: FormInputProps) {
   const theme = useTheme();
   return (
     <TextInput
       placeholderTextColor={theme.textSecondary}
       style={[styles.input, { color: theme.text, borderBottomColor: theme.rule }, style]}
+      onKeyPress={(e) => {
+        if (e.nativeEvent.key === 'Escape') onEscape?.();
+        onKeyPress?.(e);
+      }}
       {...props}
     />
   );
@@ -77,13 +87,15 @@ interface AddLineProps {
 
 /** The next blank line on the page — "+ Add …" — that opens a form when tapped. */
 export function AddLine({ label, accessibilityLabel, onPress, type }: AddLineProps) {
+  const { hovered, hoverProps } = useHover();
   return (
     <Pressable
+      {...hoverProps}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={styles.addLine}>
-      <ThemedText type={type} themeColor="textSecondary">
+      <ThemedText type={type} themeColor={hovered ? 'text' : 'textSecondary'}>
         {label}
       </ThemedText>
     </Pressable>

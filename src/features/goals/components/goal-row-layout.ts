@@ -7,7 +7,7 @@ export const CHECK_BOX_GAP = Spacing.one;
 /**
  * Minimum room a title needs before inline is worth it. 160 makes 7-check
  * goals stack at true phone widths (402pt iPhone rows ≈ 344pt) while
- * everything seeded stays inline on desktop rows (≈ 650pt).
+ * everything seeded stays inline in the pad-width column (rows ≈ 598pt).
  */
 export const MIN_INLINE_TITLE_WIDTH = 160;
 

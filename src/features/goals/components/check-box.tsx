@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { selectionTap } from '@/lib/haptics';
 
@@ -20,6 +21,7 @@ interface CheckBoxProps {
 /** One pad checkbox. Tap cycles blank → ✓ done → ✕ missed → blank. */
 export function CheckBox({ state, onCycle, label, accessibilityLabel }: CheckBoxProps) {
   const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
 
   return (
     <View style={styles.wrap}>
@@ -29,6 +31,7 @@ export function CheckBox({ state, onCycle, label, accessibilityLabel }: CheckBox
         </ThemedText>
       ) : null}
       <Pressable
+        {...hoverProps}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: state === 'done' }}
         accessibilityLabel={accessibilityLabel}
@@ -39,7 +42,8 @@ export function CheckBox({ state, onCycle, label, accessibilityLabel }: CheckBox
         }}
         style={({ pressed }) => [
           styles.box,
-          { borderColor: theme.textSecondary },
+          { borderColor: hovered ? theme.text : theme.textSecondary },
+          hovered && { backgroundColor: theme.backgroundElement },
           pressed && styles.pressed,
         ]}>
         {state === 'done' && <ThemedText style={styles.mark}>✓</ThemedText>}

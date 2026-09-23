@@ -67,6 +67,7 @@ export function GoalForm({
         selectTextOnFocus={initial.title.length > 0}
         returnKeyType="done"
         onSubmitEditing={submit}
+        onEscape={onCancel}
         placeholder={placeholder}
         accessibilityLabel="Goal title"
       />
