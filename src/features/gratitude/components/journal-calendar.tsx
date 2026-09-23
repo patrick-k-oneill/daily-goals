@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import {
@@ -28,7 +29,6 @@ interface JournalCalendarProps {
  * Tap any finished day to read or catch up on its entry.
  */
 export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps) {
-  const theme = useTheme();
   const entries = useGratitudeStore((s) => s.entries);
 
   const today = useToday();
@@ -88,44 +88,72 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
               return <View key={i} style={styles.dayCell} />;
             }
 
-            const written = hasEntry(entries, day);
-            const finished = day < today;
-            const isToday = day === today;
             const isSelected = day === selected;
-
             return (
-              <Pressable
+              <DayCell
                 key={day}
-                disabled={!finished}
-                accessibilityRole="button"
-                accessibilityLabel={`${formatDayLong(day)}${isToday ? ', today' : ''}${
-                  written ? ', written' : ''
-                }`}
-                accessibilityState={{ selected: isSelected }}
+                day={day}
+                written={hasEntry(entries, day)}
+                finished={day < today}
+                isToday={day === today}
+                isSelected={isSelected}
                 onPress={() => onSelectDay(isSelected ? null : day)}
-                style={[
-                  styles.dayCell,
-                  isSelected && { backgroundColor: theme.backgroundSelected },
-                ]}>
-                <ThemedText
-                  type="small"
-                  // Today gets the accent so it stands apart from future days.
-                  themeColor={isToday ? 'accent' : finished ? 'text' : 'border'}
-                  style={styles.dayNumber}>
-                  {parseDayKey(day).getDate()}
-                </ThemedText>
-                {/* Blank means blank: only written mornings get a mark. */}
-                {written && (
-                  <ThemedText type="small" themeColor="accent">
-                    ✓
-                  </ThemedText>
-                )}
-              </Pressable>
+              />
             );
           })}
         </View>
       ))}
     </View>
+  );
+}
+
+function DayCell({
+  day,
+  written,
+  finished,
+  isToday,
+  isSelected,
+  onPress,
+}: {
+  day: DayKey;
+  written: boolean;
+  finished: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
+
+  return (
+    <Pressable
+      {...hoverProps}
+      disabled={!finished}
+      accessibilityRole="button"
+      accessibilityLabel={`${formatDayLong(day)}${isToday ? ', today' : ''}${
+        written ? ', written' : ''
+      }`}
+      accessibilityState={{ selected: isSelected }}
+      onPress={onPress}
+      style={[
+        styles.dayCell,
+        hovered && { backgroundColor: theme.backgroundElement },
+        isSelected && { backgroundColor: theme.backgroundSelected },
+      ]}>
+      <ThemedText
+        type="small"
+        // Today gets the accent so it stands apart from future days.
+        themeColor={isToday ? 'accent' : finished ? 'text' : 'border'}
+        style={styles.dayNumber}>
+        {parseDayKey(day).getDate()}
+      </ThemedText>
+      {/* Blank means blank: only written mornings get a mark. */}
+      {written && (
+        <ThemedText type="small" themeColor="accent">
+          ✓
+        </ThemedText>
+      )}
+    </Pressable>
   );
 }
 

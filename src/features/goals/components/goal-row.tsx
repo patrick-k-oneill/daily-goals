@@ -17,6 +17,7 @@ import {
 
 import { BODY_LINE_HEIGHT, ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
 import { selectionTap } from '@/lib/haptics';
@@ -77,9 +78,11 @@ export function GoalRow({ entry, layout }: { entry: GoalEntry; layout: GoalRowLa
 
 function StarButton({ entry, style }: { entry: GoalEntry; style?: StyleProp<ViewStyle> }) {
   const toggleStar = useGoalsStore((s) => s.toggleStar);
+  const { hovered, hoverProps } = useHover();
 
   return (
     <Pressable
+      {...hoverProps}
       accessibilityRole="button"
       accessibilityLabel={
         entry.starred ? `Unstar ${entry.title}` : `Star ${entry.title} as a key goal`
@@ -96,7 +99,7 @@ function StarButton({ entry, style }: { entry: GoalEntry; style?: StyleProp<View
       }}>
       <ThemedText
         type="subtitle"
-        themeColor={entry.starred ? 'accent' : 'border'}
+        themeColor={entry.starred ? 'accent' : hovered ? 'textSecondary' : 'border'}
         style={styles.star}>
         {entry.starred ? '★' : '☆'}
       </ThemedText>
@@ -135,9 +138,13 @@ function TitleButton({
   onLayout?: (e: LayoutChangeEvent) => void;
   style?: StyleProp<ViewStyle>;
 }) {
+  const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
+
   return (
     <Pressable
-      style={style}
+      {...hoverProps}
+      style={[styles.title, hovered && { backgroundColor: theme.backgroundElement }, style]}
       onLayout={onLayout}
       accessibilityRole="button"
       accessibilityLabel={`Edit ${entry.title}`}
@@ -216,6 +223,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: CHECK_BOX_GAP,
+  },
+  // The hover tint overhangs the text by 4pt either side without moving it.
+  title: {
+    borderRadius: Spacing.one,
+    paddingHorizontal: Spacing.one,
+    marginHorizontal: -Spacing.one,
   },
   titlePress: {
     flex: 1,

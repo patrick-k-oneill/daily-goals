@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { AddLine, FormActions, FormInput, InlineForm } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
 import { useToday } from '@/lib/clock';
@@ -44,6 +45,8 @@ function EventRow({ event }: { event: UpcomingEvent }) {
   const removeEvent = useEventsStore((s) => s.removeEvent);
   const updateEvent = useEventsStore((s) => s.updateEvent);
   const [editing, setEditing] = useState(false);
+  const body = useHover();
+  const remove = useHover();
 
   const confirmRemove = () =>
     confirmAction('Remove event', `Remove “${event.title}”?`, () => removeEvent(event.id));
@@ -70,12 +73,13 @@ function EventRow({ event }: { event: UpcomingEvent }) {
   return (
     <View style={[styles.eventRow, { borderBottomColor: theme.rule }]}>
       <Pressable
+        {...body.hoverProps}
         accessibilityRole="button"
         accessibilityLabel={`Edit ${event.title}`}
         onPress={() => setEditing(true)}
         onLongPress={confirmRemove}
         delayLongPress={400}
-        style={styles.eventBody}>
+        style={[styles.eventBody, body.hovered && { backgroundColor: theme.backgroundElement }]}>
         <ThemedText type="smallBold" themeColor="textSecondary" style={styles.eventDay}>
           {formatDayWithWeekday(event.date)}
         </ThemedText>
@@ -92,13 +96,14 @@ function EventRow({ event }: { event: UpcomingEvent }) {
         ) : null}
       </Pressable>
       <Pressable
+        {...remove.hoverProps}
         accessibilityRole="button"
         accessibilityLabel={`Remove ${event.title}`}
         onPress={confirmRemove}
         style={styles.removeButton}>
-        {({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => (
+        {({ pressed }) => (
           <ThemedText
-            themeColor={pressed || hovered ? 'missed' : 'textSecondary'}
+            themeColor={pressed || remove.hovered ? 'missed' : 'textSecondary'}
             style={styles.removeGlyph}>
             ×
           </ThemedText>
@@ -173,11 +178,13 @@ function EventForm({
         onChangeText={(title) => patchDraft({ title })}
         placeholder="Event name…"
         autoFocus
+        onEscape={onCancel}
       />
       <FormInput
         value={draft.timeLabel}
         onChangeText={(timeLabel) => patchDraft({ timeLabel })}
         placeholder="Time, e.g. 4pm–5:30pm (optional)"
+        onEscape={onCancel}
       />
       <FormInput
         value={draft.note}
@@ -185,6 +192,7 @@ function EventForm({
         placeholder="Scribbled aside, e.g. omg lol (optional)"
         returnKeyType="done"
         onSubmitEditing={submit}
+        onEscape={onCancel}
       />
 
       <FormActions
@@ -249,6 +257,9 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: Spacing.two,
     paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.one,
+    marginHorizontal: -Spacing.one,
+    borderRadius: Spacing.one,
   },
   eventDay: {
     minWidth: 72,
