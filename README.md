@@ -27,6 +27,7 @@ On an iPhone (needs Xcode, CocoaPods, and an Apple Developer team — see #1):
 ```bash
 npx expo run:ios --device                   # build and install on a plugged-in iPhone
 npx eas-cli build -p ios --profile preview  # installable internal build via EAS (npx eas-cli login first)
+npx eas-cli build -p ios --profile production --auto-submit  # TestFlight build; installs from the TestFlight app and updates in place
 ```
 
 ## On the Mac (desktop web app)
