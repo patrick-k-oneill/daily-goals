@@ -8,8 +8,9 @@ import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
 import { dayKeyOf, formatPadDate } from '@/lib/dates';
 
+import { formatBytes } from '../footprint';
 import { describePad, padFileName, parsePad, serializePad, type PadFileContents } from '../logic';
-import { readPad, writePad } from '../pad';
+import { readPad, useStorageFootprint, writePad } from '../pad';
 import { exportPadFile, pickPadFile } from '../pad-file';
 
 interface Notice {
@@ -24,6 +25,7 @@ interface Notice {
 export function PadFooter() {
   const theme = useTheme();
   const today = useToday();
+  const footprint = useStorageFootprint();
   const [notice, setNotice] = useState<Notice | null>(null);
 
   const exportPad = async () => {
@@ -78,6 +80,9 @@ export function PadFooter() {
           onPress={importPad}
         />
       </View>
+      <ThemedText type="small" themeColor="textSecondary">
+        {formatBytes(footprint.total)} on this device
+      </ThemedText>
       {notice && (
         <ThemedText
           type="small"
