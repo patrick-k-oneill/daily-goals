@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 import AppTabs from '@/components/app-tabs';
 import { useEventsStore } from '@/features/events/store';
-import { useGoalsStore } from '@/features/goals/store';
+import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,6 +20,7 @@ export default function RootLayout() {
   const palette = useTheme();
   const [fontsLoaded, fontError] = useFonts({ Caveat_700Bold });
   const storesHydrated = useHydrated(persistedStores);
+  useMaterializeToday();
   const ready = (fontsLoaded || Boolean(fontError)) && storesHydrated;
 
   useEffect(() => {

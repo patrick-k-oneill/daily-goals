@@ -2,6 +2,7 @@ import { useEventsStore } from '@/features/events/store';
 import { seedGoals } from '@/features/goals/logic';
 import { useGoalsStore } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
+import { todayKey } from '@/lib/dates';
 
 import { parsePad, serializePad } from './logic';
 import { readPad, writePad } from './pad';
@@ -53,7 +54,10 @@ describe('readPad / writePad', () => {
   it('exports the whole pad and reproduces it on a fresh install', () => {
     freshInstall();
     writePad(written);
-    const file = serializePad(readPad(), '2026-08-27T07:30:00.000Z');
+    const exported = readPad();
+    // An import lands with today's page written, so the pad gains one line beyond what was in the file.
+    expect(exported.goals.entries.map((e) => e.periodKey)).toEqual(['2026-08-26', todayKey()]);
+    const file = serializePad(exported, '2026-08-27T07:30:00.000Z');
 
     freshInstall();
     expect(readPad().goals.entries).toHaveLength(0);
@@ -61,6 +65,6 @@ describe('readPad / writePad', () => {
     const parsed = parsePad(file);
     if (!parsed.ok) throw new Error(parsed.reason);
     writePad(parsed.pad);
-    expect(readPad()).toEqual(written);
+    expect(readPad()).toEqual(exported);
   });
 });

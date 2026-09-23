@@ -9,14 +9,18 @@ export function reflectionDateFor(today: DayKey): DayKey {
   return addDays(today, -1);
 }
 
-/** Write (or rewrite) a morning's entry; emptying the text tears the page out. */
+/**
+ * Write (or rewrite) a morning's entry; emptying the text tears the page out.
+ * Only the empty string counts as emptied: a leading space or newline is a
+ * draft in progress, and the written queries already ignore whitespace-only text.
+ */
 export function saveEntry(
   entries: GratitudeEntries,
   forDate: DayKey,
   text: string,
   writtenAt: string,
 ): GratitudeEntries {
-  if (!text.trim()) {
+  if (text === '') {
     if (!(forDate in entries)) return entries;
     const { [forDate]: _removed, ...rest } = entries;
     return rest;
