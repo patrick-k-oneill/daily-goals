@@ -33,7 +33,7 @@ A goal line on a specific period's section, either materialized from a template 
 _Avoid_: goal instance, task, item
 
 **Materialize**:
-Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled.
+Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, and when a pad is imported.
 _Avoid_: instantiate, generate
 
 **Seed**:

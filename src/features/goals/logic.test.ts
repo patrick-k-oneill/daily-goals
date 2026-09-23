@@ -3,6 +3,7 @@ import {
   cycleCheck,
   ensurePeriod,
   entriesForPeriod,
+  materializeToday,
   MAX_CHECKS,
   periodKeyFor,
   periodLabel,
@@ -134,6 +135,46 @@ describe('ensurePeriod', () => {
     expect(titlesOn(state, TODAY)).toEqual(['Recurring Dailies', 'Daily Prod']);
     expect(titlesOn(state, '2026-W34')).toEqual(['Recurring Dailies', 'Fitness', 'Weekly Prod']);
     expect(state.entries.find((e) => e.title === 'Fitness')?.checkLabels).toHaveLength(7);
+  });
+});
+
+describe('materializeToday', () => {
+  it("writes every active template onto today's section of its own cadence", () => {
+    const state = materializeToday(
+      goals({
+        templates: [
+          template({ id: 'd' }),
+          template({ id: 'w', cadence: 'weekly', title: 'Fitness' }),
+          template({ id: 'a', cadence: 'annual', title: 'Read 12 books' }),
+          template({ id: 'off', active: false }),
+        ],
+      }),
+      TODAY,
+    );
+    expect(state.entries.map((e) => [e.templateId, e.periodKey])).toEqual([
+      ['d', '2026-08-21'],
+      ['w', '2026-W34'],
+      ['a', '2026'],
+    ]);
+  });
+
+  it('is idempotent and returns the same value once today is written', () => {
+    const once = materializeToday(goals({ templates: [template()] }), TODAY);
+    expect(materializeToday(once, TODAY)).toBe(once);
+    expect(once.entries).toHaveLength(1);
+  });
+
+  it("lands an imported pad with today's lines, leaving its past pages as written", () => {
+    const yesterday = entry({
+      id: 'y',
+      templateId: 't1',
+      periodKey: '2026-08-20',
+      checks: ['done'],
+    });
+    const state = materializeToday(goals({ templates: [template()], entries: [yesterday] }), TODAY);
+    expect(titlesOn(state, TODAY)).toEqual(['Daily Prod']);
+    expect(state.entries[0]).toBe(yesterday);
+    expect(state.entries).toHaveLength(2);
   });
 });
 

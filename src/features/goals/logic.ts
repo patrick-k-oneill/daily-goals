@@ -1,7 +1,14 @@
 import { newId } from '@/lib/id';
 import { formatPadDate, formatWeekRange, weekKeyOf, yearKeyOf, type DayKey } from '@/lib/dates';
 
-import type { Cadence, CheckState, GoalEntry, GoalTemplate, Goals } from './types';
+import {
+  CADENCES,
+  type Cadence,
+  type CheckState,
+  type GoalEntry,
+  type GoalTemplate,
+  type Goals,
+} from './types';
 
 /** A goal line holds between one and this many checks. */
 export const MAX_CHECKS = 10;
@@ -99,6 +106,18 @@ export function ensurePeriod(
   }
   if (additions.length === 0) return goals;
   return { templates: goals.templates, entries: [...goals.entries, ...additions] };
+}
+
+/**
+ * Today's page, fully written: every active template has its line on the
+ * current period of its cadence. The one door onto today — for a rehydrated
+ * pad, the turning clock, and an imported pad alike. Idempotent.
+ */
+export function materializeToday(goals: Goals, today: DayKey): Goals {
+  return CADENCES.reduce(
+    (state, cadence) => ensurePeriod(state, cadence, periodKeyFor(cadence, today), today),
+    goals,
+  );
 }
 
 export interface AddGoalInput {

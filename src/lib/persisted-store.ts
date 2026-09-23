@@ -9,7 +9,7 @@ import { createJSONStorage, type PersistOptions } from 'zustand/middleware';
  */
 export function persistOptions<S>(
   name: string,
-  options: Pick<PersistOptions<S>, 'version' | 'migrate'> = {},
+  options: Pick<PersistOptions<S>, 'version' | 'migrate' | 'merge'> = {},
 ): PersistOptions<S> {
   return {
     name: `daily-goals/${name}`,
