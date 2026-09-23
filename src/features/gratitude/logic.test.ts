@@ -37,12 +37,18 @@ describe('saveEntry', () => {
 
   it('tears the page out when the text is emptied, and leaves other days alone', () => {
     let entries = byDate('2026-08-20', '2026-08-21');
-    entries = saveEntry(entries, '2026-08-21', '   ', WRITTEN_AT);
+    entries = saveEntry(entries, '2026-08-21', '', WRITTEN_AT);
     expect(entries['2026-08-21']).toBeUndefined();
     expect(hasEntry(entries, '2026-08-21')).toBe(false);
     expect(entries['2026-08-20'].text).toBe('grateful');
 
     expect(saveEntry(entries, '2026-08-21', '', WRITTEN_AT)).toBe(entries);
+  });
+
+  it('keeps a whitespace-only draft on the page without counting it as written', () => {
+    const entries = saveEntry(byDate('2026-08-21'), '2026-08-21', ' ', WRITTEN_AT);
+    expect(entries['2026-08-21'].text).toBe(' ');
+    expect(hasEntry(entries, '2026-08-21')).toBe(false);
   });
 });
 
