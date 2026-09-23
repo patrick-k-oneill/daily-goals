@@ -45,6 +45,12 @@
       "typedRoutes": true,
       "reactCompiler": true,
       "baseUrl": "/daily-goals"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "dde37e87-c439-41c4-8d31-821884114afd"
+      }
+    },
+    "owner": "poneill91"
   }
 }
