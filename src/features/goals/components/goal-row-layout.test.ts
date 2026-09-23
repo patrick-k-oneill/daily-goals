@@ -2,7 +2,7 @@ import { goalListLayouts, goalRowLayout } from './goal-row-layout';
 
 describe('goal row fit rule', () => {
   // Measured row widths: 375pt viewport → ~317pt; 402pt (iPhone 17 Pro) → ~344pt;
-  // desktop content column → ~650–678pt.
+  // the pad-width column (Layout.padWidth, the widest a row ever gets) → 598pt.
   it('stacks the 7- and 8-check goals at phone width', () => {
     expect(goalRowLayout(317, 7)).toBe('stacked');
     expect(goalRowLayout(317, 8)).toBe('stacked');
@@ -12,11 +12,14 @@ describe('goal row fit rule', () => {
     expect(goalRowLayout(344, 7)).toBe('stacked');
   });
 
-  it('keeps every seeded goal inline at desktop width', () => {
+  it('keeps every seeded goal inline in the pad-width column', () => {
     for (const count of [1, 6, 7, 8]) {
-      expect(goalRowLayout(650, count)).toBe('inline');
-      expect(goalRowLayout(678, count)).toBe('inline');
+      expect(goalRowLayout(598, count)).toBe('inline');
     }
+  });
+
+  it('keeps even a ten-check goal inline in the pad-width column', () => {
+    expect(goalRowLayout(598, 10)).toBe('inline'); // 10·28 + 9·4 = 316 checks + 160 title
   });
 
   it('keeps a 1-check goal inline down to the narrowest supported viewport', () => {
@@ -42,10 +45,8 @@ describe('goalListLayouts (one rhythm per section)', () => {
   });
 
   it('keeps a fitting section fully inline', () => {
-    for (const width of [650, 678]) {
-      expect(goalListLayouts(width, [7, 7, 6])).toEqual(['inline', 'inline', 'inline']);
-      expect(goalListLayouts(width, [1, 8])).toEqual(['inline', 'inline']);
-    }
+    expect(goalListLayouts(598, [7, 7, 6])).toEqual(['inline', 'inline', 'inline']);
+    expect(goalListLayouts(598, [1, 8, 10])).toEqual(['inline', 'inline', 'inline']);
   });
 
   it('always keeps 1-check rows inline, even inside a stacked section', () => {

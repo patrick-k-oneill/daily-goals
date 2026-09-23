@@ -8,7 +8,7 @@ import {
 } from 'expo-router/ui';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Layout, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 import { ThemedText } from './themed-text';
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
     width: '100%',
-    maxWidth: MaxContentWidth + Spacing.six,
+    maxWidth: Layout.padWidth + Spacing.six,
   },
   brand: {
     marginRight: 'auto',

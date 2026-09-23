@@ -52,4 +52,8 @@ export const Spacing = {
 // iOS 26's floating tab pill is taller than the classic bar; 68 keeps the
 // page's last line ≥16pt clear of it at max scroll.
 export const BottomTabInset = Platform.select({ ios: 68, android: 80 }) ?? 0;
-export const MaxContentWidth = 720;
+
+export const Layout = {
+  /** A legal pad is 8.5" wide: the page column never grows past this, whatever the window. */
+  padWidth: 640,
+} as const;

@@ -3,12 +3,13 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, Layout, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * A legal-pad page: paper background, red margin line down the left,
- * content capped at a readable width. Native gets bottom-tab clearance;
+ * A legal-pad page: paper background, red margin line down the left, the
+ * page column capped at pad width and centered on wider paper. Native gets
+ * bottom-tab clearance;
  * web's tab bar is in-flow above the page. `scrollRef` exposes the page's
  * ScrollView for routes that need to scroll programmatically.
  */
@@ -59,7 +60,7 @@ const styles = StyleSheet.create({
   },
   page: {
     width: '100%',
-    maxWidth: MaxContentWidth,
+    maxWidth: Layout.padWidth,
     flexGrow: 1,
     borderLeftWidth: 2,
     marginLeft: Spacing.three,
