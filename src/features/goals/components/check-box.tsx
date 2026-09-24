@@ -10,16 +10,26 @@ import type { CheckState } from '../types';
 
 import { CHECK_BOX_SIZE } from './goal-row-layout';
 
+const LABEL_LINE_HEIGHT = 12;
+
 interface CheckBoxProps {
   state: CheckState;
   onCycle: () => void;
   /** Tiny label above the box, like Fitness's Legs/Push/Pull. */
   label?: string;
+  /** Hold the label line open without a label, so a row's boxes stay level. */
+  reserveLabelLine?: boolean;
   accessibilityLabel: string;
 }
 
 /** One pad checkbox. Tap cycles blank → ✓ done → ✕ missed → blank. */
-export function CheckBox({ state, onCycle, label, accessibilityLabel }: CheckBoxProps) {
+export function CheckBox({
+  state,
+  onCycle,
+  label,
+  reserveLabelLine,
+  accessibilityLabel,
+}: CheckBoxProps) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
 
@@ -30,6 +40,7 @@ export function CheckBox({ state, onCycle, label, accessibilityLabel }: CheckBox
           {label}
         </ThemedText>
       ) : null}
+      {!label && reserveLabelLine ? <View style={styles.labelLine} /> : null}
       <Pressable
         {...hoverProps}
         accessibilityRole="checkbox"
@@ -64,7 +75,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    lineHeight: 12,
+    lineHeight: LABEL_LINE_HEIGHT,
+  },
+  labelLine: {
+    height: LABEL_LINE_HEIGHT,
   },
   box: {
     width: CHECK_BOX_SIZE,

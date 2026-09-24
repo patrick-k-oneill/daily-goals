@@ -25,10 +25,7 @@ export function GoalList({ cadence, day }: { cadence: Cadence; day: DayKey }) {
   const [listWidth, setListWidth] = useState(0);
 
   const list = entriesForPeriod(entries, periodKey);
-  const layouts = goalListLayouts(
-    listWidth,
-    list.map((entry) => entry.checks.length),
-  );
+  const layouts = goalListLayouts(listWidth, list);
 
   const measure = (e: LayoutChangeEvent) => setListWidth(e.nativeEvent.layout.width);
 

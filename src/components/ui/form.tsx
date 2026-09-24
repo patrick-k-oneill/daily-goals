@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -29,6 +29,8 @@ export function InlineForm({
 type FormInputProps = TextInputProps & {
   /** Esc from a hardware keyboard; pair with `onSubmitEditing` so Return submits. */
   onEscape?: () => void;
+  /** Reaches the underlying TextInput, e.g. to move focus between inputs. */
+  ref?: Ref<TextInput>;
 };
 
 /** One ruled input line: ink text over a blue rule, grey placeholder. */
