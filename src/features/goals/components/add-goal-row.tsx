@@ -33,7 +33,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
 
   return (
     <GoalForm
-      initial={{ title: '', targetCount: 1 }}
+      initial={{ title: '', targetCount: 1, checkLabels: [] }}
       placeholder="Write a goal…"
       submitLabel="Add"
       style={styles.form}

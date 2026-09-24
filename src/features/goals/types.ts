@@ -15,7 +15,7 @@ export interface GoalTemplate {
   title: string;
   /** Number of checkboxes per period (e.g. "Daily Prod" gets 8 per day). */
   targetCount: number;
-  /** Optional per-check labels, like Fitness's Legs/Push/Pull. */
+  /** One label per check by position, like Fitness's Legs/Push/Pull; absent when none is written. */
   checkLabels?: string[];
   active: boolean;
   sortOrder: number;
@@ -31,6 +31,7 @@ export interface GoalEntry {
   periodKey: string;
   title: string;
   checks: CheckState[];
+  /** One label per check by position; absent when none is written. */
   checkLabels?: string[];
   /** The star drawn in the pad margin next to the day's key item. */
   starred: boolean;

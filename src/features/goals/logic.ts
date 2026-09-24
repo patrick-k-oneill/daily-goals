@@ -12,6 +12,8 @@ import {
 
 /** A goal line holds between one and this many checks. */
 export const MAX_CHECKS = 10;
+/** A check label is a short word over its box, at most this many characters. */
+export const MAX_CHECK_LABEL_LENGTH = 6;
 
 export function periodKeyFor(cadence: Cadence, day: DayKey): string {
   switch (cadence) {
@@ -125,6 +127,8 @@ export interface AddGoalInput {
   periodKey: string;
   title: string;
   targetCount: number;
+  /** One label per check by position; the core trims, caps and fits them to the count. */
+  checkLabels?: string[];
   /** Also create a template so the goal reappears every new period. */
   repeats: boolean;
 }
@@ -140,9 +144,10 @@ export function addGoal(goals: Goals, input: AddGoalInput): Goals {
     ...goals.templates.filter((t) => t.cadence === cadence),
   ]);
   const targetCount = clampChecks(input.targetCount);
+  const checkLabels = fitCheckLabels(input.checkLabels, targetCount);
 
   const template: GoalTemplate | undefined = input.repeats
-    ? { id: newId(), cadence, title, targetCount, active: true, sortOrder }
+    ? { id: newId(), cadence, title, targetCount, checkLabels, active: true, sortOrder }
     : undefined;
   const entry: GoalEntry = {
     id: newId(),
@@ -151,6 +156,7 @@ export function addGoal(goals: Goals, input: AddGoalInput): Goals {
     periodKey,
     title,
     checks: emptyChecks(targetCount),
+    checkLabels,
     starred: false,
     sortOrder,
   };
@@ -176,12 +182,14 @@ export function toggleStar(goals: Goals, entryId: string): Goals {
 export interface GoalEditPatch {
   title?: string;
   targetCount?: number;
+  /** Replaces the line's labels; omit to keep them, fitted to the new count. */
+  checkLabels?: string[];
 }
 
 /**
  * Edit a line in place. Edits to a recurring goal also update its template so
- * future pages inherit the new title and check count. A blank title keeps the
- * old one; existing marks survive a resize.
+ * future pages inherit the new title, check count and labels. A blank title
+ * keeps the old one; existing marks survive a resize and labels follow it.
  */
 export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
@@ -189,15 +197,25 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch):
 
   const title = patch.title?.trim() || entry.title;
   const targetCount = clampChecks(patch.targetCount ?? entry.checks.length);
+  const checkLabels = fitCheckLabels(patch.checkLabels ?? entry.checkLabels, targetCount);
 
   return {
     entries: goals.entries.map((e) =>
-      e.id === entryId ? { ...e, title, checks: resizeChecks(e.checks, targetCount) } : e,
+      e.id === entryId
+        ? { ...e, title, checks: resizeChecks(e.checks, targetCount), checkLabels }
+        : e,
     ),
     templates: entry.templateId
-      ? goals.templates.map((t) => (t.id === entry.templateId ? { ...t, title, targetCount } : t))
+      ? goals.templates.map((t) =>
+          t.id === entry.templateId ? { ...t, title, targetCount, checkLabels } : t,
+        )
       : goals.templates,
   };
+}
+
+/** Whether any box on a line carries a label. */
+export function hasCheckLabels(checkLabels: string[] | undefined): boolean {
+  return checkLabels?.some((label) => label.trim().length > 0) ?? false;
 }
 
 /**
@@ -235,6 +253,19 @@ function emptyChecks(targetCount: number): CheckState[] {
 function resizeChecks(checks: CheckState[], targetCount: number): CheckState[] {
   if (targetCount <= checks.length) return checks.slice(0, targetCount);
   return [...checks, ...emptyChecks(targetCount - checks.length)];
+}
+
+/**
+ * Labels are positional, one per check: trimmed and capped, trailing ones
+ * dropped by a shrink, new boxes left blank by a grow. A one-check line has
+ * none, and a line with nothing written over any box stores none.
+ */
+function fitCheckLabels(labels: string[] | undefined, targetCount: number): string[] | undefined {
+  if (!labels || targetCount < 2) return undefined;
+  const fitted = Array.from({ length: targetCount }, (_, i) =>
+    (labels[i] ?? '').trim().slice(0, MAX_CHECK_LABEL_LENGTH),
+  );
+  return fitted.some(Boolean) ? fitted : undefined;
 }
 
 function cycleState(state: CheckState): CheckState {

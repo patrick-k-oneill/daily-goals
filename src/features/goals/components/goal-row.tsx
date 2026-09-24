@@ -22,6 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
 import { selectionTap } from '@/lib/haptics';
 
+import { hasCheckLabels } from '../logic';
 import { useGoalsStore } from '../store';
 import type { GoalEntry } from '../types';
 
@@ -109,20 +110,26 @@ function StarButton({ entry, style }: { entry: GoalEntry; style?: StyleProp<View
 
 function ChecksGroup({ entry }: { entry: GoalEntry }) {
   const cycleCheck = useGoalsStore((s) => s.cycleCheck);
+  const labeled = hasCheckLabels(entry.checkLabels);
 
   return (
     <View style={styles.checks}>
       {/* A check's position is its identity — checks never reorder, so index keys are stable. */}
-      {entry.checks.map((state, i) => (
-        <CheckBox
-          // react-doctor-disable-next-line react-doctor/no-array-index-as-key
-          key={i}
-          state={state}
-          label={entry.checkLabels?.[i]}
-          accessibilityLabel={`${entry.title}, check ${i + 1} of ${entry.checks.length}`}
-          onCycle={() => cycleCheck(entry.id, i)}
-        />
-      ))}
+      {entry.checks.map((state, i) => {
+        const label = entry.checkLabels?.[i] || undefined;
+        const position = `check ${i + 1} of ${entry.checks.length}`;
+        return (
+          <CheckBox
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key
+            key={i}
+            state={state}
+            label={label}
+            reserveLabelLine={labeled}
+            accessibilityLabel={[entry.title, label, position].filter(Boolean).join(', ')}
+            onCycle={() => cycleCheck(entry.id, i)}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -171,7 +178,11 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
 
   return (
     <GoalForm
-      initial={{ title: entry.title, targetCount: entry.checks.length }}
+      initial={{
+        title: entry.title,
+        targetCount: entry.checks.length,
+        checkLabels: entry.checkLabels ?? [],
+      }}
       placeholder="Goal title…"
       submitLabel="Save"
       style={styles.editor}

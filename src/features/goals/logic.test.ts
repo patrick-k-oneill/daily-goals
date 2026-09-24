@@ -3,7 +3,9 @@ import {
   cycleCheck,
   ensurePeriod,
   entriesForPeriod,
+  hasCheckLabels,
   materializeToday,
+  MAX_CHECK_LABEL_LENGTH,
   MAX_CHECKS,
   periodKeyFor,
   periodLabel,
@@ -221,6 +223,43 @@ describe('addGoal', () => {
       addGoal(goals(), { ...input, targetCount: 99, repeats: true }).templates[0].targetCount,
     ).toBe(MAX_CHECKS);
   });
+
+  it('writes one trimmed, capped label per check onto the line and its template', () => {
+    const state = addGoal(goals(), {
+      ...input,
+      targetCount: 3,
+      checkLabels: [' Legs ', 'Push-ups', 'Pull', 'Extra'],
+      repeats: true,
+    });
+    expect(state.entries[0].checkLabels).toEqual(['Legs', 'Push-u', 'Pull']);
+    expect(state.templates[0].checkLabels).toEqual(['Legs', 'Push-u', 'Pull']);
+    expect('Push-u').toHaveLength(MAX_CHECK_LABEL_LENGTH);
+  });
+
+  it('leaves unlabeled boxes blank and stores nothing when every label is blank', () => {
+    const partial = addGoal(goals(), {
+      ...input,
+      targetCount: 3,
+      checkLabels: ['Legs'],
+      repeats: false,
+    });
+    expect(partial.entries[0].checkLabels).toEqual(['Legs', '', '']);
+
+    const blank = addGoal(goals(), { ...input, checkLabels: ['', '  '], repeats: true });
+    expect(blank.entries[0].checkLabels).toBeUndefined();
+    expect(blank.templates[0].checkLabels).toBeUndefined();
+    expect(JSON.stringify(blank)).not.toContain('checkLabels');
+  });
+
+  it('drops labels from a one-check line', () => {
+    const state = addGoal(goals(), {
+      ...input,
+      targetCount: 1,
+      checkLabels: ['Legs'],
+      repeats: false,
+    });
+    expect(state.entries[0].checkLabels).toBeUndefined();
+  });
 });
 
 describe('check marks and stars', () => {
@@ -295,6 +334,65 @@ describe('updateGoal', () => {
 
     expect(updateGoal(start, 'e1', { title: '   ' }).entries[0].title).toBe('Keep me');
     expect(updateGoal(start, 'missing', { title: 'X' })).toBe(start);
+  });
+
+  it('labels the checks of the line and its template, so the next page inherits them', () => {
+    const yesterday = entry({
+      id: 'y',
+      templateId: 't1',
+      periodKey: '2026-08-20',
+      checks: ['done'],
+    });
+    const start = recurring();
+    start.entries.push(yesterday);
+
+    const labeled = updateGoal(start, 'e1', { checkLabels: [' Legs', 'Push', 'Pull '] });
+    expect(labeled.entries[0].checkLabels).toEqual(['Legs', 'Push', 'Pull']);
+    expect(labeled.entries[0].checks).toEqual(['done', 'missed', 'empty']);
+    expect(labeled.templates[0].checkLabels).toEqual(['Legs', 'Push', 'Pull']);
+    expect(labeled.entries[1]).toBe(yesterday);
+
+    const tomorrow = ensurePeriod(labeled, 'daily', '2026-08-22', '2026-08-22');
+    expect(tomorrow.entries[2].checkLabels).toEqual(['Legs', 'Push', 'Pull']);
+  });
+
+  it('fits labels to a new count: shrink trims, grow leaves new boxes blank, one check drops them', () => {
+    const labeled = updateGoal(recurring(), 'e1', { checkLabels: ['Legs', 'Push', 'Pull'] });
+
+    const shrunk = updateGoal(labeled, 'e1', { targetCount: 2 });
+    expect(shrunk.entries[0].checkLabels).toEqual(['Legs', 'Push']);
+    expect(shrunk.templates[0].checkLabels).toEqual(['Legs', 'Push']);
+
+    const grown = updateGoal(labeled, 'e1', { targetCount: 5 });
+    expect(grown.entries[0].checkLabels).toEqual(['Legs', 'Push', 'Pull', '', '']);
+    expect(grown.entries[0].checks).toEqual(['done', 'missed', 'empty', 'empty', 'empty']);
+
+    const single = updateGoal(labeled, 'e1', { targetCount: 1 });
+    expect(single.entries[0].checkLabels).toBeUndefined();
+    expect(single.templates[0].checkLabels).toBeUndefined();
+  });
+
+  it('stores all-blank labels as none, and keeps the labels when the patch omits them', () => {
+    const labeled = updateGoal(recurring(), 'e1', { checkLabels: ['Legs', 'Push', 'Pull'] });
+    expect(updateGoal(labeled, 'e1', { title: 'Lift' }).entries[0].checkLabels).toEqual([
+      'Legs',
+      'Push',
+      'Pull',
+    ]);
+
+    const cleared = updateGoal(labeled, 'e1', { checkLabels: ['', ' ', ''] });
+    expect(cleared.entries[0].checkLabels).toBeUndefined();
+    expect(cleared.templates[0].checkLabels).toBeUndefined();
+    expect(JSON.stringify(cleared)).not.toContain('checkLabels');
+  });
+});
+
+describe('hasCheckLabels', () => {
+  it('is true only when some box carries a label', () => {
+    expect(hasCheckLabels(undefined)).toBe(false);
+    expect(hasCheckLabels([])).toBe(false);
+    expect(hasCheckLabels(['', '  '])).toBe(false);
+    expect(hasCheckLabels(['', 'Pull'])).toBe(true);
   });
 });
 

@@ -43,6 +43,10 @@ The recurring goals a brand-new pad starts with, before anything has been saved.
 One box on an entry: empty, done (✓), or missed (✕). A tap cycles empty → done → missed → empty. An entry has between one and ten checks; a template's target count says how many.
 _Avoid_: checkbox, tick, completion
 
+**Check label**:
+A short word over one check of a multi-check entry, like Fitness's Legs/Push/Pull: positional, at most six characters, written from the goal form and inherited from the template. A one-check entry has none.
+_Avoid_: sublabel, tag, caption
+
 **Star**:
 The margin mark on a page's key goal. Starred entries float to the top of their section.
 _Avoid_: pin, favorite, priority
