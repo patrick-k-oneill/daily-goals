@@ -6,17 +6,37 @@ import {
   yearKeyOf,
   type DayKey,
 } from '@/lib/dates';
+import {
+  isArrayOf,
+  isBoolean,
+  isNumber,
+  isOneOf,
+  isOptional,
+  isRecord,
+  isString,
+  isTimestamp,
+} from '@/lib/guards';
 import { newId } from '@/lib/id';
-import { EPOCH, mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
+import {
+  EPOCH,
+  isTombstones,
+  mergeKeyed,
+  withTombstone,
+  type KeyOf,
+  type Stamp,
+} from '@/lib/merge';
 
 import {
   CADENCES,
+  CHECK_STATES,
   type Cadence,
   type CheckState,
   type GoalEntry,
   type GoalTemplate,
   type Goals,
+  type LegacyGoalEntry,
   type LegacyGoals,
+  type LegacyGoalTemplate,
 } from './types';
 
 /** A goal line holds between one and this many checks. */
@@ -386,4 +406,77 @@ function byPadOrder(a: GoalEntry, b: GoalEntry): number {
 
 function nextSortOrder(items: { sortOrder: number }[]): number {
   return items.reduce((max, item) => Math.max(max, item.sortOrder), 0) + 1;
+}
+
+const isCadence = isOneOf(CADENCES);
+const isCheckState = isOneOf(CHECK_STATES);
+const isOptionalString = isOptional(isString);
+const isOptionalStrings = isOptional(isArrayOf(isString));
+const isOptionalTimestamp = isOptional(isTimestamp);
+
+/** Goals as they arrive from a file — a pad file, a cloud file — in the current shape. */
+export function isGoals(value: unknown): value is Goals {
+  return (
+    isRecord(value) &&
+    isArrayOf(isGoalTemplate)(value.templates) &&
+    isArrayOf(isGoalEntry)(value.entries) &&
+    isTombstones(value.tombstones)
+  );
+}
+
+/** Goals as a schema 1 pad file held them: `active` instead of `retiredAt`, no stamps, no tombstones. */
+export function isLegacyGoals(value: unknown): value is LegacyGoals {
+  return (
+    isRecord(value) &&
+    isArrayOf(isLegacyGoalTemplate)(value.templates) &&
+    isArrayOf(isLegacyGoalEntry)(value.entries)
+  );
+}
+
+export function isGoalTemplate(value: unknown): value is GoalTemplate {
+  return (
+    isRecord(value) &&
+    hasTemplateFields(value) &&
+    isOptionalTimestamp(value.retiredAt) &&
+    isTimestamp(value.updatedAt)
+  );
+}
+
+export function isGoalEntry(value: unknown): value is GoalEntry {
+  return isRecord(value) && hasEntryFields(value) && isTimestamp(value.updatedAt);
+}
+
+function isLegacyGoalTemplate(value: unknown): value is LegacyGoalTemplate {
+  return isRecord(value) && hasTemplateFields(value) && isBoolean(value.active);
+}
+
+function isLegacyGoalEntry(value: unknown): value is LegacyGoalEntry {
+  return isRecord(value) && hasEntryFields(value);
+}
+
+/** The fields a template has had in every schema. */
+function hasTemplateFields(value: Record<string, unknown>): boolean {
+  return (
+    isString(value.id) &&
+    isCadence(value.cadence) &&
+    isString(value.title) &&
+    isNumber(value.targetCount) &&
+    isOptionalStrings(value.checkLabels) &&
+    isNumber(value.sortOrder)
+  );
+}
+
+/** The fields an entry has had in every schema. */
+function hasEntryFields(value: Record<string, unknown>): boolean {
+  return (
+    isString(value.id) &&
+    isOptionalString(value.templateId) &&
+    isCadence(value.cadence) &&
+    isString(value.periodKey) &&
+    isString(value.title) &&
+    isArrayOf(isCheckState)(value.checks) &&
+    isOptionalStrings(value.checkLabels) &&
+    isBoolean(value.starred) &&
+    isNumber(value.sortOrder)
+  );
 }

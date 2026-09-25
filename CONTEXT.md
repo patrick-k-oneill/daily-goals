@@ -93,3 +93,15 @@ _Avoid_: soft delete, deleted flag
 **Merge**:
 Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned.
 _Avoid_: sync (for the rule itself), overwrite, replace
+
+**Cloud pad**:
+The pad as iCloud Drive holds it: files under `pad/` in the hidden root of the app's container — each feature's index, and one file of entries per year — that every device pulls from and pushes to (ADR 0006).
+_Avoid_: backup, remote copy, server
+
+**Pull**:
+Reading the cloud pad and merging it into this device's pad. Happens when the pad opens, returns to the foreground, hears another device write, or iCloud comes back.
+_Avoid_: download, fetch, refresh
+
+**Push**:
+Writing the cloud files this device's pad differs from, a moment after the last write. Never before a pull, never over a file that couldn't be read.
+_Avoid_: upload, save to cloud, backup
