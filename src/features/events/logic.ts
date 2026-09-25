@@ -1,7 +1,8 @@
 import type { DayKey } from '@/lib/dates';
 import { newId } from '@/lib/id';
+import { mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
-import type { UpcomingEvent } from './types';
+import type { LegacyUpcomingEvent, UpcomingEvent, UpcomingEvents } from './types';
 
 export interface EventInput {
   date: DayKey;
@@ -18,19 +19,23 @@ export interface EventPatch {
 }
 
 /** Jot a new event. Fields are trimmed and blank optionals dropped; a blank title jots nothing. */
-export function addEvent(events: UpcomingEvent[], input: EventInput): UpcomingEvent[] {
+export function addEvent(upcoming: UpcomingEvents, input: EventInput, now: Stamp): UpcomingEvents {
   const title = input.title.trim();
-  if (!title) return events;
-  return [
-    ...events,
-    {
-      id: newId(),
-      date: input.date,
-      title,
-      timeLabel: trimOptional(input.timeLabel),
-      note: trimOptional(input.note),
-    },
-  ];
+  if (!title) return upcoming;
+  return {
+    ...upcoming,
+    events: [
+      ...upcoming.events,
+      {
+        id: newId(),
+        date: input.date,
+        title,
+        timeLabel: trimOptional(input.timeLabel),
+        note: trimOptional(input.note),
+        updatedAt: now,
+      },
+    ],
+  };
 }
 
 /**
@@ -39,30 +44,56 @@ export function addEvent(events: UpcomingEvent[], input: EventInput): UpcomingEv
  * input untouched, as does an unknown id.
  */
 export function updateEvent(
-  events: UpcomingEvent[],
+  upcoming: UpcomingEvents,
   id: string,
   patch: EventPatch,
-): UpcomingEvent[] {
+  now: Stamp,
+): UpcomingEvents {
   const title = patch.title?.trim();
-  if (patch.title !== undefined && !title) return events;
-  if (!events.some((e) => e.id === id)) return events;
+  if (patch.title !== undefined && !title) return upcoming;
+  if (!upcoming.events.some((e) => e.id === id)) return upcoming;
 
-  return events.map((e) =>
-    e.id === id
-      ? {
-          ...e,
-          date: patch.date ?? e.date,
-          title: title ?? e.title,
-          timeLabel: patch.timeLabel === undefined ? e.timeLabel : trimOptional(patch.timeLabel),
-          note: patch.note === undefined ? e.note : trimOptional(patch.note),
-        }
-      : e,
-  );
+  return {
+    ...upcoming,
+    events: upcoming.events.map((e) =>
+      e.id === id
+        ? {
+            ...e,
+            date: patch.date ?? e.date,
+            title: title ?? e.title,
+            timeLabel: patch.timeLabel === undefined ? e.timeLabel : trimOptional(patch.timeLabel),
+            note: patch.note === undefined ? e.note : trimOptional(patch.note),
+            updatedAt: now,
+          }
+        : e,
+    ),
+  };
 }
 
-export function removeEvent(events: UpcomingEvent[], id: string): UpcomingEvent[] {
-  if (!events.some((e) => e.id === id)) return events;
-  return events.filter((e) => e.id !== id);
+/** Scratch an event out, leaving a tombstone so no copy of it comes back. */
+export function removeEvent(upcoming: UpcomingEvents, id: string, now: Stamp): UpcomingEvents {
+  if (!upcoming.events.some((e) => e.id === id)) return upcoming;
+  return {
+    events: upcoming.events.filter((e) => e.id !== id),
+    tombstones: withTombstone(upcoming.tombstones, id, now),
+  };
+}
+
+const byId: KeyOf<UpcomingEvent> = { key: (e) => e.id, stamp: (e) => e.updatedAt };
+
+/** Reconcile two copies of the jottings event by event, the later write winning (ADR 0005). */
+export function mergeEvents(local: UpcomingEvents, remote: UpcomingEvents): UpcomingEvents {
+  const merged = mergeKeyed(
+    { items: local.events, tombstones: local.tombstones },
+    { items: remote.events, tombstones: remote.tombstones },
+    byId,
+  );
+  return { events: merged.items, tombstones: merged.tombstones };
+}
+
+/** Events persisted before stamps, each stamped `now`: the moment this device first knew it. */
+export function upgradeLegacyEvents(events: LegacyUpcomingEvent[], now: Stamp): UpcomingEvents {
+  return { events: events.map((e) => ({ ...e, updatedAt: now })), tombstones: {} };
 }
 
 /** Events from `fromDate` on, soonest first; same-day events alphabetical. */

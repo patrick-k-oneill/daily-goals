@@ -1,6 +1,6 @@
 import type { UpcomingEvent } from '@/features/events/types';
 import type { Cadence, CheckState, GoalEntry, GoalTemplate } from '@/features/goals/types';
-import type { GratitudeEntries } from '@/features/gratitude/logic';
+import type { GratitudeEntries } from '@/features/gratitude/types';
 import { addDays, weekKeyOf, yearKeyOf, type DayKey } from '@/lib/dates';
 
 import { formatBytes, storageFootprint } from './footprint';
@@ -16,9 +16,9 @@ const WEB_LOCAL_STORAGE_BYTES = 5 * 1024 * 1024;
  * moves them, and that is the moment to revisit the decision.
  */
 const RECORDED_FIGURES = [
-  { years: 1, goals: 746_516, gratitude: 177_768, events: 9_619, total: 933_903 },
-  { years: 3, goals: 2_234_235, gratitude: 533_278, events: 28_887, total: 2_796_400 },
-  { years: 5, goals: 3_721_916, gratitude: 888_788, events: 48_128, total: 4_658_832 },
+  { years: 1, goals: 905_876, gratitude: 177_784, events: 13_535, total: 1_097_195 },
+  { years: 3, goals: 2_711_133, gratitude: 533_294, events: 40_603, total: 3_285_030 },
+  { years: 5, goals: 4_516_352, gratitude: 888_804, events: 67_644, total: 5_472_800 },
 ];
 
 describe('storageFootprint', () => {
@@ -26,8 +26,8 @@ describe('storageFootprint', () => {
     const pad = syntheticPad(0);
     const footprint = storageFootprint(pad);
     expect(footprint.goals).toBe(utf8Bytes(JSON.stringify(pad.goals)));
-    expect(footprint.gratitude).toBe(utf8Bytes(JSON.stringify({ entries: pad.gratitude })));
-    expect(footprint.events).toBe(utf8Bytes(JSON.stringify({ events: pad.events })));
+    expect(footprint.gratitude).toBe(utf8Bytes(JSON.stringify(pad.gratitude)));
+    expect(footprint.events).toBe(utf8Bytes(JSON.stringify(pad.events)));
     expect(footprint.total).toBe(footprint.goals + footprint.gratitude + footprint.events);
   });
 
@@ -52,9 +52,11 @@ describe('storageFootprint', () => {
     expect(five / one).toBeLessThanOrEqual(5);
   });
 
-  it('stays under the tightest platform ceiling for five years of pages', () => {
+  it('keeps four years of pages under every platform ceiling, and five under Android’s', () => {
+    const fourYears = storageFootprint(syntheticPad(4));
     const fiveYears = storageFootprint(syntheticPad(5));
-    expect(fiveYears.total).toBeLessThan(WEB_LOCAL_STORAGE_BYTES);
+    expect(fourYears.total).toBeLessThan(WEB_LOCAL_STORAGE_BYTES);
+    expect(fiveYears.total).toBeGreaterThan(WEB_LOCAL_STORAGE_BYTES);
     expect(fiveYears.total).toBeLessThan(ANDROID_ASYNC_STORAGE_DEFAULT_BYTES);
   });
 });
@@ -78,6 +80,8 @@ const DAYS_PER_YEAR = 365;
 const WEEKS_PER_YEAR = 52;
 const EVENTS_PER_YEAR = 100;
 const GRATITUDE_CHARS = 400;
+/** Every item carries a stamp of this length (ADR 0005). */
+const STAMP = '2026-01-05T08:00:00.000Z';
 
 const DAILY: [string, number][] = [
   ['Recurring Dailies', 1],
@@ -150,10 +154,15 @@ function syntheticPad(years: number): PadData {
       title: e % 2 ? 'IRC' : 'Dinner with the Harlows',
       timeLabel: e % 3 ? '4pm–5:30pm' : undefined,
       note: e % 4 ? undefined : 'bring the good wine',
+      updatedAt: STAMP,
     });
   }
 
-  return { goals: { templates, entries }, gratitude, events };
+  return {
+    goals: { templates, entries, tombstones: {} },
+    gratitude: { entries: gratitude, tombstones: {} },
+    events: { events, tombstones: {} },
+  };
 }
 
 let ids = 0;
@@ -170,7 +179,7 @@ function template(
   sortOrder: number,
   checkLabels?: string[],
 ): GoalTemplate {
-  return { id: id(ids++), cadence, title, targetCount, checkLabels, active: true, sortOrder };
+  return { id: id(ids++), cadence, title, targetCount, checkLabels, sortOrder, updatedAt: STAMP };
 }
 
 const CHECK_CYCLE: CheckState[] = ['done', 'done', 'missed', 'empty'];
@@ -186,6 +195,7 @@ function entry(t: GoalTemplate, periodKey: string, n: number): GoalEntry {
     checkLabels: t.checkLabels,
     starred: n % 3 === 0,
     sortOrder: t.sortOrder,
+    updatedAt: STAMP,
   };
 }
 
@@ -195,9 +205,12 @@ function gratitudeText(day: number): string {
 
 function padWithGratitude(text: string): PadData {
   return {
-    goals: { templates: [], entries: [] },
-    gratitude: { '2026-01-05': { forDate: '2026-01-05', writtenAt: '2026-01-06T07:00:00Z', text } },
-    events: [],
+    goals: { templates: [], entries: [], tombstones: {} },
+    gratitude: {
+      entries: { '2026-01-05': { forDate: '2026-01-05', writtenAt: '2026-01-06T07:00:00Z', text } },
+      tombstones: {},
+    },
+    events: { events: [], tombstones: {} },
   };
 }
 

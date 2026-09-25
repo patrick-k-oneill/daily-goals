@@ -1,19 +1,24 @@
-import type { UpcomingEvent } from '@/features/events/types';
+import { upgradeLegacyEvents } from '@/features/events/logic';
+import type { LegacyUpcomingEvent, UpcomingEvent, UpcomingEvents } from '@/features/events/types';
+import { upgradeLegacyGoals } from '@/features/goals/logic';
 import {
   CADENCES,
   CHECK_STATES,
   type GoalEntry,
   type GoalTemplate,
   type Goals,
+  type LegacyGoalEntry,
+  type LegacyGoalTemplate,
+  type LegacyGoals,
 } from '@/features/goals/types';
-import type { GratitudeEntries } from '@/features/gratitude/logic';
-import type { GratitudeEntry } from '@/features/gratitude/types';
+import type { Gratitude, GratitudeEntries, GratitudeEntry } from '@/features/gratitude/types';
 import type { DayKey } from '@/lib/dates';
+import type { Stamp, Tombstones } from '@/lib/merge';
 
-import type { PadData, PadFile } from './types';
+import type { LegacyPadData, PadData, PadFile } from './types';
 
 /** Bump when the file shape changes; an older app refuses a newer file. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** What a readable pad file holds. */
 export interface PadFileContents {
@@ -41,24 +46,22 @@ export function serializePad(pad: PadData, now: string): string {
 
 /**
  * Read a pad file back. Anything that isn't a pad file, was written by a newer
- * app, or has a part in the wrong shape is refused with a reason to show.
+ * app, or has a part in the wrong shape is refused with a reason to show. A
+ * schema 1 file predates stamps; its items are stamped `now`, the moment this
+ * device first knew them.
  */
-export function parsePad(text: string): ParsedPad {
+export function parsePad(text: string, now: Stamp): ParsedPad {
   const file = parseJson(text);
   if (!isRecord(file) || !isNumber(file.schemaVersion)) return refuse(NOT_A_PAD_FILE);
-  // Only the current version is readable: newer needs a newer app, older never existed.
   if (file.schemaVersion > SCHEMA_VERSION) return refuse(NEWER_PAD_FILE);
-  if (file.schemaVersion !== SCHEMA_VERSION) return refuse(NOT_A_PAD_FILE);
+  if (file.schemaVersion !== 1 && file.schemaVersion !== SCHEMA_VERSION) {
+    return refuse(NOT_A_PAD_FILE);
+  }
   if (!isTimestamp(file.exportedAt)) return refuse(damaged('export date'));
-  if (!isGoals(file.goals)) return refuse(damaged('goals'));
-  if (!isGratitudeEntries(file.gratitude)) return refuse(damaged('gratitude entries'));
-  if (!isArrayOf(isUpcomingEvent)(file.events)) return refuse(damaged('upcoming events'));
 
-  return {
-    ok: true,
-    exportedAt: file.exportedAt,
-    pad: { goals: file.goals, gratitude: file.gratitude, events: file.events },
-  };
+  const pad = file.schemaVersion === 1 ? readLegacyPad(file, now) : readPad(file);
+  if (typeof pad === 'string') return refuse(pad);
+  return { ok: true, exportedAt: file.exportedAt, pad };
 }
 
 /** `daily-goals-2026-08-27.json` */
@@ -71,10 +74,34 @@ export function describePad(pad: PadData): string {
   const parts = [
     count(pad.goals.templates.length, 'template'),
     count(pad.goals.entries.length, 'entry', 'entries'),
-    count(Object.keys(pad.gratitude).length, 'gratitude entry', 'gratitude entries'),
-    count(pad.events.length, 'upcoming event'),
+    count(Object.keys(pad.gratitude.entries).length, 'gratitude entry', 'gratitude entries'),
+    count(pad.events.events.length, 'upcoming event'),
   ];
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+/** The pad's three parts, or the reason the first damaged one is refused. */
+function readPad(file: Record<string, unknown>): PadData | string {
+  if (!isGoals(file.goals)) return damaged('goals');
+  if (!isGratitude(file.gratitude)) return damaged('gratitude entries');
+  if (!isUpcomingEvents(file.events)) return damaged('upcoming events');
+  return { goals: file.goals, gratitude: file.gratitude, events: file.events };
+}
+
+function readLegacyPad(file: Record<string, unknown>, now: Stamp): PadData | string {
+  if (!isLegacyGoals(file.goals)) return damaged('goals');
+  if (!isGratitudeEntries(file.gratitude)) return damaged('gratitude entries');
+  if (!isArrayOf(isLegacyUpcomingEvent)(file.events)) return damaged('upcoming events');
+  const legacy: LegacyPadData = {
+    goals: file.goals,
+    gratitude: file.gratitude,
+    events: file.events,
+  };
+  return {
+    goals: upgradeLegacyGoals(legacy.goals, now),
+    gratitude: { entries: legacy.gratitude, tombstones: {} },
+    events: upgradeLegacyEvents(legacy.events, now),
+  };
 }
 
 function count(n: number, singular: string, plural = `${singular}s`): string {
@@ -135,23 +162,40 @@ const isCadence = isOneOf(CADENCES);
 const isCheckState = isOneOf(CHECK_STATES);
 const isOptionalString = isOptional(isString);
 const isOptionalStrings = isOptional(isArrayOf(isString));
+const isOptionalTimestamp = isOptional(isTimestamp);
 
-function isGoalTemplate(value: unknown): value is GoalTemplate {
+function isTombstones(value: unknown): value is Tombstones {
+  return isRecord(value) && Object.values(value).every(isTimestamp);
+}
+
+/** The fields a template has had in every schema. */
+function hasTemplateFields(value: Record<string, unknown>): boolean {
   return (
-    isRecord(value) &&
     isString(value.id) &&
     isCadence(value.cadence) &&
     isString(value.title) &&
     isNumber(value.targetCount) &&
     isOptionalStrings(value.checkLabels) &&
-    isBoolean(value.active) &&
     isNumber(value.sortOrder)
   );
 }
 
-function isGoalEntry(value: unknown): value is GoalEntry {
+function isGoalTemplate(value: unknown): value is GoalTemplate {
   return (
     isRecord(value) &&
+    hasTemplateFields(value) &&
+    isOptionalTimestamp(value.retiredAt) &&
+    isTimestamp(value.updatedAt)
+  );
+}
+
+function isLegacyGoalTemplate(value: unknown): value is LegacyGoalTemplate {
+  return isRecord(value) && hasTemplateFields(value) && isBoolean(value.active);
+}
+
+/** The fields an entry has had in every schema. */
+function hasEntryFields(value: Record<string, unknown>): boolean {
+  return (
     isString(value.id) &&
     isOptionalString(value.templateId) &&
     isCadence(value.cadence) &&
@@ -164,17 +208,37 @@ function isGoalEntry(value: unknown): value is GoalEntry {
   );
 }
 
+function isGoalEntry(value: unknown): value is GoalEntry {
+  return isRecord(value) && hasEntryFields(value) && isTimestamp(value.updatedAt);
+}
+
+function isLegacyGoalEntry(value: unknown): value is LegacyGoalEntry {
+  return isRecord(value) && hasEntryFields(value);
+}
+
 function isGoals(value: unknown): value is Goals {
   return (
     isRecord(value) &&
     isArrayOf(isGoalTemplate)(value.templates) &&
-    isArrayOf(isGoalEntry)(value.entries)
+    isArrayOf(isGoalEntry)(value.entries) &&
+    isTombstones(value.tombstones)
+  );
+}
+
+function isLegacyGoals(value: unknown): value is LegacyGoals {
+  return (
+    isRecord(value) &&
+    isArrayOf(isLegacyGoalTemplate)(value.templates) &&
+    isArrayOf(isLegacyGoalEntry)(value.entries)
   );
 }
 
 function isGratitudeEntry(value: unknown): value is GratitudeEntry {
   return (
-    isRecord(value) && isString(value.forDate) && isString(value.writtenAt) && isString(value.text)
+    isRecord(value) &&
+    isString(value.forDate) &&
+    isTimestamp(value.writtenAt) &&
+    isString(value.text)
   );
 }
 
@@ -186,13 +250,31 @@ function isGratitudeEntries(value: unknown): value is GratitudeEntries {
   );
 }
 
-function isUpcomingEvent(value: unknown): value is UpcomingEvent {
+function isGratitude(value: unknown): value is Gratitude {
+  return isRecord(value) && isGratitudeEntries(value.entries) && isTombstones(value.tombstones);
+}
+
+/** The fields an event has had in every schema. */
+function hasEventFields(value: Record<string, unknown>): boolean {
   return (
-    isRecord(value) &&
     isString(value.id) &&
     isString(value.date) &&
     isString(value.title) &&
     isOptionalString(value.timeLabel) &&
     isOptionalString(value.note)
+  );
+}
+
+function isUpcomingEvent(value: unknown): value is UpcomingEvent {
+  return isRecord(value) && hasEventFields(value) && isTimestamp(value.updatedAt);
+}
+
+function isLegacyUpcomingEvent(value: unknown): value is LegacyUpcomingEvent {
+  return isRecord(value) && hasEventFields(value);
+}
+
+function isUpcomingEvents(value: unknown): value is UpcomingEvents {
+  return (
+    isRecord(value) && isArrayOf(isUpcomingEvent)(value.events) && isTombstones(value.tombstones)
   );
 }

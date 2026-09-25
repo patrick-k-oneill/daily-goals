@@ -1,5 +1,13 @@
+import {
+  dayKeyOf,
+  formatPadDate,
+  formatWeekRange,
+  weekKeyOf,
+  yearKeyOf,
+  type DayKey,
+} from '@/lib/dates';
 import { newId } from '@/lib/id';
-import { formatPadDate, formatWeekRange, weekKeyOf, yearKeyOf, type DayKey } from '@/lib/dates';
+import { EPOCH, mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
 import {
   CADENCES,
@@ -8,6 +16,7 @@ import {
   type GoalEntry,
   type GoalTemplate,
   type Goals,
+  type LegacyGoals,
 } from './types';
 
 /** A goal line holds between one and this many checks. */
@@ -43,7 +52,16 @@ export function entriesForPeriod(entries: GoalEntry[], periodKey: string): GoalE
   return entries.filter((e) => e.periodKey === periodKey).sort(byPadOrder);
 }
 
-/** The recurring goals from the legal pad, as first-run defaults. */
+/** The id every device gives a template's line on a period, so two copies of it are one line. */
+export function materializedEntryId(templateId: string, periodKey: string): string {
+  return `${templateId}:${periodKey}`;
+}
+
+function seedTemplateId(cadence: Cadence, sortOrder: number): string {
+  return `seed:${cadence}:${sortOrder}`;
+}
+
+/** The recurring goals from the legal pad, as first-run defaults; the same ids on every device. */
 export function seedGoals(): Goals {
   const seed = (
     cadence: Cadence,
@@ -52,13 +70,13 @@ export function seedGoals(): Goals {
     sortOrder: number,
     checkLabels?: string[],
   ): GoalTemplate => ({
-    id: newId(),
+    id: seedTemplateId(cadence, sortOrder),
     cadence,
     title,
     targetCount,
     checkLabels,
-    active: true,
     sortOrder,
+    updatedAt: EPOCH,
   });
 
   return {
@@ -70,13 +88,15 @@ export function seedGoals(): Goals {
       seed('weekly', 'Weekly Prod', 6, 3),
     ],
     entries: [],
+    tombstones: {},
   };
 }
 
 /**
  * Materialize active templates onto a period's section — but only the period
  * containing `today`: a past page renders exactly what was written on it, like
- * paper. Idempotent; returns the same `goals` when nothing is missing.
+ * paper. A line crossed off stays off. Idempotent; returns the same `goals`
+ * when nothing is missing.
  */
 export function ensurePeriod(
   goals: Goals,
@@ -93,9 +113,11 @@ export function ensurePeriod(
 
   const additions: GoalEntry[] = [];
   for (const t of goals.templates) {
-    if (!t.active || t.cadence !== cadence || instantiated.has(t.id)) continue;
+    if (t.retiredAt || t.cadence !== cadence || instantiated.has(t.id)) continue;
+    const id = materializedEntryId(t.id, periodKey);
+    if (id in goals.tombstones) continue;
     additions.push({
-      id: newId(),
+      id,
       templateId: t.id,
       cadence,
       periodKey,
@@ -104,10 +126,11 @@ export function ensurePeriod(
       checkLabels: t.checkLabels,
       starred: false,
       sortOrder: t.sortOrder,
+      updatedAt: EPOCH,
     });
   }
   if (additions.length === 0) return goals;
-  return { templates: goals.templates, entries: [...goals.entries, ...additions] };
+  return { ...goals, entries: [...goals.entries, ...additions] };
 }
 
 /**
@@ -134,7 +157,7 @@ export interface AddGoalInput {
 }
 
 /** Write a new line at the bottom of a period's section. A blank title writes nothing. */
-export function addGoal(goals: Goals, input: AddGoalInput): Goals {
+export function addGoal(goals: Goals, input: AddGoalInput, now: Stamp): Goals {
   const title = input.title.trim();
   if (!title) return goals;
 
@@ -147,10 +170,10 @@ export function addGoal(goals: Goals, input: AddGoalInput): Goals {
   const checkLabels = fitCheckLabels(input.checkLabels, targetCount);
 
   const template: GoalTemplate | undefined = input.repeats
-    ? { id: newId(), cadence, title, targetCount, checkLabels, active: true, sortOrder }
+    ? { id: newId(), cadence, title, targetCount, checkLabels, sortOrder, updatedAt: now }
     : undefined;
   const entry: GoalEntry = {
-    id: newId(),
+    id: template ? materializedEntryId(template.id, periodKey) : newId(),
     templateId: template?.id,
     cadence,
     periodKey,
@@ -159,24 +182,27 @@ export function addGoal(goals: Goals, input: AddGoalInput): Goals {
     checkLabels,
     starred: false,
     sortOrder,
+    updatedAt: now,
   };
 
   return {
+    ...goals,
     templates: template ? [...goals.templates, template] : goals.templates,
     entries: [...goals.entries, entry],
   };
 }
 
 /** One pen tap on a check: empty → done → missed → empty. */
-export function cycleCheck(goals: Goals, entryId: string, checkIndex: number): Goals {
+export function cycleCheck(goals: Goals, entryId: string, checkIndex: number, now: Stamp): Goals {
   return mapEntry(goals, entryId, (e) => ({
     ...e,
     checks: e.checks.map((c, i) => (i === checkIndex ? cycleState(c) : c)),
+    updatedAt: now,
   }));
 }
 
-export function toggleStar(goals: Goals, entryId: string): Goals {
-  return mapEntry(goals, entryId, (e) => ({ ...e, starred: !e.starred }));
+export function toggleStar(goals: Goals, entryId: string, now: Stamp): Goals {
+  return mapEntry(goals, entryId, (e) => ({ ...e, starred: !e.starred, updatedAt: now }));
 }
 
 export interface GoalEditPatch {
@@ -191,7 +217,7 @@ export interface GoalEditPatch {
  * future pages inherit the new title, check count and labels. A blank title
  * keeps the old one; existing marks survive a resize and labels follow it.
  */
-export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch): Goals {
+export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
 
@@ -200,14 +226,15 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch):
   const checkLabels = fitCheckLabels(patch.checkLabels ?? entry.checkLabels, targetCount);
 
   return {
+    ...goals,
     entries: goals.entries.map((e) =>
       e.id === entryId
-        ? { ...e, title, checks: resizeChecks(e.checks, targetCount), checkLabels }
+        ? { ...e, title, checks: resizeChecks(e.checks, targetCount), checkLabels, updatedAt: now }
         : e,
     ),
     templates: entry.templateId
       ? goals.templates.map((t) =>
-          t.id === entry.templateId ? { ...t, title, targetCount, checkLabels } : t,
+          t.id === entry.templateId ? { ...t, title, targetCount, checkLabels, updatedAt: now } : t,
         )
       : goals.templates,
   };
@@ -219,25 +246,97 @@ export function hasCheckLabels(checkLabels: string[] | undefined): boolean {
 }
 
 /**
- * Cross a line off the page. Removing a recurring goal also retires its
- * template, so it neither returns to this page nor appears on future ones.
+ * Cross a line off the page, leaving a tombstone so no copy of it comes back.
+ * Removing a recurring goal also retires its template, so it neither returns
+ * to this page nor appears on future ones.
  */
-export function removeGoal(goals: Goals, entryId: string): Goals {
+export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
 
   return {
     entries: goals.entries.filter((e) => e.id !== entryId),
+    tombstones: withTombstone(goals.tombstones, entryId, now),
     templates: entry.templateId
-      ? goals.templates.map((t) => (t.id === entry.templateId ? { ...t, active: false } : t))
+      ? goals.templates.map((t) =>
+          t.id === entry.templateId ? { ...t, retiredAt: now, updatedAt: now } : t,
+        )
       : goals.templates,
   };
+}
+
+const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => x.updatedAt };
+
+/**
+ * Reconcile two copies of the goals, item by item (ADR 0005): templates and
+ * entries each by id, the later write winning, crossed-off lines staying off.
+ * A line a stale device wrote for a template after it was retired is dropped.
+ */
+export function mergeGoals(local: Goals, remote: Goals): Goals {
+  const templates = mergeKeyed(
+    { items: local.templates, tombstones: {} },
+    { items: remote.templates, tombstones: {} },
+    byId,
+  ).items;
+  const entries = mergeKeyed(
+    { items: local.entries, tombstones: local.tombstones },
+    { items: remote.entries, tombstones: remote.tombstones },
+    byId,
+  );
+  const retired = new Map(
+    templates.flatMap((t) => (t.retiredAt ? [[t.id, t.retiredAt] as const] : [])),
+  );
+  return {
+    templates,
+    entries: entries.items.filter((e) => !isGhost(e, retired)),
+    tombstones: entries.tombstones,
+  };
+}
+
+/**
+ * The pad as persisted before stamps, brought into shape: everything stamped
+ * `now` (the moment this device first knew it), seed templates and materialized
+ * lines given the ids every device shares, retirements marked at the epoch.
+ */
+export function upgradeLegacyGoals(legacy: LegacyGoals, now: Stamp): Goals {
+  const seedIds = new Set(seedGoals().templates.map((t) => t.id));
+  const templateIds = new Map(
+    legacy.templates.map((t) => {
+      const seedId = seedTemplateId(t.cadence, t.sortOrder);
+      return [t.id, seedIds.has(seedId) ? seedId : t.id];
+    }),
+  );
+
+  const templates = legacy.templates.map(({ active, ...t }) => ({
+    ...t,
+    id: templateIds.get(t.id) ?? t.id,
+    updatedAt: now,
+    ...(active ? {} : { retiredAt: EPOCH }),
+  }));
+  const entries = legacy.entries.map((e) => {
+    if (!e.templateId) return { ...e, updatedAt: now };
+    const templateId = templateIds.get(e.templateId) ?? e.templateId;
+    return { ...e, id: materializedEntryId(templateId, e.periodKey), templateId, updatedAt: now };
+  });
+  return { templates, entries, tombstones: {} };
+}
+
+/**
+ * An untouched materialized line on a period that began after its template
+ * was retired: a stale device wrote it before it heard. Every device drops it
+ * the same way, so it needs no tombstone.
+ */
+function isGhost(entry: GoalEntry, retired: Map<string, Stamp>): boolean {
+  if (!entry.templateId || entry.updatedAt !== EPOCH) return false;
+  const retiredAt = retired.get(entry.templateId);
+  if (retiredAt === undefined) return false;
+  return periodKeyFor(entry.cadence, dayKeyOf(new Date(retiredAt))) < entry.periodKey;
 }
 
 function mapEntry(goals: Goals, entryId: string, update: (e: GoalEntry) => GoalEntry): Goals {
   if (!goals.entries.some((e) => e.id === entryId)) return goals;
   return {
-    templates: goals.templates,
+    ...goals,
     entries: goals.entries.map((e) => (e.id === entryId ? update(e) : e)),
   };
 }

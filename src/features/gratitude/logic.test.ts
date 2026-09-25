@@ -1,7 +1,15 @@
-import { currentStreak, hasEntry, reflectionDateFor, saveEntry, sortedEntries } from './logic';
-import type { GratitudeEntry } from './types';
+import {
+  currentStreak,
+  hasEntry,
+  mergeGratitude,
+  reflectionDateFor,
+  saveEntry,
+  sortedEntries,
+} from './logic';
+import type { Gratitude, GratitudeEntry } from './types';
 
 const WRITTEN_AT = '2026-08-22T08:00:00.000Z';
+const LATER = '2026-08-22T09:00:00.000Z';
 
 function entry(forDate: string, text = 'grateful'): GratitudeEntry {
   return { forDate, writtenAt: `${forDate}T08:00:00.000Z`, text };
@@ -9,6 +17,10 @@ function entry(forDate: string, text = 'grateful'): GratitudeEntry {
 
 function byDate(...dates: string[]): Record<string, GratitudeEntry> {
   return Object.fromEntries(dates.map((d) => [d, entry(d)]));
+}
+
+function journal(...dates: string[]): Gratitude {
+  return { entries: byDate(...dates), tombstones: {} };
 }
 
 describe('reflectionDateFor', () => {
@@ -20,7 +32,7 @@ describe('reflectionDateFor', () => {
 
 describe('saveEntry', () => {
   it('writes the entry keyed by the day reflected on, stamping when it was written', () => {
-    const entries = saveEntry({}, '2026-08-21', 'Amy, Leto', WRITTEN_AT);
+    const { entries } = saveEntry(journal(), '2026-08-21', 'Amy, Leto', WRITTEN_AT);
     expect(entries['2026-08-21']).toEqual({
       forDate: '2026-08-21',
       writtenAt: WRITTEN_AT,
@@ -30,25 +42,59 @@ describe('saveEntry', () => {
   });
 
   it('keeps only the latest of sequential saves for the same date', () => {
-    let entries = saveEntry({}, '2026-08-21', 'first draft', WRITTEN_AT);
-    entries = saveEntry(entries, '2026-08-21', 'second draft', WRITTEN_AT);
-    expect(entries['2026-08-21'].text).toBe('second draft');
+    let gratitude = saveEntry(journal(), '2026-08-21', 'first draft', WRITTEN_AT);
+    gratitude = saveEntry(gratitude, '2026-08-21', 'second draft', WRITTEN_AT);
+    expect(gratitude.entries['2026-08-21'].text).toBe('second draft');
   });
 
-  it('tears the page out when the text is emptied, and leaves other days alone', () => {
-    let entries = byDate('2026-08-20', '2026-08-21');
-    entries = saveEntry(entries, '2026-08-21', '', WRITTEN_AT);
-    expect(entries['2026-08-21']).toBeUndefined();
-    expect(hasEntry(entries, '2026-08-21')).toBe(false);
-    expect(entries['2026-08-20'].text).toBe('grateful');
+  it('tears the page out when the text is emptied, leaving a tombstone and other days alone', () => {
+    let gratitude = journal('2026-08-20', '2026-08-21');
+    gratitude = saveEntry(gratitude, '2026-08-21', '', WRITTEN_AT);
+    expect(gratitude.entries['2026-08-21']).toBeUndefined();
+    expect(hasEntry(gratitude.entries, '2026-08-21')).toBe(false);
+    expect(gratitude.entries['2026-08-20'].text).toBe('grateful');
+    expect(gratitude.tombstones).toEqual({ '2026-08-21': WRITTEN_AT });
 
-    expect(saveEntry(entries, '2026-08-21', '', WRITTEN_AT)).toBe(entries);
+    expect(saveEntry(gratitude, '2026-08-21', '', WRITTEN_AT)).toBe(gratitude);
+  });
+
+  it('writes a torn-out morning again, spending its tombstone', () => {
+    const torn = saveEntry(journal('2026-08-21'), '2026-08-21', '', WRITTEN_AT);
+    const rewritten = saveEntry(torn, '2026-08-21', 'after all', LATER);
+    expect(rewritten.entries['2026-08-21'].text).toBe('after all');
+    expect(rewritten.tombstones).toEqual({});
   });
 
   it('keeps a whitespace-only draft on the page without counting it as written', () => {
-    const entries = saveEntry(byDate('2026-08-21'), '2026-08-21', ' ', WRITTEN_AT);
+    const { entries } = saveEntry(journal('2026-08-21'), '2026-08-21', ' ', WRITTEN_AT);
     expect(entries['2026-08-21'].text).toBe(' ');
     expect(hasEntry(entries, '2026-08-21')).toBe(false);
+  });
+});
+
+describe('mergeGratitude', () => {
+  it('keeps the mornings each device wrote, and the later writing of one both edited', () => {
+    const phone = saveEntry(journal('2026-08-19'), '2026-08-21', 'on the phone', WRITTEN_AT);
+    const ipad = saveEntry(journal('2026-08-20'), '2026-08-21', 'on the iPad', LATER);
+    const merged = mergeGratitude(phone, ipad);
+    expect(Object.keys(merged.entries)).toEqual(['2026-08-19', '2026-08-20', '2026-08-21']);
+    expect(merged.entries['2026-08-21'].text).toBe('on the iPad');
+    expect(merged).toEqual(mergeGratitude(ipad, phone));
+  });
+
+  it('tears a morning out of the other device when it was emptied after its last writing', () => {
+    const phone = journal('2026-08-21');
+    const ipad = saveEntry(journal('2026-08-21'), '2026-08-21', '', LATER);
+    expect(mergeGratitude(phone, ipad).entries).toEqual({});
+    expect(mergeGratitude(phone, ipad).tombstones).toEqual({ '2026-08-21': LATER });
+  });
+
+  it('keeps a morning rewritten after it was torn out elsewhere', () => {
+    const torn = saveEntry(journal('2026-08-21'), '2026-08-21', '', WRITTEN_AT);
+    const rewritten = saveEntry(journal(), '2026-08-21', 'after all', LATER);
+    const merged = mergeGratitude(torn, rewritten);
+    expect(merged.entries['2026-08-21'].text).toBe('after all');
+    expect(merged.tombstones).toEqual({});
   });
 });
 
