@@ -15,8 +15,8 @@ export interface StorageFootprint {
  */
 export function storageFootprint(pad: PadData): StorageFootprint {
   const goals = jsonBytes(pad.goals);
-  const gratitude = jsonBytes({ entries: pad.gratitude });
-  const events = jsonBytes({ events: pad.events });
+  const gratitude = jsonBytes(pad.gratitude);
+  const events = jsonBytes(pad.events);
   return { goals, gratitude, events, total: goals + gratitude + events };
 }
 

@@ -1,8 +1,9 @@
 import { addDays, type DayKey } from '@/lib/dates';
+import { mergeKeyed, withoutTombstone, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
-import type { GratitudeEntry } from './types';
+import type { Gratitude, GratitudeEntries, GratitudeEntry } from './types';
 
-export type GratitudeEntries = Record<DayKey, GratitudeEntry>;
+export type { GratitudeEntries } from './types';
 
 /** The day a morning's journal reflects on: the day before. */
 export function reflectionDateFor(today: DayKey): DayKey {
@@ -10,22 +11,45 @@ export function reflectionDateFor(today: DayKey): DayKey {
 }
 
 /**
- * Write (or rewrite) a morning's entry; emptying the text tears the page out.
- * Only the empty string counts as emptied: a leading space or newline is a
- * draft in progress, and the written queries already ignore whitespace-only text.
+ * Write (or rewrite) a morning's entry; emptying the text tears the page out,
+ * leaving a tombstone. Only the empty string counts as emptied: a leading
+ * space or newline is a draft in progress, and the written queries already
+ * ignore whitespace-only text.
  */
 export function saveEntry(
-  entries: GratitudeEntries,
+  gratitude: Gratitude,
   forDate: DayKey,
   text: string,
-  writtenAt: string,
-): GratitudeEntries {
+  writtenAt: Stamp,
+): Gratitude {
+  const { entries, tombstones } = gratitude;
   if (text === '') {
-    if (!(forDate in entries)) return entries;
+    if (!(forDate in entries)) return gratitude;
     const { [forDate]: _removed, ...rest } = entries;
-    return rest;
+    return { entries: rest, tombstones: withTombstone(tombstones, forDate, writtenAt) };
   }
-  return { ...entries, [forDate]: { forDate, writtenAt, text } };
+  return {
+    entries: { ...entries, [forDate]: { forDate, writtenAt, text } },
+    tombstones: forDate in tombstones ? withoutTombstone(tombstones, forDate) : tombstones,
+  };
+}
+
+const byReflectionDate: KeyOf<GratitudeEntry> = {
+  key: (e) => e.forDate,
+  stamp: (e) => e.writtenAt,
+};
+
+/** Reconcile two copies of the journal morning by morning, the later writing winning (ADR 0005). */
+export function mergeGratitude(local: Gratitude, remote: Gratitude): Gratitude {
+  const merged = mergeKeyed(
+    { items: Object.values(local.entries), tombstones: local.tombstones },
+    { items: Object.values(remote.entries), tombstones: remote.tombstones },
+    byReflectionDate,
+  );
+  return {
+    entries: Object.fromEntries(merged.items.map((e) => [e.forDate, e])),
+    tombstones: merged.tombstones,
+  };
 }
 
 /** Whether a morning was actually written about (not blank). */

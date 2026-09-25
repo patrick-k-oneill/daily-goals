@@ -25,7 +25,7 @@ _Avoid_: frequency, type
 ### Goals
 
 **Template**:
-A recurring goal. It is not itself on any page; it materializes into an entry on each new period's section.
+A recurring goal. It is not itself on any page; it materializes into an entry on each new period's section. Removing its line retires it: it writes no more lines.
 _Avoid_: habit, default, recurring goal (as a noun)
 
 **Entry**:
@@ -33,7 +33,7 @@ A goal line on a specific period's section, either materialized from a template 
 _Avoid_: goal instance, task, item
 
 **Materialize**:
-Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, and when a pad is imported.
+Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
 _Avoid_: instantiate, generate
 
 **Seed**:
@@ -73,9 +73,23 @@ _Avoid_: appointment, reminder, calendar item
 ### Backup
 
 **Pad file**:
-The whole pad — templates, entries, gratitude entries and upcoming events — written to one JSON file under a schema version. Importing one replaces the pad wholesale; merging belongs to sync.
+The whole pad — templates, entries, gratitude entries, upcoming events and their tombstones — written to one JSON file under a schema version. Importing one replaces the pad wholesale; merging belongs to sync.
 _Avoid_: backup file, snapshot, dump
 
 **Footprint**:
 The pad's size on this device — the bytes of each store's persisted JSON, and their total — shown in the Pad footer and projected for future years in ADR 0004.
 _Avoid_: storage usage, disk size, quota
+
+### Sync
+
+**Stamp**:
+The moment an item was last written, kept on the item (`updatedAt`, or a gratitude entry's `writtenAt`). The epoch is the stamp of a line nobody has written on yet.
+_Avoid_: timestamp, version, revision
+
+**Tombstone**:
+The record a removed item leaves behind: its key and when it was removed, kept beside the items so no other device's copy brings it back.
+_Avoid_: soft delete, deleted flag
+
+**Merge**:
+Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned.
+_Avoid_: sync (for the rule itself), overwrite, replace

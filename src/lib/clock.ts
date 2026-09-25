@@ -48,3 +48,8 @@ function subscribe(listener: () => void) {
 export function useToday(): DayKey {
   return useSyncExternalStore(subscribe, todayKey, todayKey);
 }
+
+/** The current moment as an ISO stamp, for stamping a write; never read at render time. */
+export function nowStamp(): string {
+  return new Date().toISOString();
+}
