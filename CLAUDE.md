@@ -48,7 +48,7 @@ Write tests where there is an independent truth to assert against: transitions a
 
 ## Workflow commands
 
-`/p-ship` (auto: issue → PR), `/p-start` (supervised), `/p-pr`, `/p-watch`, `/p-ready` (human-gated merge) — see `.claude/commands/`. The `p-` prefix keeps them from colliding with same-named personal commands in `~/.claude/commands`, which override project ones. GitHub Issues is the tracker; merging is always human-gated.
+`/p-ship` (auto: issue → PR), `/p-start` (supervised), `/p-pr`, `/p-watch`, `/p-test` (manual test, verdicts on the PR), `/p-ready` (human-gated merge) — see `.claude/commands/`. The `p-` prefix keeps them from colliding with same-named personal commands in `~/.claude/commands`, which override project ones. GitHub Issues is the tracker; merging is always human-gated.
 
 ## Agent skills
 
@@ -59,6 +59,10 @@ GitHub Issues on `patrick-k-oneill/daily-goals`, via the `gh` CLI. See `docs/age
 ### Triage labels
 
 Default vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Manual testing
+
+A PR that changes a native module, app config, a native dependency or sync is judged on device: `/p-test` records verdicts on the PR, and `/p-ready` refuses to merge without a PASS. See `docs/agents/manual-testing.md`.
 
 ### Domain docs
 
