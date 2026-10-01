@@ -55,7 +55,7 @@ export function PadFooter() {
     try {
       const text = await pickPadFile();
       if (text === null) return;
-      const parsed = parsePad(text, new Date().toISOString());
+      const parsed = parsePad(text);
       if (parsed.ok) confirmReplace(parsed);
       else setNotice({ tone: 'error', text: parsed.reason });
     } catch {

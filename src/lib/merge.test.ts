@@ -1,6 +1,7 @@
 import {
   canonicalJson,
   EPOCH,
+  LEGACY,
   mergeKeyed,
   withoutTombstone,
   withTombstone,
@@ -84,6 +85,14 @@ describe('mergeKeyed', () => {
     const fromRemote = mergeKeyed(remote, local, by);
     expect(fromLocal).toEqual(fromRemote);
     expect(fromLocal.items[0].text).toBe('banana');
+  });
+
+  it('ranks a legacy item after an untouched one and before any real write or removal', () => {
+    const untouched = keyed([note('a', 'untouched', EPOCH)]);
+    const legacy = keyed([note('a', 'before stamps', LEGACY), note('b', 'before stamps', LEGACY)]);
+    const written = keyed([note('a', 'written since', T1)], { b: T1 });
+    expect(mergeKeyed(untouched, legacy, by)).toEqual(legacy);
+    expect(mergeKeyed(legacy, written, by)).toEqual(written);
   });
 
   it('never drops an item that has no tombstone', () => {

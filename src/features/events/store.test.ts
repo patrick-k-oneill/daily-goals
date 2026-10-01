@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { LEGACY } from '@/lib/merge';
+
 import { useEventsStore } from './store';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -25,7 +27,7 @@ describe('useEventsStore', () => {
     expect(useEventsStore.getState().tombstones).toHaveProperty(jotted.id);
   });
 
-  it('stamps events saved before stamps on rehydration', async () => {
+  it('stamps events saved before stamps legacy on rehydration', async () => {
     await AsyncStorage.setItem(
       'daily-goals/events',
       JSON.stringify({
@@ -35,8 +37,7 @@ describe('useEventsStore', () => {
     );
     await useEventsStore.persist.rehydrate();
     const [jotted] = useEventsStore.getState().events;
-    expect(jotted).toMatchObject({ id: 'ev1', title: 'IRC' });
-    expect(Date.parse(jotted.updatedAt)).not.toBeNaN();
+    expect(jotted).toMatchObject({ id: 'ev1', title: 'IRC', updatedAt: LEGACY });
     expect(useEventsStore.getState().tombstones).toEqual({});
   });
 

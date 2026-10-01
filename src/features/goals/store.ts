@@ -52,7 +52,7 @@ export const useGoalsStore = create<GoalsState>()(
         // v1 persisted a `seeded` flag alongside the data; the seed is now the initial state.
         const { seeded: _seeded, ...legacy } = persisted as LegacyGoals & { seeded?: boolean };
         // v2 had no stamps, tombstones or shared ids (ADR 0005).
-        const goals = version < 3 ? logic.upgradeLegacyGoals(legacy, nowStamp()) : persisted;
+        const goals = version < 3 ? logic.upgradeLegacyGoals(legacy) : persisted;
         return goals as GoalsState;
       },
       // The saved pad may be from an earlier day; today is written before the first render.
