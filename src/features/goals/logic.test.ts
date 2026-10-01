@@ -1,4 +1,4 @@
-import { EPOCH } from '@/lib/merge';
+import { EPOCH, LEGACY } from '@/lib/merge';
 
 import {
   addGoal,
@@ -668,7 +668,7 @@ describe('upgradeLegacyGoals', () => {
   };
 
   it('gives seed templates and materialized lines the ids every device shares', () => {
-    const upgraded = upgradeLegacyGoals(legacy, NOW);
+    const upgraded = upgradeLegacyGoals(legacy);
     expect(upgraded.templates.map((t) => t.id)).toEqual([
       'seed:daily:1',
       'seed:daily:2',
@@ -682,10 +682,10 @@ describe('upgradeLegacyGoals', () => {
     ]);
   });
 
-  it('stamps everything with the moment of the upgrade and marks retirements at the epoch', () => {
-    const upgraded = upgradeLegacyGoals(legacy, NOW);
-    expect(upgraded.templates.every((t) => t.updatedAt === NOW)).toBe(true);
-    expect(upgraded.entries.every((e) => e.updatedAt === NOW)).toBe(true);
+  it('stamps everything legacy and marks retirements at the epoch', () => {
+    const upgraded = upgradeLegacyGoals(legacy);
+    expect(upgraded.templates.every((t) => t.updatedAt === LEGACY)).toBe(true);
+    expect(upgraded.entries.every((e) => e.updatedAt === LEGACY)).toBe(true);
     expect(upgraded.templates.map((t) => t.retiredAt)).toEqual([
       undefined,
       EPOCH,
@@ -697,7 +697,7 @@ describe('upgradeLegacyGoals', () => {
   });
 
   it('keeps the upgraded pad ahead of a fresh seed, so a new device adopts it', () => {
-    const upgraded = upgradeLegacyGoals(legacy, NOW);
+    const upgraded = upgradeLegacyGoals(legacy);
     const fresh = materializeToday(seedGoals(), TODAY);
     const merged = mergeGoals(fresh, upgraded);
     expect(merged.templates.find((t) => t.id === 'seed:daily:2')).toMatchObject({
@@ -705,5 +705,24 @@ describe('upgradeLegacyGoals', () => {
       retiredAt: EPOCH,
     });
     expect(titlesOn(merged, TODAY)).toEqual(['One-off', 'Recurring Dailies', 'Read']);
+  });
+
+  it('loses every shared line to a write another device made before the upgrade', () => {
+    const upgraded = upgradeLegacyGoals(legacy);
+    const phone = goals({
+      templates: [
+        { ...upgraded.templates[0], title: 'Recurring Dailies, renamed', updatedAt: NOW },
+      ],
+      entries: [{ ...upgraded.entries[0], checks: ['missed'], updatedAt: NOW }],
+      tombstones: { 'r4:2026-08-21': NOW },
+    });
+    const merged = mergeGoals(upgraded, phone);
+    expect(merged.templates).toHaveLength(4);
+    expect(merged.templates.find((t) => t.id === 'seed:daily:1')).toMatchObject({
+      title: 'Recurring Dailies, renamed',
+    });
+    expect(byId(merged, 'seed:daily:1:2026-08-21')?.checks).toEqual(['missed']);
+    expect(byId(merged, 'r4:2026-08-21')).toBeUndefined();
+    expect(mergeGoals(phone, upgraded)).toEqual(merged);
   });
 });

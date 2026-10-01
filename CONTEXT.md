@@ -83,7 +83,7 @@ _Avoid_: storage usage, disk size, quota
 ### Sync
 
 **Stamp**:
-The moment an item was last written, kept on the item (`updatedAt`, or a gratitude entry's `writtenAt`). The epoch is the stamp of a line nobody has written on yet.
+The moment an item was last written, kept on the item (`updatedAt`, or a gratitude entry's `writtenAt`). The epoch is the stamp of a line nobody has written on yet; legacy, a millisecond after it, the stamp of an item from before stamps.
 _Avoid_: timestamp, version, revision
 
 **Tombstone**:

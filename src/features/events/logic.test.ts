@@ -1,3 +1,5 @@
+import { LEGACY } from '@/lib/merge';
+
 import {
   addEvent,
   mergeEvents,
@@ -134,15 +136,29 @@ describe('mergeEvents', () => {
 });
 
 describe('upgradeLegacyEvents', () => {
-  it('stamps every event with the moment of the upgrade, with nothing scratched out', () => {
-    const upgraded = upgradeLegacyEvents(
-      [{ id: 'ev1', date: '2026-08-23', title: 'IRC', timeLabel: '4pm' }],
-      NOW,
-    );
+  it('stamps every event legacy, with nothing scratched out', () => {
+    const upgraded = upgradeLegacyEvents([
+      { id: 'ev1', date: '2026-08-23', title: 'IRC', timeLabel: '4pm' },
+    ]);
     expect(upgraded).toEqual({
-      events: [{ id: 'ev1', date: '2026-08-23', title: 'IRC', timeLabel: '4pm', updatedAt: NOW }],
+      events: [
+        { id: 'ev1', date: '2026-08-23', title: 'IRC', timeLabel: '4pm', updatedAt: LEGACY },
+      ],
       tombstones: {},
     });
+  });
+
+  it('loses every shared event to a write another device made before the upgrade', () => {
+    const upgraded = upgradeLegacyEvents([
+      { id: 'ev1', date: '2026-08-23', title: 'IRC' },
+      { id: 'ev2', date: '2026-08-24', title: 'Dentist' },
+    ]);
+    const phone: UpcomingEvents = {
+      events: [event({ id: 'ev1', title: 'IRC, moved' })],
+      tombstones: { ev2: NOW },
+    };
+    expect(mergeEvents(upgraded, phone)).toEqual(phone);
+    expect(mergeEvents(phone, upgraded)).toEqual(phone);
   });
 });
 

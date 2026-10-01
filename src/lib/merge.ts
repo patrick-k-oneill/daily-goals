@@ -10,6 +10,12 @@ export type Stamp = string;
 /** The beginning of time: the stamp of an item nobody has written on yet. */
 export const EPOCH: Stamp = '1970-01-01T00:00:00.000Z';
 
+/**
+ * The stamp of an item from before stamps: a millisecond after the epoch, so
+ * it beats an untouched copy and loses to any real write (ADR 0005, #69).
+ */
+export const LEGACY: Stamp = '1970-01-01T00:00:00.001Z';
+
 /** Removed items by key, each with when it was removed. */
 export type Tombstones = Record<string, Stamp>;
 

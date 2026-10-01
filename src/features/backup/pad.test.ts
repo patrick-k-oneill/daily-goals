@@ -72,7 +72,7 @@ describe('readPad / writePad', () => {
     freshInstall();
     expect(readPad().goals.entries).toHaveLength(0);
 
-    const parsed = parsePad(file, NOW);
+    const parsed = parsePad(file);
     if (!parsed.ok) throw new Error(parsed.reason);
     writePad(parsed.pad);
     expect(readPad()).toEqual(exported);

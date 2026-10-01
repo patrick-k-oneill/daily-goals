@@ -36,9 +36,7 @@ export const useEventsStore = create<EventsState>()(
       // v1 had no stamps or tombstones (ADR 0005).
       migrate: (persisted, version) => {
         const { events } = persisted as { events: LegacyUpcomingEvent[] };
-        return (
-          version < 2 ? logic.upgradeLegacyEvents(events, nowStamp()) : persisted
-        ) as EventsState;
+        return (version < 2 ? logic.upgradeLegacyEvents(events) : persisted) as EventsState;
       },
     }),
   ),

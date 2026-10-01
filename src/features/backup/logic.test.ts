@@ -1,4 +1,4 @@
-import { EPOCH } from '@/lib/merge';
+import { EPOCH, LEGACY } from '@/lib/merge';
 
 import { describePad, padFileName, parsePad, SCHEMA_VERSION, serializePad } from './logic';
 import type { LegacyPadData, PadData } from './types';
@@ -134,7 +134,7 @@ function legacyFileWith(overrides: Record<string, unknown>): string {
 }
 
 function reasonOf(text: string): string {
-  const parsed = parsePad(text, NOW);
+  const parsed = parsePad(text);
   if (parsed.ok) throw new Error('expected the file to be refused');
   return parsed.reason;
 }
@@ -161,25 +161,25 @@ describe('serializePad', () => {
 describe('parsePad', () => {
   it('round-trips every template, entry, check, star, tombstone, gratitude entry and event', () => {
     const pad = samplePad();
-    expect(parsePad(serializePad(pad, NOW), NOW)).toEqual({ ok: true, exportedAt: NOW, pad });
+    expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
   });
 
-  it('reads a schema 1 file, stamping its items with the import and sharing its ids', () => {
-    const parsed = parsePad(legacyFileWith({}), NOW);
+  it('reads a schema 1 file, stamping its items legacy and sharing its ids', () => {
+    const parsed = parsePad(legacyFileWith({}));
     if (!parsed.ok) throw new Error(parsed.reason);
     expect(parsed.exportedAt).toBe(NOW);
     expect(parsed.pad.goals.templates.map((t) => [t.id, t.updatedAt, t.retiredAt])).toEqual([
-      ['seed:daily:2', NOW, undefined],
-      ['seed:weekly:2', NOW, EPOCH],
+      ['seed:daily:2', LEGACY, undefined],
+      ['seed:weekly:2', LEGACY, EPOCH],
     ]);
     expect(parsed.pad.goals.entries[0]).toMatchObject({
       id: 'seed:daily:2:2026-08-26',
       templateId: 'seed:daily:2',
-      updatedAt: NOW,
+      updatedAt: LEGACY,
     });
     expect(parsed.pad.goals.tombstones).toEqual({});
     expect(parsed.pad.gratitude).toEqual({ entries: legacyPad().gratitude, tombstones: {} });
-    expect(parsed.pad.events.events[0]).toMatchObject({ id: 'ev1', updatedAt: NOW });
+    expect(parsed.pad.events.events[0]).toMatchObject({ id: 'ev1', updatedAt: LEGACY });
     expect(parsed.pad.events.tombstones).toEqual({});
   });
 

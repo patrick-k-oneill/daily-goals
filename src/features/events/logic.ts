@@ -1,6 +1,6 @@
 import type { DayKey } from '@/lib/dates';
 import { newId } from '@/lib/id';
-import { mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
+import { LEGACY, mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
 import type { LegacyUpcomingEvent, UpcomingEvent, UpcomingEvents } from './types';
 
@@ -91,9 +91,9 @@ export function mergeEvents(local: UpcomingEvents, remote: UpcomingEvents): Upco
   return { events: merged.items, tombstones: merged.tombstones };
 }
 
-/** Events persisted before stamps, each stamped `now`: the moment this device first knew it. */
-export function upgradeLegacyEvents(events: LegacyUpcomingEvent[], now: Stamp): UpcomingEvents {
-  return { events: events.map((e) => ({ ...e, updatedAt: now })), tombstones: {} };
+/** Events persisted before stamps, each stamped legacy: behind any real write. */
+export function upgradeLegacyEvents(events: LegacyUpcomingEvent[]): UpcomingEvents {
+  return { events: events.map((e) => ({ ...e, updatedAt: LEGACY })), tombstones: {} };
 }
 
 /** Events from `fromDate` on, soonest first; same-day events alphabetical. */
