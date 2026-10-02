@@ -1,5 +1,5 @@
 ---
-description: 'Fully automated: GitHub issue (or short description) → implemented branch → published PR (small/easy changes)'
+description: 'Fully automated: GitHub issue (or short description) → implemented branch → bug-reviewed → published PR (small/easy changes)'
 argument-hint: <github-issue-url | #number | short description>
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, Skill
 ---
@@ -24,12 +24,14 @@ If at any point the change looks larger than "small/easy," stop and recommend `/
 
 2. **Implement.** Keep it clean, simple, and complete. Follow `CLAUDE.md` and the repo's conventions (read neighboring files first). Architecture rules: routes stay thin in `src/app/`, domain logic is pure functions in `src/features/*/logic.ts` with tests, UI primitives live in `src/components/ui/`.
 3. **Quality gate** (must pass before any commit): `npm run check` — typecheck, eslint + prettier on changed files, jest, `react-doctor --scope changed`. Fix any regression; report the react-doctor score.
-4. **Commit** in clear, concise, imperative messages (one logical change per commit). After the first commit run `git push -u origin <branch>`; push subsequent commits normally.
-5. **Confirm before publishing** (opening a PR is an outward action). Show the diff summary and the proposed:
+4. **Commit** in clear, concise, imperative messages (one logical change per commit).
+5. **Review** — `git fetch origin`, then spawn the `bug-reviewer` agent (Agent tool, `subagent_type: bug-reviewer`) with the repo path and stack (Expo SDK 57 React Native + TypeScript, jest), fixed point `origin/main` and `git diff origin/main...HEAD`, the commit list (`git log --oneline origin/main..HEAD`), and the issue title as the one-line intent. Unattended: fix every finding with a traced failure scenario, re-run the quality gate, commit, and name the fixed point and the findings in the final report. Only the bug reviewer runs here: tooling enforces the standards and the spec is the issue.
+6. **Push:** `git push -u origin <branch>`.
+7. **Confirm before publishing** (opening a PR is an outward action). Show the diff summary and the proposed:
    - Title: `[#<num>] <issue title>` (or just a clear title when there's no issue)
    - Body: short summary + what-changed checklist + `Closes #<num>` when an issue exists
      On approval: `gh pr create --base main --title "<title>" --body "<body>"`.
-6. Print the PR URL.
-7. **Start the post-push watcher:** run `/p-watch` on the new PR. It polls CI and hands off to `/p-ready` when green.
+8. Print the PR URL.
+9. **Start the post-push watcher:** run `/p-watch` on the new PR. It polls CI and hands off to `/p-ready` when green.
 
 Do **not** merge the PR in this command — merging is `/p-ready`'s human-gated call.
