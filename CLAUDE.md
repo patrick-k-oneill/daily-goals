@@ -48,7 +48,7 @@ Write tests where there is an independent truth to assert against: transitions a
 
 ## Workflow commands
 
-`/p-ship` (auto: issue → PR), `/p-start` (supervised), `/p-pr`, `/p-watch`, `/p-test` (manual test, verdicts on the PR), `/p-ready` (human-gated merge) — see `.claude/commands/`. The `p-` prefix keeps them from colliding with same-named personal commands in `~/.claude/commands`, which override project ones. GitHub Issues is the tracker; merging is always human-gated.
+`/p-ship` (auto: issue → PR), `/p-start` (supervised), `/p-pr`, `/p-watch`, `/p-test` (manual test, verdicts on the PR), `/p-ready` (human-gated merge) — see `.claude/commands/`. `/p-ship` and `/p-start` build in a worktree under the session scratchpad, never in this checkout; `/p-pr` and `/p-ship` remove it once the PR exists. The `p-` prefix keeps them from colliding with same-named personal commands in `~/.claude/commands`, which override project ones. GitHub Issues is the tracker; merging is always human-gated.
 
 ## Agent skills
 
