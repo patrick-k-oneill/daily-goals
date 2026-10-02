@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  high_level_summary: false
+  sequence_diagrams: false
+  review_status: false
+  path_instructions:
+    - path: 'src/features/**/logic.ts'
+      instructions: >-
+        Pure transitions and queries over plain data, with `today` and timestamps injected;
+        tests assert at that interface only. Flag a clock read, a side effect, or a test that
+        reaches past the interface into a private helper.
+chat:
+  auto_reply: false
