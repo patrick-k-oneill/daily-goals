@@ -53,6 +53,12 @@
         "projectId": "dde37e87-c439-41c4-8d31-821884114afd"
       }
     },
-    "owner": "poneill91"
+    "owner": "poneill91",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/dde37e87-c439-41c4-8d31-821884114afd"
+    }
   }
 }

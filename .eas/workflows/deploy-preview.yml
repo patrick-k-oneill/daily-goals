@@ -1,0 +1,35 @@
+name: Deploy preview
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+  get_build:
+    name: Find a preview build for this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: preview
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+  update:
+    name: Publish an update to preview
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id }}
+    type: update
+    params:
+      branch: preview
+      platform: ios
+  build:
+    name: Build preview
+    needs: [get_build]
+    if: ${{ !needs.get_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: preview
