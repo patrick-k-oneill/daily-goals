@@ -44,7 +44,7 @@ It runs typecheck, then eslint and prettier on changed files, the jest suite, an
 
 ## Tests
 
-Write tests where there is an independent truth to assert against: transitions and queries in `logic.ts`, period keys and date formatting, row geometry. Markup- or style-only component changes get no test; say so in the build report.
+Write tests where there is an independent truth to assert against: transitions and queries in `logic.ts`, period keys and date formatting, row geometry. Markup- or style-only component changes get no test; say so in the build report. Fixtures, examples and doc comments use generic placeholder names, never a real person's or pet's.
 
 ## Workflow commands
 
