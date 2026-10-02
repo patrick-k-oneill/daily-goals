@@ -1,6 +1,6 @@
 # Daily Goals
 
-A digital legal pad. Every morning, on paper, I write the day's goals under an underlined **Daily Goals** header, keep **Weekly Goals** with rows of checkboxes, jot upcoming events at the bottom of the page — and write a **Gratitude Journal** entry about the previous day. This app is that ritual, as software.
+A digital legal pad. Every morning, on paper, I write the day's goals under an underlined **Daily Goals** header, keep **Weekly Goals** with rows of checkboxes, jot upcoming events at the bottom of the page — and write a **Gratitude Journal** entry about the previous day. This app is that ritual, as software. On the App Store it is listed as **Actualize: Daily Goals** with the tagline _become your ideal_; in hand it stays Daily Goals.
 
 Built with Expo (React Native + TypeScript), one codebase for **web, iOS, and Android**.
 
