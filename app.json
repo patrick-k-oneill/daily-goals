@@ -13,6 +13,13 @@
       "icon": "./assets/expo.icon",
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.developer.icloud-container-identifiers": ["iCloud.com.patrickoneill.dailygoals"],
+        "com.apple.developer.icloud-services": ["CloudDocuments"],
+        "com.apple.developer.ubiquity-container-identifiers": [
+          "iCloud.com.patrickoneill.dailygoals"
+        ]
       }
     },
     "android": {

@@ -5,6 +5,8 @@
  * wins, and a tombstone at or after an item's stamp removes it.
  */
 
+import { isRecordOf, isTimestamp } from './guards';
+
 export type Stamp = string;
 
 /** The beginning of time: the stamp of an item nobody has written on yet. */
@@ -12,6 +14,9 @@ export const EPOCH: Stamp = '1970-01-01T00:00:00.000Z';
 
 /** Removed items by key, each with when it was removed. */
 export type Tombstones = Record<string, Stamp>;
+
+/** Tombstones as they arrive from a file: every value a stamp. */
+export const isTombstones = isRecordOf(isTimestamp);
 
 export interface Keyed<T> {
   items: T[];

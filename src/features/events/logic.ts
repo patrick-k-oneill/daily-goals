@@ -1,6 +1,7 @@
 import type { DayKey } from '@/lib/dates';
+import { isArrayOf, isOptional, isRecord, isString, isTimestamp } from '@/lib/guards';
 import { newId } from '@/lib/id';
-import { mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
+import { isTombstones, mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
 import type { LegacyUpcomingEvent, UpcomingEvent, UpcomingEvents } from './types';
 
@@ -108,4 +109,37 @@ export function upcomingEvents(events: UpcomingEvent[], fromDate: DayKey): Upcom
 /** Blank collapses to absent, so an empty time or note never renders as "@ ". */
 function trimOptional(text: string | undefined): string | undefined {
   return text?.trim() || undefined;
+}
+
+const isOptionalString = isOptional(isString);
+
+export function isUpcomingEvent(value: unknown): value is UpcomingEvent {
+  return isRecord(value) && hasEventFields(value) && isTimestamp(value.updatedAt);
+}
+
+/** The jottings as they arrive from a file — a pad file, a cloud file. */
+export function isUpcomingEvents(value: unknown): value is UpcomingEvents {
+  return (
+    isRecord(value) && isArrayOf(isUpcomingEvent)(value.events) && isTombstones(value.tombstones)
+  );
+}
+
+/** Events as a schema 1 pad file held them: no stamps. */
+export function isLegacyUpcomingEvents(value: unknown): value is LegacyUpcomingEvent[] {
+  return isArrayOf(isLegacyUpcomingEvent)(value);
+}
+
+function isLegacyUpcomingEvent(value: unknown): value is LegacyUpcomingEvent {
+  return isRecord(value) && hasEventFields(value);
+}
+
+/** The fields an event has had in every schema. */
+function hasEventFields(value: Record<string, unknown>): boolean {
+  return (
+    isString(value.id) &&
+    isString(value.date) &&
+    isString(value.title) &&
+    isOptionalString(value.timeLabel) &&
+    isOptionalString(value.note)
+  );
 }
