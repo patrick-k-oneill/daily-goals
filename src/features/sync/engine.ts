@@ -73,6 +73,8 @@ export function startSync(
     const paths = changedPaths(lastCloud, next, unreadable);
     if (paths.length > 0) report.syncing();
     for (const path of paths) {
+      // One file at a time: a write is recorded before the next starts, so a failure leaves the retry set exact.
+      // oxlint-disable-next-line react-doctor/async-await-in-loop
       await cloud.write(path, next[path]);
       lastCloud = { ...lastCloud, [path]: next[path] };
     }

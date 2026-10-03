@@ -112,8 +112,9 @@ export function changedPaths(
   next: CloudFiles,
   unreadable: readonly string[],
 ): string[] {
+  const skip = new Set(unreadable);
   return Object.keys(next)
-    .filter((path) => next[path] !== cloud[path] && !unreadable.includes(path))
+    .filter((path) => next[path] !== cloud[path] && !skip.has(path))
     .sort();
 }
 
