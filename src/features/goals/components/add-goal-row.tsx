@@ -6,6 +6,7 @@ import { AddLine } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+import { EVERY_WEEKDAY } from '../logic';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
 
@@ -33,10 +34,11 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
 
   return (
     <GoalForm
-      initial={{ title: '', targetCount: 1, checkLabels: [] }}
+      initial={{ title: '', targetCount: 1, checkLabels: [], weekdays: [...EVERY_WEEKDAY] }}
       placeholder="Write a goal…"
       submitLabel="Add"
       style={styles.form}
+      showWeekdays={cadence === 'daily' && repeats}
       onSubmit={(draft) => {
         addGoal({ cadence, periodKey, ...draft, repeats });
         close();

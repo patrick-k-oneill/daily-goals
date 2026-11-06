@@ -18,7 +18,9 @@ import type { Stamp, Tombstones } from '@/lib/merge';
 import type { LegacyPadData, PadData, PadFile } from './types';
 
 /** Bump when the file shape changes; an older app refuses a newer file. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
+/** Every shape this app still reads; 2 and 3 differ only by a template's optional weekdays. */
+const READABLE_SCHEMA_VERSIONS = [1, 2, SCHEMA_VERSION];
 
 /** What a readable pad file holds. */
 export interface PadFileContents {
@@ -54,9 +56,7 @@ export function parsePad(text: string, now: Stamp): ParsedPad {
   const file = parseJson(text);
   if (!isRecord(file) || !isNumber(file.schemaVersion)) return refuse(NOT_A_PAD_FILE);
   if (file.schemaVersion > SCHEMA_VERSION) return refuse(NEWER_PAD_FILE);
-  if (file.schemaVersion !== 1 && file.schemaVersion !== SCHEMA_VERSION) {
-    return refuse(NOT_A_PAD_FILE);
-  }
+  if (!READABLE_SCHEMA_VERSIONS.includes(file.schemaVersion)) return refuse(NOT_A_PAD_FILE);
   if (!isTimestamp(file.exportedAt)) return refuse(damaged('export date'));
 
   const pad = file.schemaVersion === 1 ? readLegacyPad(file, now) : readPad(file);
@@ -164,6 +164,12 @@ const isOptionalString = isOptional(isString);
 const isOptionalStrings = isOptional(isArrayOf(isString));
 const isOptionalTimestamp = isOptional(isTimestamp);
 
+function isWeekday(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 7;
+}
+
+const isOptionalWeekdays = isOptional(isArrayOf(isWeekday));
+
 function isTombstones(value: unknown): value is Tombstones {
   return isRecord(value) && Object.values(value).every(isTimestamp);
 }
@@ -184,6 +190,7 @@ function isGoalTemplate(value: unknown): value is GoalTemplate {
   return (
     isRecord(value) &&
     hasTemplateFields(value) &&
+    isOptionalWeekdays(value.weekdays) &&
     isOptionalTimestamp(value.retiredAt) &&
     isTimestamp(value.updatedAt)
   );

@@ -25,7 +25,7 @@ _Avoid_: frequency, type
 ### Goals
 
 **Template**:
-A recurring goal. It is not itself on any page; it materializes into an entry on each new period's section. Removing its line retires it: it writes no more lines.
+A recurring goal. It is not itself on any page; it materializes into an entry on each new period's section. A daily template may name the weekdays it repeats on (Monday first); it is written only on those days, and one that names none is written every day. Weekly and annual templates have no weekday schedule. Removing its line retires it: it writes no more lines.
 _Avoid_: habit, default, recurring goal (as a noun)
 
 **Entry**:

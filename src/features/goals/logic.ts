@@ -2,6 +2,7 @@ import {
   dayKeyOf,
   formatPadDate,
   formatWeekRange,
+  weekdayOf,
   weekKeyOf,
   yearKeyOf,
   type DayKey,
@@ -23,6 +24,8 @@ import {
 export const MAX_CHECKS = 10;
 /** A check label is a short word over its box, at most this many characters. */
 export const MAX_CHECK_LABEL_LENGTH = 6;
+/** The ISO weekdays a daily template can name, Monday first. */
+export const EVERY_WEEKDAY: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
 
 export function periodKeyFor(cadence: Cadence, day: DayKey): string {
   switch (cadence) {
@@ -95,8 +98,9 @@ export function seedGoals(): Goals {
 /**
  * Materialize active templates onto a period's section — but only the period
  * containing `today`: a past page renders exactly what was written on it, like
- * paper. A line crossed off stays off. Idempotent; returns the same `goals`
- * when nothing is missing.
+ * paper. A daily template is written only on the weekdays it names. A line
+ * crossed off stays off. Idempotent; returns the same `goals` when nothing is
+ * missing.
  */
 export function ensurePeriod(
   goals: Goals,
@@ -114,6 +118,7 @@ export function ensurePeriod(
   const additions: GoalEntry[] = [];
   for (const t of goals.templates) {
     if (t.retiredAt || t.cadence !== cadence || instantiated.has(t.id)) continue;
+    if (!repeatsOn(t, periodKey)) continue;
     const id = materializedEntryId(t.id, periodKey);
     if (id in goals.tombstones) continue;
     additions.push({
@@ -154,9 +159,15 @@ export interface AddGoalInput {
   checkLabels?: string[];
   /** Also create a template so the goal reappears every new period. */
   repeats: boolean;
+  /** The ISO weekdays a repeating daily goal is written on; omit, or name them all, for every day. */
+  weekdays?: readonly number[];
 }
 
-/** Write a new line at the bottom of a period's section. A blank title writes nothing. */
+/**
+ * Write a new line at the bottom of a period's section. A blank title writes
+ * nothing. A repeating daily goal whose weekdays exclude this period only
+ * gains its template; its first line waits for the next day it names.
+ */
 export function addGoal(goals: Goals, input: AddGoalInput, now: Stamp): Goals {
   const title = input.title.trim();
   if (!title) return goals;
@@ -168,10 +179,14 @@ export function addGoal(goals: Goals, input: AddGoalInput, now: Stamp): Goals {
   ]);
   const targetCount = clampChecks(input.targetCount);
   const checkLabels = fitCheckLabels(input.checkLabels, targetCount);
+  const weekdays = fitWeekdays(cadence, input.weekdays);
 
   const template: GoalTemplate | undefined = input.repeats
-    ? { id: newId(), cadence, title, targetCount, checkLabels, sortOrder, updatedAt: now }
+    ? { id: newId(), cadence, title, targetCount, checkLabels, weekdays, sortOrder, updatedAt: now }
     : undefined;
+  if (template && !repeatsOn(template, periodKey)) {
+    return { ...goals, templates: [...goals.templates, template] };
+  }
   const entry: GoalEntry = {
     id: template ? materializedEntryId(template.id, periodKey) : newId(),
     templateId: template?.id,
@@ -210,12 +225,15 @@ export interface GoalEditPatch {
   targetCount?: number;
   /** Replaces the line's labels; omit to keep them, fitted to the new count. */
   checkLabels?: string[];
+  /** Replaces the template's weekdays; omit to keep them. Lines already written are never moved. */
+  weekdays?: readonly number[];
 }
 
 /**
  * Edit a line in place. Edits to a recurring goal also update its template so
- * future pages inherit the new title, check count and labels. A blank title
- * keeps the old one; existing marks survive a resize and labels follow it.
+ * future pages inherit the new title, check count, labels and weekdays. A
+ * blank title keeps the old one; existing marks survive a resize and labels
+ * follow it.
  */
 export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
@@ -234,7 +252,16 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, 
     ),
     templates: entry.templateId
       ? goals.templates.map((t) =>
-          t.id === entry.templateId ? { ...t, title, targetCount, checkLabels, updatedAt: now } : t,
+          t.id === entry.templateId
+            ? {
+                ...t,
+                title,
+                targetCount,
+                checkLabels,
+                weekdays: fitWeekdays(t.cadence, patch.weekdays ?? t.weekdays),
+                updatedAt: now,
+              }
+            : t,
         )
       : goals.templates,
   };
@@ -365,6 +392,26 @@ function fitCheckLabels(labels: string[] | undefined, targetCount: number): stri
     (labels[i] ?? '').trim().slice(0, MAX_CHECK_LABEL_LENGTH),
   );
   return fitted.some(Boolean) ? fitted : undefined;
+}
+
+/**
+ * A daily template's weekdays, sorted and deduplicated, with anything outside
+ * Mon–Sun dropped. Naming every day, or none, is the default and stores
+ * nothing; so does any cadence other than daily.
+ */
+function fitWeekdays(
+  cadence: Cadence,
+  weekdays: readonly number[] | undefined,
+): number[] | undefined {
+  if (cadence !== 'daily' || !weekdays) return undefined;
+  const fitted = EVERY_WEEKDAY.filter((day) => weekdays.includes(day));
+  return fitted.length === 0 || fitted.length === EVERY_WEEKDAY.length ? undefined : fitted;
+}
+
+/** Whether a template writes a line on this period: a daily one only on the weekdays it names. */
+function repeatsOn(template: GoalTemplate, periodKey: string): boolean {
+  if (template.cadence !== 'daily' || !template.weekdays?.length) return true;
+  return template.weekdays.includes(weekdayOf(periodKey));
 }
 
 function cycleState(state: CheckState): CheckState {

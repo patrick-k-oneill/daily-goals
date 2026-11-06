@@ -22,7 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
 import { selectionTap } from '@/lib/haptics';
 
-import { hasCheckLabels } from '../logic';
+import { EVERY_WEEKDAY, hasCheckLabels } from '../logic';
 import { useGoalsStore } from '../store';
 import type { GoalEntry } from '../types';
 
@@ -164,6 +164,7 @@ function TitleButton({
 function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void }) {
   const updateGoal = useGoalsStore((s) => s.updateGoal);
   const removeGoal = useGoalsStore((s) => s.removeGoal);
+  const template = useGoalsStore((s) => s.templates.find((t) => t.id === entry.templateId));
   const recurring = Boolean(entry.templateId);
 
   const remove = () => {
@@ -182,10 +183,12 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
         title: entry.title,
         targetCount: entry.checks.length,
         checkLabels: entry.checkLabels ?? [],
+        weekdays: template?.weekdays ?? [...EVERY_WEEKDAY],
       }}
       placeholder="Goal title…"
       submitLabel="Save"
       style={styles.editor}
+      showWeekdays={recurring && entry.cadence === 'daily'}
       onSubmit={(draft) => {
         updateGoal(entry.id, draft);
         onDone();

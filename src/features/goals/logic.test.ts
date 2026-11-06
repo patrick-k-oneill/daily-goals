@@ -5,6 +5,7 @@ import {
   cycleCheck,
   ensurePeriod,
   entriesForPeriod,
+  EVERY_WEEKDAY,
   hasCheckLabels,
   materializedEntryId,
   materializeToday,
@@ -144,6 +145,25 @@ describe('ensurePeriod', () => {
     expect(titlesOn(saturday, '2026-08-22')).toEqual(['Daily Prod']);
   });
 
+  it('writes a daily template only on the weekdays it names', () => {
+    const start = goals({ templates: [template({ weekdays: [1, 3, 5] })] });
+    expect(ensurePeriod(start, 'daily', TODAY, TODAY).entries).toHaveLength(1); // Fri
+    expect(ensurePeriod(start, 'daily', '2026-08-22', '2026-08-22')).toBe(start); // Sat
+    expect(ensurePeriod(start, 'daily', '2026-08-23', '2026-08-23')).toBe(start); // Sun
+    expect(ensurePeriod(start, 'daily', '2026-08-24', '2026-08-24').entries).toHaveLength(1); // Mon
+    expect(ensurePeriod(start, 'daily', '2026-08-25', '2026-08-25')).toBe(start); // Tue
+  });
+
+  it('writes a template that names no weekdays every day, and ignores weekdays off the daily cadence', () => {
+    const everyDay = goals({
+      templates: [template({ id: 'a' }), template({ id: 'b', weekdays: [] })],
+    });
+    expect(ensurePeriod(everyDay, 'daily', '2026-08-23', '2026-08-23').entries).toHaveLength(2); // Sun
+
+    const weekly = goals({ templates: [template({ cadence: 'weekly', weekdays: [1] })] });
+    expect(ensurePeriod(weekly, 'weekly', '2026-W34', TODAY).entries).toHaveLength(1); // Fri
+  });
+
   it("seeds the pad's recurring goals onto today's daily and weekly sections", () => {
     let state = ensurePeriod(seedGoals(), 'daily', TODAY, TODAY);
     state = ensurePeriod(state, 'weekly', '2026-W34', TODAY);
@@ -226,6 +246,46 @@ describe('addGoal', () => {
     const tomorrow = ensurePeriod(today, 'daily', '2026-08-22', '2026-08-22');
     expect(titlesOn(tomorrow, '2026-08-22')).toEqual(['Deep Work']);
     expect(tomorrow.entries[1].checks).toHaveLength(2);
+  });
+
+  it('with weekdays, writes the line today only on a named day, then on each named day after', () => {
+    const scheduled = { ...input, repeats: true, weekdays: [5, 3, 1, 3] };
+    const friday = addGoal(goals(), scheduled, NOW);
+    expect(friday.templates[0].weekdays).toEqual([1, 3, 5]);
+    expect(titlesOn(friday, TODAY)).toEqual(['Deep Work']);
+
+    const nextWeek = ['2026-08-22', '2026-08-23', '2026-08-24', '2026-08-25', '2026-08-26'];
+    const written = nextWeek.reduce((state, day) => ensurePeriod(state, 'daily', day, day), friday);
+    expect(nextWeek.filter((day) => titlesOn(written, day).length > 0)).toEqual([
+      '2026-08-24', // Mon
+      '2026-08-26', // Wed
+    ]);
+
+    const saturday = addGoal(goals(), { ...scheduled, periodKey: '2026-08-22' }, NOW);
+    expect(saturday.templates).toHaveLength(1);
+    expect(saturday.entries).toHaveLength(0);
+  });
+
+  it('stores no weekdays when every day or none is named, nor off the daily cadence', () => {
+    const everyDay = addGoal(
+      goals(),
+      { ...input, repeats: true, weekdays: [...EVERY_WEEKDAY] },
+      NOW,
+    );
+    expect(everyDay.templates[0].weekdays).toBeUndefined();
+    expect(JSON.stringify(everyDay)).not.toContain('weekdays');
+
+    const none = addGoal(goals(), { ...input, repeats: true, weekdays: [0, 8, 2.5] }, NOW);
+    expect(none.templates[0].weekdays).toBeUndefined();
+    expect(titlesOn(none, TODAY)).toEqual(['Deep Work']);
+
+    const weekly = addGoal(
+      goals(),
+      { ...input, cadence: 'weekly', periodKey: '2026-W34', repeats: true, weekdays: [1] },
+      NOW,
+    );
+    expect(weekly.templates[0].weekdays).toBeUndefined();
+    expect(weekly.entries).toHaveLength(1);
   });
 
   it('keeps the check count between one and the maximum', () => {
@@ -409,6 +469,33 @@ describe('updateGoal', () => {
     expect(cleared.entries[0].checkLabels).toBeUndefined();
     expect(cleared.templates[0].checkLabels).toBeUndefined();
     expect(JSON.stringify(cleared)).not.toContain('checkLabels');
+  });
+
+  it('reschedules the template for future pages, leaving every line already written in place', () => {
+    const yesterday = entry({
+      id: 'y',
+      templateId: 't1',
+      periodKey: '2026-08-20',
+      checks: ['done'],
+    });
+    const start = recurring();
+    start.entries.push(yesterday);
+
+    const weekend = updateGoal(start, 'e1', { weekdays: [6, 7] }, NOW);
+    expect(weekend.templates[0].weekdays).toEqual([6, 7]);
+    expect(weekend.entries[0]).toMatchObject({
+      id: 'e1',
+      periodKey: TODAY,
+      checks: ['done', 'missed', 'empty'],
+    });
+    expect(weekend.entries[1]).toBe(yesterday);
+
+    expect(ensurePeriod(weekend, 'daily', '2026-08-22', '2026-08-22').entries).toHaveLength(3); // Sat
+    expect(ensurePeriod(weekend, 'daily', '2026-08-24', '2026-08-24')).toBe(weekend); // Mon
+
+    expect(updateGoal(weekend, 'e1', { title: 'Lift' }, NOW).templates[0].weekdays).toEqual([6, 7]);
+    const everyDay = updateGoal(weekend, 'e1', { weekdays: [...EVERY_WEEKDAY] }, NOW);
+    expect(everyDay.templates[0].weekdays).toBeUndefined();
   });
 });
 
@@ -609,6 +696,16 @@ describe('mergeGoals', () => {
     const merged = mergeGoals(cycleCheck(phone, 't1:2026-08-21', 0, NOW), ipad);
     expect(mergeGoals(merged, ipad)).toEqual(merged);
     expect(mergeGoals(ipad, merged)).toEqual(merged);
+  });
+
+  it("carries a template's weekdays through a merge, the later schedule winning", () => {
+    const [phone, ipad] = twoDevices();
+    const onPhone = updateGoal(phone, 't1:2026-08-21', { weekdays: [1, 3, 5] }, NOW);
+    expect(mergeGoals(onPhone, ipad).templates[0].weekdays).toEqual([1, 3, 5]);
+    expect(mergeGoals(ipad, onPhone).templates[0].weekdays).toEqual([1, 3, 5]);
+
+    const onIpad = updateGoal(ipad, 't1:2026-08-21', { weekdays: [2, 4] }, LATER);
+    expect(mergeGoals(onPhone, onIpad).templates[0].weekdays).toEqual([2, 4]);
   });
 });
 
