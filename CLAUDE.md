@@ -23,7 +23,7 @@ Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and A
 
 ## Domain
 
-The domain language lives in `CONTEXT.md` (page, section, period, cadence, template, entry, check, star, reflection date …); use those terms in code and prose. Decisions not to re-litigate are in `docs/adr/`.
+The domain language lives in `CONTEXT.md` (page, section, period, cadence, template, entry, check, star, reflection date …); use those terms in code and prose. Decisions not to re-litigate are in `docs/adr/`. The purpose, principles and order of play are in `docs/vision.md`; weigh product calls against it.
 
 ## Code style
 
