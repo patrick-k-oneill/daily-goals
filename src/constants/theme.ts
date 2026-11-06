@@ -17,10 +17,11 @@ export const Colors = {
     margin: '#D95D53',
     // Marginalia (stars, asides, the not-today date); never a control.
     accent: '#D95D53',
-    // Controls. Cream paper leaves one narrow band where the yellow holds 3:1
-    // against the page and ink still reads at 4.5:1 on it; theme.test.ts guards it.
-    primary: '#B08500',
-    primaryPressed: '#9E7800',
+    // Controls. The yellow fill carries ink at 4.5:1; primaryEdge, not the fill,
+    // holds 3:1 against the page as the pill and selected-chip outline (theme.test.ts).
+    primary: '#FFD23F',
+    primaryPressed: '#F5C518',
+    primaryEdge: '#A67C00',
     onPrimary: '#26221B',
     missed: '#B04A42',
     border: '#DCD3B4',
@@ -36,6 +37,7 @@ export const Colors = {
     accent: '#E07B72',
     primary: '#F2C230',
     primaryPressed: '#D9AA20',
+    primaryEdge: '#F2C230',
     onPrimary: '#26221B',
     missed: '#D98078',
     border: '#3A3426',

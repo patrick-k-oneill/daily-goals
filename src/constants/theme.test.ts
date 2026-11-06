@@ -32,12 +32,16 @@ describe('dark-mode rule lines', () => {
 });
 
 describe.each(schemes)('%s primary', (_, scheme) => {
-  it('stands ≥3:1 against the page (WCAG AA for a control)', () => {
-    expect(contrastRatio(scheme.primary, scheme.background)).toBeGreaterThanOrEqual(3);
+  it('carries onPrimary at ≥4.5:1 at rest (WCAG AA for the pill label)', () => {
+    expect(contrastRatio(scheme.onPrimary, scheme.primary)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('carries onPrimary at ≥4.5:1 (WCAG AA for the pill label)', () => {
-    expect(contrastRatio(scheme.onPrimary, scheme.primary)).toBeGreaterThanOrEqual(4.5);
+  it('carries onPrimary at ≥4.5:1 when pressed', () => {
+    expect(contrastRatio(scheme.onPrimary, scheme.primaryPressed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('outlines controls with primaryEdge at ≥3:1 against the page (WCAG AA non-text)', () => {
+    expect(contrastRatio(scheme.primaryEdge, scheme.background)).toBeGreaterThanOrEqual(3);
   });
 
   it('darkens when pressed', () => {

@@ -162,7 +162,7 @@ function EventForm({
               onPress={() => patchDraft({ date: day })}
               style={[
                 styles.chip,
-                { borderColor: selected ? theme.primary : theme.border },
+                { borderColor: selected ? theme.primaryEdge : theme.border },
                 selected && { backgroundColor: theme.backgroundSelected },
               ]}>
               <ThemedText type="small" themeColor={selected ? 'text' : 'textSecondary'}>

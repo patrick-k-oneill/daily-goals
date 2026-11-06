@@ -73,6 +73,7 @@ export function FormActions({ submitLabel, canSubmit, onSubmit, onCancel }: Form
           {
             backgroundColor:
               canSubmit && (pressed || hovered) ? theme.primaryPressed : theme.primary,
+            borderColor: theme.primaryEdge,
           },
           !canSubmit && styles.disabled,
         ]}>
@@ -135,6 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
+    borderWidth: 1,
   },
   disabled: {
     opacity: 0.4,
