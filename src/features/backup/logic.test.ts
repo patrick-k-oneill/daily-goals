@@ -59,7 +59,7 @@ function samplePad(): PadData {
         '2026-08-25': {
           forDate: '2026-08-25',
           writtenAt: '2026-08-26T07:00:00.000Z',
-          text: 'Amy, Leto',
+          text: 'Good coffee, a long walk',
         },
         '2026-08-26': { forDate: '2026-08-26', writtenAt: NOW, text: 'A quiet morning' },
       },
@@ -118,7 +118,11 @@ function legacyPad(): LegacyPadData {
       ],
     },
     gratitude: {
-      '2026-08-25': { forDate: '2026-08-25', writtenAt: '2026-08-26T07:00:00.000Z', text: 'Amy' },
+      '2026-08-25': {
+        forDate: '2026-08-25',
+        writtenAt: '2026-08-26T07:00:00.000Z',
+        text: 'Good coffee',
+      },
     },
     events: [{ id: 'ev1', date: '2026-08-30', title: 'IRC', timeLabel: '4pm–5:30pm' }],
   };

@@ -114,7 +114,7 @@ const ANNUAL: [string, number][] = [
 ];
 
 const GRATITUDE_LINE =
-  'Grateful for a slow morning with Amy, Leto asleep on the porch, a long walk before the heat, ' +
+  'Grateful for a slow morning with good coffee, a long walk before the heat, ' +
   'a call with an old friend, and getting the hard thing done first. ';
 
 /** A pad written every morning for `years` years (0 years = templates only). */
