@@ -13,7 +13,7 @@ import {
 } from '@/features/goals/types';
 import type { Gratitude, GratitudeEntries, GratitudeEntry } from '@/features/gratitude/types';
 import type { DayKey } from '@/lib/dates';
-import type { Stamp, Tombstones } from '@/lib/merge';
+import type { Tombstones } from '@/lib/merge';
 
 import type { LegacyPadData, PadData, PadFile } from './types';
 
@@ -47,10 +47,10 @@ export function serializePad(pad: PadData, now: string): string {
 /**
  * Read a pad file back. Anything that isn't a pad file, was written by a newer
  * app, or has a part in the wrong shape is refused with a reason to show. A
- * schema 1 file predates stamps; its items are stamped `now`, the moment this
- * device first knew them.
+ * schema 1 file predates stamps; its items are stamped legacy, behind any real
+ * write.
  */
-export function parsePad(text: string, now: Stamp): ParsedPad {
+export function parsePad(text: string): ParsedPad {
   const file = parseJson(text);
   if (!isRecord(file) || !isNumber(file.schemaVersion)) return refuse(NOT_A_PAD_FILE);
   if (file.schemaVersion > SCHEMA_VERSION) return refuse(NEWER_PAD_FILE);
@@ -59,7 +59,7 @@ export function parsePad(text: string, now: Stamp): ParsedPad {
   }
   if (!isTimestamp(file.exportedAt)) return refuse(damaged('export date'));
 
-  const pad = file.schemaVersion === 1 ? readLegacyPad(file, now) : readPad(file);
+  const pad = file.schemaVersion === 1 ? readLegacyPad(file) : readPad(file);
   if (typeof pad === 'string') return refuse(pad);
   return { ok: true, exportedAt: file.exportedAt, pad };
 }
@@ -88,7 +88,7 @@ function readPad(file: Record<string, unknown>): PadData | string {
   return { goals: file.goals, gratitude: file.gratitude, events: file.events };
 }
 
-function readLegacyPad(file: Record<string, unknown>, now: Stamp): PadData | string {
+function readLegacyPad(file: Record<string, unknown>): PadData | string {
   if (!isLegacyGoals(file.goals)) return damaged('goals');
   if (!isGratitudeEntries(file.gratitude)) return damaged('gratitude entries');
   if (!isArrayOf(isLegacyUpcomingEvent)(file.events)) return damaged('upcoming events');
@@ -98,9 +98,9 @@ function readLegacyPad(file: Record<string, unknown>, now: Stamp): PadData | str
     events: file.events,
   };
   return {
-    goals: upgradeLegacyGoals(legacy.goals, now),
+    goals: upgradeLegacyGoals(legacy.goals),
     gratitude: { entries: legacy.gratitude, tombstones: {} },
-    events: upgradeLegacyEvents(legacy.events, now),
+    events: upgradeLegacyEvents(legacy.events),
   };
 }
 

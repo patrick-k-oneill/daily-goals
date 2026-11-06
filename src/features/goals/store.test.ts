@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { addDays, todayKey } from '@/lib/dates';
-import { EPOCH } from '@/lib/merge';
+import { EPOCH, LEGACY } from '@/lib/merge';
 
 import { entriesForPeriod, seedGoals } from './logic';
 import { useGoalsStore } from './store';
@@ -90,7 +90,7 @@ describe('useGoalsStore', () => {
       'seed:daily:1:2026-08-20',
       `seed:daily:1:${todayKey()}`,
     ]);
-    expect(Date.parse(entries[0].updatedAt)).not.toBeNaN();
+    expect(entries[0].updatedAt).toBe(LEGACY);
     expect(entries[1].updatedAt).toBe(EPOCH);
     expect(tombstones).toEqual({});
   });

@@ -7,7 +7,7 @@ import {
   type DayKey,
 } from '@/lib/dates';
 import { newId } from '@/lib/id';
-import { EPOCH, mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
+import { EPOCH, LEGACY, mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
 import {
   CADENCES,
@@ -295,10 +295,11 @@ export function mergeGoals(local: Goals, remote: Goals): Goals {
 
 /**
  * The pad as persisted before stamps, brought into shape: everything stamped
- * `now` (the moment this device first knew it), seed templates and materialized
- * lines given the ids every device shares, retirements marked at the epoch.
+ * legacy (ahead of a fresh seed, behind any real write), seed templates and
+ * materialized lines given the ids every device shares, retirements marked at
+ * the epoch.
  */
-export function upgradeLegacyGoals(legacy: LegacyGoals, now: Stamp): Goals {
+export function upgradeLegacyGoals(legacy: LegacyGoals): Goals {
   const seedIds = new Set(seedGoals().templates.map((t) => t.id));
   const templateIds = new Map(
     legacy.templates.map((t) => {
@@ -310,13 +311,18 @@ export function upgradeLegacyGoals(legacy: LegacyGoals, now: Stamp): Goals {
   const templates = legacy.templates.map(({ active, ...t }) => ({
     ...t,
     id: templateIds.get(t.id) ?? t.id,
-    updatedAt: now,
+    updatedAt: LEGACY,
     ...(active ? {} : { retiredAt: EPOCH }),
   }));
   const entries = legacy.entries.map((e) => {
-    if (!e.templateId) return { ...e, updatedAt: now };
+    if (!e.templateId) return { ...e, updatedAt: LEGACY };
     const templateId = templateIds.get(e.templateId) ?? e.templateId;
-    return { ...e, id: materializedEntryId(templateId, e.periodKey), templateId, updatedAt: now };
+    return {
+      ...e,
+      id: materializedEntryId(templateId, e.periodKey),
+      templateId,
+      updatedAt: LEGACY,
+    };
   });
   return { templates, entries, tombstones: {} };
 }
