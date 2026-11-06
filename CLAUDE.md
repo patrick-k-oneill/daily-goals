@@ -15,7 +15,7 @@ Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and A
 
 - `src/app/` — expo-router routes only; keep them thin (compose feature components, no logic).
 - `src/features/<feature>/` — `types.ts`; `logic.ts`, the module's core: pure transitions and queries over plain data with `today` and timestamps injected, unit-tested at that interface; `store.ts`, a thin zustand `persist` binding with one action per transition; `components/`.
-- `src/components/ui/` — design-system primitives (Screen, SectionHeader, and the inline form kit: InlineForm, FormInput, FormActions, AddLine).
+- `src/components/ui/` — design-system primitives (Screen, SectionHeader, the inline form kit: InlineForm, FormInput, FormActions, AddLine, and ListTextInput, the bulleted multiline input whose rules live in `list-text.ts`).
 - `src/constants/theme.ts` — all design tokens (paper palette, spacing). Never hardcode colors in components; every color exists in light and dark.
 - `src/lib/` — `dates.ts` (period keys and formatting), `clock.ts` (`useToday()`, the only render-time source of "today"), `persisted-store.ts` (persistence config and hydration), cross-platform shims (confirm, haptics).
 - Persistence is zustand `persist` over AsyncStorage, configured once in `src/lib/persisted-store.ts`; the root layout gates first render on every store having rehydrated.
