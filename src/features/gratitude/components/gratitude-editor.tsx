@@ -28,7 +28,7 @@ export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) 
   // never show placeholder text that could read as a written entry.
   const placeholder =
     reflectionDate === reflectionDateFor(today)
-      ? 'Amy, Leto, sharing a great night, eating tasty food…'
+      ? 'Good coffee, a long walk, a call with an old friend…'
       : 'Nothing written for this morning yet…';
 
   return (

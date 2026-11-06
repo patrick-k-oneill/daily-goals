@@ -43,7 +43,11 @@ const written: PadData = {
   },
   gratitude: {
     entries: {
-      '2026-08-25': { forDate: '2026-08-25', writtenAt: '2026-08-26T07:00:00.000Z', text: 'Amy' },
+      '2026-08-25': {
+        forDate: '2026-08-25',
+        writtenAt: '2026-08-26T07:00:00.000Z',
+        text: 'Good coffee',
+      },
     },
     tombstones: {},
   },

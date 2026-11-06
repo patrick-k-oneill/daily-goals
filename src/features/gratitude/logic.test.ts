@@ -32,11 +32,11 @@ describe('reflectionDateFor', () => {
 
 describe('saveEntry', () => {
   it('writes the entry keyed by the day reflected on, stamping when it was written', () => {
-    const { entries } = saveEntry(journal(), '2026-08-21', 'Amy, Leto', WRITTEN_AT);
+    const { entries } = saveEntry(journal(), '2026-08-21', 'Good coffee, a long walk', WRITTEN_AT);
     expect(entries['2026-08-21']).toEqual({
       forDate: '2026-08-21',
       writtenAt: WRITTEN_AT,
-      text: 'Amy, Leto',
+      text: 'Good coffee, a long walk',
     });
     expect(hasEntry(entries, '2026-08-21')).toBe(true);
   });
