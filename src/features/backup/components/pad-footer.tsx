@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { TextSizeControl } from '@/features/text-size/components/text-size-control';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -20,7 +21,8 @@ interface Notice {
 
 /**
  * The pad's back cover: carry the whole pad off this device as one file, or
- * replace it from one. Import is replace-all; merging belongs to sync.
+ * replace it from one, and set this device's text size. Import is replace-all;
+ * merging belongs to sync.
  */
 export function PadFooter() {
   const theme = useTheme();
@@ -80,6 +82,7 @@ export function PadFooter() {
           onPress={importPad}
         />
       </View>
+      <TextSizeControl />
       <ThemedText type="small" themeColor="textSecondary">
         {formatBytes(footprint.total)} on this device
       </ThemedText>

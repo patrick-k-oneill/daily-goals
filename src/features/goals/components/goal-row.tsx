@@ -17,6 +17,7 @@ import {
 
 import { BODY_LINE_HEIGHT, ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
@@ -30,6 +31,9 @@ import { CheckBox } from './check-box';
 import { GoalForm } from './goal-form';
 import { CHECK_BOX_GAP, MIN_INLINE_TITLE_WIDTH, type GoalRowLayout } from './goal-row-layout';
 
+/** The star's line box at 100%: taller than a body line so the glyph has room. */
+const STAR_LINE_HEIGHT = 28;
+
 /**
  * One ruled line of the pad: margin star, the goal's checkboxes, then its
  * title. Tap the title to edit it in place. The list decides each row's
@@ -41,6 +45,7 @@ export function GoalRow({ entry, layout }: { entry: GoalEntry; layout: GoalRowLa
   const theme = useTheme();
   const [editing, setEditing] = useState(false);
   const [titleHeight, setTitleHeight] = useState(0);
+  const scale = useTextScale();
 
   if (editing) {
     return <GoalRowEditor entry={entry} onDone={() => setEditing(false)} />;
@@ -49,12 +54,17 @@ export function GoalRow({ entry, layout }: { entry: GoalEntry; layout: GoalRowLa
   const measureTitle = (e: LayoutChangeEvent) => setTitleHeight(e.nativeEvent.layout.height);
   // A wrapped inline title is the row's tallest child, so the star must anchor
   // to the first text line instead of centering against the whole block.
-  const titleWrapped = titleHeight > BODY_LINE_HEIGHT * 1.5;
+  const titleWrapped = titleHeight > BODY_LINE_HEIGHT * scale * 1.5;
+  // Top-aligned, with the star's line box centered on the title's first line.
+  const starFirstLine = [
+    styles.starFirstLine,
+    { marginTop: ((BODY_LINE_HEIGHT - STAR_LINE_HEIGHT) / 2) * scale },
+  ];
 
   if (layout === 'stacked') {
     return (
       <View style={[styles.row, styles.rowStacked, { borderBottomColor: theme.rule }]}>
-        <StarButton entry={entry} style={styles.starFirstLine} />
+        <StarButton entry={entry} style={starFirstLine} />
         <View style={styles.stackedBody}>
           <TitleButton entry={entry} onEdit={() => setEditing(true)} />
           <ChecksGroup entry={entry} />
@@ -65,7 +75,7 @@ export function GoalRow({ entry, layout }: { entry: GoalEntry; layout: GoalRowLa
 
   return (
     <View style={[styles.row, { borderBottomColor: theme.rule }]}>
-      <StarButton entry={entry} style={titleWrapped ? styles.starFirstLine : undefined} />
+      <StarButton entry={entry} style={titleWrapped ? starFirstLine : undefined} />
       <ChecksGroup entry={entry} />
       <TitleButton
         entry={entry}
@@ -80,6 +90,7 @@ export function GoalRow({ entry, layout }: { entry: GoalEntry; layout: GoalRowLa
 function StarButton({ entry, style }: { entry: GoalEntry; style?: StyleProp<ViewStyle> }) {
   const toggleStar = useGoalsStore((s) => s.toggleStar);
   const { hovered, hoverProps } = useHover();
+  const scale = useTextScale();
 
   return (
     <Pressable
@@ -101,7 +112,7 @@ function StarButton({ entry, style }: { entry: GoalEntry; style?: StyleProp<View
       <ThemedText
         type="subtitle"
         themeColor={entry.starred ? 'accent' : hovered ? 'textSecondary' : 'border'}
-        style={styles.star}>
+        style={{ lineHeight: STAR_LINE_HEIGHT * scale }}>
         {entry.starred ? '★' : '☆'}
       </ThemedText>
     </Pressable>
@@ -217,14 +228,8 @@ const styles = StyleSheet.create({
   rowStacked: {
     alignItems: 'flex-start',
   },
-  star: {
-    lineHeight: 28,
-  },
-  // Anchors the star to the title's first line: top-aligned, with the star's
-  // 28pt line box centered on the 24pt text line.
   starFirstLine: {
     alignSelf: 'flex-start',
-    marginTop: -2,
   },
   stackedBody: {
     flex: 1,

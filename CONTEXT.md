@@ -80,6 +80,12 @@ _Avoid_: backup file, snapshot, dump
 The pad's size on this device — the bytes of each store's persisted JSON, and their total — shown in the Pad footer and projected for future years in ADR 0004.
 _Avoid_: storage usage, disk size, quota
 
+### Device
+
+**Text size**:
+This device's multiplier on every text style — 100% to 200% in steps, set from the Pad footer. A local preference: never written to the pad file or synced, and on iOS it multiplies on top of Dynamic Type.
+_Avoid_: zoom, font scale, accessibility size
+
 ### Sync
 
 **Stamp**:
