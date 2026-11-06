@@ -44,11 +44,11 @@ It runs typecheck, then eslint and prettier on changed files, the jest suite, an
 
 ## Tests
 
-Write tests where there is an independent truth to assert against: transitions and queries in `logic.ts`, period keys and date formatting, row geometry. Markup- or style-only component changes get no test; say so in the build report.
+Write tests where there is an independent truth to assert against: transitions and queries in `logic.ts`, period keys and date formatting, row geometry. Markup- or style-only component changes get no test; say so in the build report. Fixtures, examples and doc comments use generic placeholder names, never a real person's or pet's.
 
 ## Workflow commands
 
-`/p-ship` (auto: issue → PR), `/p-start` (supervised), `/p-pr`, `/p-watch`, `/p-test` (manual test, verdicts on the PR), `/p-ready` (human-gated merge) — see `.claude/commands/`. The `p-` prefix keeps them from colliding with same-named personal commands in `~/.claude/commands`, which override project ones. GitHub Issues is the tracker; merging is always human-gated.
+`/p-ship` (auto: issue → PR), `/p-start` (supervised), `/p-pr`, `/p-watch`, `/p-test` (manual test, verdicts on the PR), `/p-ready` (human-gated merge) — see `.claude/commands/`. `/p-ship` and `/p-start` build in a worktree under the session scratchpad, never in this checkout; `/p-pr` and `/p-ship` remove it once the PR exists. The `p-` prefix keeps them from colliding with same-named personal commands in `~/.claude/commands`, which override project ones. GitHub Issues is the tracker; merging is always human-gated.
 
 ## Agent skills
 
