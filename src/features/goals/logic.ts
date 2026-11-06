@@ -18,6 +18,8 @@ import {
   type GoalTemplate,
   type Goals,
   type LegacyGoals,
+  type StarredGoalEntry,
+  type StarredGoals,
 } from './types';
 
 /** A goal line holds between one and this many checks. */
@@ -50,9 +52,9 @@ export function periodLabel(cadence: Cadence, day: DayKey): string {
   }
 }
 
-/** The lines on one period's section: starred first, then pad writing order. */
+/** The lines on one period's section, in their stored order. */
 export function entriesForPeriod(entries: GoalEntry[], periodKey: string): GoalEntry[] {
-  return entries.filter((e) => e.periodKey === periodKey).sort(byPadOrder);
+  return entries.filter((e) => e.periodKey === periodKey).sort(bySortOrder);
 }
 
 /** The id every device gives a template's line on a period, so two copies of it are one line. */
@@ -129,7 +131,6 @@ export function ensurePeriod(
       title: t.title,
       checks: emptyChecks(t.targetCount),
       checkLabels: t.checkLabels,
-      starred: false,
       sortOrder: t.sortOrder,
       updatedAt: EPOCH,
     });
@@ -195,7 +196,6 @@ export function addGoal(goals: Goals, input: AddGoalInput, now: Stamp): Goals {
     title,
     checks: emptyChecks(targetCount),
     checkLabels,
-    starred: false,
     sortOrder,
     updatedAt: now,
   };
@@ -214,10 +214,6 @@ export function cycleCheck(goals: Goals, entryId: string, checkIndex: number, no
     checks: e.checks.map((c, i) => (i === checkIndex ? cycleState(c) : c)),
     updatedAt: now,
   }));
-}
-
-export function toggleStar(goals: Goals, entryId: string, now: Stamp): Goals {
-  return mapEntry(goals, entryId, (e) => ({ ...e, starred: !e.starred, updatedAt: now }));
 }
 
 export interface GoalEditPatch {
@@ -323,7 +319,8 @@ export function mergeGoals(local: Goals, remote: Goals): Goals {
 /**
  * The pad as persisted before stamps, brought into shape: everything stamped
  * `now` (the moment this device first knew it), seed templates and materialized
- * lines given the ids every device shares, retirements marked at the epoch.
+ * lines given the ids every device shares, retirements marked at the epoch,
+ * and its stars retired.
  */
 export function upgradeLegacyGoals(legacy: LegacyGoals, now: Stamp): Goals {
   const seedIds = new Set(seedGoals().templates.map((t) => t.id));
@@ -345,7 +342,30 @@ export function upgradeLegacyGoals(legacy: LegacyGoals, now: Stamp): Goals {
     const templateId = templateIds.get(e.templateId) ?? e.templateId;
     return { ...e, id: materializedEntryId(templateId, e.periodKey), templateId, updatedAt: now };
   });
-  return { templates, entries, tombstones: {} };
+  return retireStars({ templates, entries, tombstones: {} });
+}
+
+/**
+ * The pad as persisted while the star ranked a line first in its section:
+ * each period's lines renumbered 1… in that order, starred first, so the
+ * stored sortOrder alone keeps what was visible. Stamps are untouched.
+ */
+export function retireStars(goals: StarredGoals): Goals {
+  const byPeriod = new Map<string, StarredGoalEntry[]>();
+  for (const e of goals.entries) {
+    byPeriod.set(e.periodKey, [...(byPeriod.get(e.periodKey) ?? []), e]);
+  }
+  const sortOrders = new Map<string, number>();
+  for (const lines of byPeriod.values()) {
+    lines.sort(byStarredOrder).forEach((e, i) => sortOrders.set(e.id, i + 1));
+  }
+  return {
+    ...goals,
+    entries: goals.entries.map(({ starred: _starred, ...e }) => ({
+      ...e,
+      sortOrder: sortOrders.get(e.id) ?? e.sortOrder,
+    })),
+  };
 }
 
 /**
@@ -425,10 +445,14 @@ function cycleState(state: CheckState): CheckState {
   }
 }
 
-/** Starred items float to the top, then pad writing order. */
-function byPadOrder(a: GoalEntry, b: GoalEntry): number {
-  if (a.starred !== b.starred) return a.starred ? -1 : 1;
+function bySortOrder(a: GoalEntry, b: GoalEntry): number {
   return a.sortOrder - b.sortOrder;
+}
+
+/** How a section read while the star was drawn: starred lines first, then stored order. */
+function byStarredOrder(a: StarredGoalEntry, b: StarredGoalEntry): number {
+  if (Boolean(a.starred) !== Boolean(b.starred)) return a.starred ? -1 : 1;
+  return bySortOrder(a, b);
 }
 
 function nextSortOrder(items: { sortOrder: number }[]): number {

@@ -44,8 +44,7 @@ export interface GoalEntry {
   checks: CheckState[];
   /** One label per check by position; absent when none is written. */
   checkLabels?: string[];
-  /** The star drawn in the pad margin next to the day's key item. */
-  starred: boolean;
+  /** The line's place in its period's section, ascending; a new line takes the highest. */
   sortOrder: number;
   /** The epoch until someone writes on the line. */
   updatedAt: Stamp;
@@ -59,6 +58,14 @@ export interface Goals {
   tombstones: Tombstones;
 }
 
+/** An entry as stored while the star was drawn (store v3, pad file 2–3): `starred` ranked it first in its section. */
+export type StarredGoalEntry = GoalEntry & { starred?: boolean };
+
+/** The shape before the star was retired (store v3, pad file 2–3). */
+export interface StarredGoals extends Goals {
+  entries: StarredGoalEntry[];
+}
+
 /** The shape before stamps (store v2, pad file v1): `active` instead of `retiredAt`, random ids everywhere, no tombstones. */
 export interface LegacyGoals {
   templates: LegacyGoalTemplate[];
@@ -69,4 +76,4 @@ export type LegacyGoalTemplate = Omit<GoalTemplate, 'updatedAt' | 'retiredAt'> &
   active: boolean;
 };
 
-export type LegacyGoalEntry = Omit<GoalEntry, 'updatedAt'>;
+export type LegacyGoalEntry = Omit<StarredGoalEntry, 'updatedAt'>;

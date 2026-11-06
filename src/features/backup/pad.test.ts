@@ -34,7 +34,6 @@ const written: PadData = {
         periodKey: '2026-08-26',
         title: 'Deep Work',
         checks: ['done'],
-        starred: true,
         sortOrder: 1,
         updatedAt: NOW,
       },
