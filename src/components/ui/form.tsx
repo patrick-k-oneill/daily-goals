@@ -56,18 +56,27 @@ interface FormActionsProps {
   onCancel: () => void;
 }
 
-/** The accent submit pill and a quiet Cancel. */
+/** The yellow submit pill and a quiet Cancel. */
 export function FormActions({ submitLabel, canSubmit, onSubmit, onCancel }: FormActionsProps) {
   const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
   return (
     <View style={styles.actions}>
       <Pressable
+        {...hoverProps}
         accessibilityRole="button"
         accessibilityState={{ disabled: !canSubmit }}
         disabled={!canSubmit}
         onPress={onSubmit}
-        style={[styles.submit, { backgroundColor: theme.accent }, !canSubmit && styles.disabled]}>
-        <ThemedText type="smallBold" themeColor="onAccent">
+        style={({ pressed }) => [
+          styles.submit,
+          {
+            backgroundColor:
+              canSubmit && (pressed || hovered) ? theme.primaryPressed : theme.primary,
+          },
+          !canSubmit && styles.disabled,
+        ]}>
+        <ThemedText type="smallBold" themeColor="onPrimary">
           {submitLabel}
         </ThemedText>
       </Pressable>
