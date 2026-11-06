@@ -1,9 +1,11 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
 import { HandwritingFont, ThemeColor } from '@/constants/theme';
+import { scaleTextStyle } from '@/features/text-size/logic';
+import { useTextScale } from '@/features/text-size/store';
 import { useTheme } from '@/hooks/use-theme';
 
-/** One line of body text; rows anchor marginalia to it. */
+/** One line of body text at 100%; rows anchor marginalia to it, times the text scale. */
 export const BODY_LINE_HEIGHT = 24;
 
 /**
@@ -32,8 +34,14 @@ export type ThemedTextProps = TextProps & {
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  const scale = useTextScale();
 
-  return <Text style={[{ color: theme[themeColor ?? 'text'] }, styles[type], style]} {...rest} />;
+  return (
+    <Text
+      style={[{ color: theme[themeColor ?? 'text'] }, scaleTextStyle(styles[type], scale), style]}
+      {...rest}
+    />
+  );
 }
 
 const styles = StyleSheet.create({

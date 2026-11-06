@@ -7,13 +7,14 @@ import AppTabs from '@/components/app-tabs';
 import { useEventsStore } from '@/features/events/store';
 import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
+import { useTextSizeStore } from '@/features/text-size/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { useHydrated } from '@/lib/persisted-store';
 
 SplashScreen.preventAutoHideAsync();
 
-const persistedStores = [useGoalsStore, useGratitudeStore, useEventsStore];
+const persistedStores = [useGoalsStore, useGratitudeStore, useEventsStore, useTextSizeStore];
 
 export default function RootLayout() {
   const dark = useColorScheme() === 'dark';

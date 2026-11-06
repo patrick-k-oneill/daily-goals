@@ -11,8 +11,13 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { FormActions, FormInput, InlineForm } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
+import { scaleTextStyle } from '@/features/text-size/logic';
+import { useTextScale } from '@/features/text-size/store';
 
 import { hasCheckLabels, MAX_CHECK_LABEL_LENGTH, MAX_CHECKS } from '../logic';
+
+/** Room for six characters of small type at 100%. */
+const LABEL_INPUT_WIDTH = 56;
 
 interface GoalDraft {
   title: string;
@@ -174,6 +179,11 @@ function CheckLabelInputs({
   onEscape: () => void;
 }) {
   const inputs = useRef<(TextInput | null)[]>([]);
+  const scale = useTextScale();
+  const labelInput = [
+    scaleTextStyle(styles.labelInput, scale),
+    { width: LABEL_INPUT_WIDTH * scale },
+  ];
 
   const setLabel = (index: number, text: string) => {
     const next = Array.from({ length: Math.max(labels.length, index + 1) }, (_, i) =>
@@ -205,7 +215,7 @@ function CheckLabelInputs({
             onSubmitEditing={last ? onSubmit : () => inputs.current[i + 1]?.focus()}
             onEscape={onEscape}
             accessibilityLabel={`Label for check ${i + 1}`}
-            style={styles.labelInput}
+            style={labelInput}
           />
         );
       })}
@@ -244,9 +254,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
   },
-  // Room for six characters of small type, centered like the label over its box.
+  // Centered like the label over its box.
   labelInput: {
-    width: 56,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
