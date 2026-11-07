@@ -6,6 +6,25 @@ import { useTheme } from '@/hooks/use-theme';
 /** One line of body text; rows anchor marginalia to it. */
 export const BODY_LINE_HEIGHT = 24;
 
+/**
+ * Caveat's script glyphs reach up to 0.21 em past their advance width on the
+ * right (the widest is a trailing "f"); the Text box is sized to advances
+ * alone, so without this trailing padding the last glyph's edge is cut off.
+ */
+const HANDWRITING_OVERHANG_EM = 0.21;
+
+function handwriting(fontSize: number, lineHeight: number) {
+  return {
+    fontFamily: HandwritingFont,
+    fontSize,
+    lineHeight,
+    paddingRight: Math.ceil(fontSize * HANDWRITING_OVERHANG_EM),
+    // Android only: the font's extra ascender/descender allowance would push
+    // the glyphs off-center within the explicit lineHeight.
+    includeFontPadding: false,
+  } as const;
+}
+
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'subtitle' | 'small' | 'smallBold' | 'hand' | 'handSmall';
   themeColor?: ThemeColor;
@@ -38,14 +57,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: 700,
   },
-  hand: {
-    fontFamily: HandwritingFont,
-    fontSize: 34,
-    lineHeight: 42,
-  },
-  handSmall: {
-    fontFamily: HandwritingFont,
-    fontSize: 24,
-    lineHeight: 30,
-  },
+  hand: handwriting(34, 42),
+  handSmall: handwriting(24, 30),
 });

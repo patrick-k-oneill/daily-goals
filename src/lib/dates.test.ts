@@ -10,6 +10,7 @@ import {
   monthGrid,
   monthStart,
   parseDayKey,
+  weekdayOf,
   weekKeyOf,
   weekStart,
   yearKeyOf,
@@ -44,6 +45,12 @@ describe('ISO weeks', () => {
     expect(weekStart('2026-08-21')).toBe('2026-08-17');
     expect(daysOfWeek('2026-08-21')).toHaveLength(7);
     expect(daysOfWeek('2026-08-21')[6]).toBe('2026-08-23');
+  });
+
+  it('numbers weekdays Monday 1 through Sunday 7', () => {
+    expect(weekdayOf('2026-08-17')).toBe(1);
+    expect(weekdayOf('2026-08-21')).toBe(5);
+    expect(weekdayOf('2026-08-23')).toBe(7);
   });
 });
 

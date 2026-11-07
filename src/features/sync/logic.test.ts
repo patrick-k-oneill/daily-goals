@@ -3,11 +3,12 @@ import { mergeEvents } from '@/features/events/logic';
 import {
   addGoal,
   cycleCheck,
+  entriesForPeriod,
   materializeToday,
   mergeGoals,
   seedGoals,
 } from '@/features/goals/logic';
-import type { GoalEntry } from '@/features/goals/types';
+import type { GoalEntry, StarredGoalEntry } from '@/features/goals/types';
 import { mergeGratitude, saveEntry } from '@/features/gratitude/logic';
 import { EPOCH } from '@/lib/merge';
 
@@ -25,7 +26,7 @@ const NOW = '2026-08-21T09:00:00.000Z';
 const LATER = '2026-08-21T10:00:00.000Z';
 const TODAY = '2026-08-21';
 
-function line(id: string, periodKey: string, updatedAt = EPOCH): GoalEntry {
+function line(id: string, periodKey: string, updatedAt = EPOCH, sortOrder = 1): GoalEntry {
   return {
     id,
     templateId: 't1',
@@ -33,8 +34,7 @@ function line(id: string, periodKey: string, updatedAt = EPOCH): GoalEntry {
     periodKey,
     title: 'Deep Work',
     checks: ['empty'],
-    starred: false,
-    sortOrder: 1,
+    sortOrder,
     updatedAt,
   };
 }
@@ -57,11 +57,15 @@ function samplePad(): PadData {
           cadence: 'daily',
           title: 'Deep Work',
           targetCount: 1,
+          weekdays: [1, 3, 5],
           sortOrder: 1,
           updatedAt: NOW,
         },
       ],
-      entries: [line('t1:2026-01-02', '2026-01-02', NOW), line('t1:2025-12-31', '2025-12-31', NOW)],
+      entries: [
+        line('t1:2026-01-02', '2026-01-02', NOW, 3),
+        line('t1:2025-12-31', '2025-12-31', NOW),
+      ],
       tombstones: { 't1:2026-01-01': NOW },
     },
     gratitude: {
@@ -142,8 +146,14 @@ describe('joinPad', () => {
     const pad = samplePad();
     const { pad: joined, unreadable } = joinPad(splitPad(pad));
     expect(unreadable).toEqual([]);
-    expect(joined.goals.templates.map((t) => t.id)).toEqual(['t1', 't2']);
-    expect(joined.goals.entries.map((e) => e.id)).toEqual(['t1:2025-12-31', 't1:2026-01-02']);
+    expect(joined.goals.templates.map((t) => [t.id, t.weekdays])).toEqual([
+      ['t1', [1, 3, 5]],
+      ['t2', undefined],
+    ]);
+    expect(joined.goals.entries.map((e) => [e.id, e.sortOrder])).toEqual([
+      ['t1:2025-12-31', 1],
+      ['t1:2026-01-02', 3],
+    ]);
     expect(joined.goals.tombstones).toEqual(pad.goals.tombstones);
     expect(Object.keys(joined.gratitude.entries)).toEqual(['2025-12-31', '2026-01-01']);
     expect(joined.gratitude.tombstones).toEqual(pad.gratitude.tombstones);
@@ -152,6 +162,39 @@ describe('joinPad', () => {
 
   it('reads an empty cloud as an empty pad', () => {
     expect(joinPad({})).toEqual({ pad: emptyPad(), unreadable: [] });
+  });
+
+  it('reads a pad the starred layout wrote, its starred line first by sortOrder and the star gone', () => {
+    const starred = (id: string, sortOrder: number, isStarred: boolean): StarredGoalEntry => ({
+      ...line(id, '2026-01-02', NOW, sortOrder),
+      starred: isStarred,
+    });
+    const { templates, tombstones } = samplePad().goals;
+    const unscheduled = templates.map(({ weekdays: _weekdays, ...t }) => t);
+    const files: CloudFiles = {
+      'goals/index.json': JSON.stringify({ schemaVersion: 1, templates: unscheduled, tombstones }),
+      'goals/entries-2026.json': JSON.stringify({
+        schemaVersion: 1,
+        entries: [starred('a', 1, false), starred('b', 2, true), starred('c', 3, false)],
+      }),
+    };
+
+    const { pad, unreadable } = joinPad(files);
+    expect(unreadable).toEqual([]);
+    expect(pad.goals.templates).toEqual(unscheduled);
+    expect(pad.goals.entries.map((e) => [e.id, e.sortOrder])).toEqual([
+      ['a', 2],
+      ['b', 1],
+      ['c', 3],
+    ]);
+    expect(pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
+
+    const merged = mergeGoals(emptyPad().goals, pad.goals);
+    expect(entriesForPeriod(merged.entries, '2026-01-02').map((e) => e.id)).toEqual([
+      'b',
+      'a',
+      'c',
+    ]);
   });
 
   it('skips a damaged file and one from a newer app, naming them, and reads the rest', () => {

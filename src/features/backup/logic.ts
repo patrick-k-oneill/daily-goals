@@ -3,7 +3,7 @@ import {
   isUpcomingEvents,
   upgradeLegacyEvents,
 } from '@/features/events/logic';
-import { isGoals, isLegacyGoals, upgradeLegacyGoals } from '@/features/goals/logic';
+import { isGoals, isLegacyGoals, retireStars, upgradeLegacyGoals } from '@/features/goals/logic';
 import { isGratitude, isGratitudeEntries } from '@/features/gratitude/logic';
 import type { DayKey } from '@/lib/dates';
 import { isNumber, isRecord, isTimestamp, parseJson } from '@/lib/guards';
@@ -12,7 +12,11 @@ import type { Stamp } from '@/lib/merge';
 import type { LegacyPadData, PadData, PadFile } from './types';
 
 /** Bump when the file shape changes; an older app refuses a newer file. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 4;
+/** The last schema whose entries carry a star; 2 and 3 differ only by a template's optional weekdays. */
+const LAST_STARRED_SCHEMA_VERSION = 3;
+/** Every shape this app still reads. */
+const READABLE_SCHEMA_VERSIONS = [1, 2, LAST_STARRED_SCHEMA_VERSION, SCHEMA_VERSION];
 
 /** What a readable pad file holds. */
 export interface PadFileContents {
@@ -48,12 +52,11 @@ export function parsePad(text: string, now: Stamp): ParsedPad {
   const file = parseJson(text);
   if (!isRecord(file) || !isNumber(file.schemaVersion)) return refuse(NOT_A_PAD_FILE);
   if (file.schemaVersion > SCHEMA_VERSION) return refuse(NEWER_PAD_FILE);
-  if (file.schemaVersion !== 1 && file.schemaVersion !== SCHEMA_VERSION) {
-    return refuse(NOT_A_PAD_FILE);
-  }
+  if (!READABLE_SCHEMA_VERSIONS.includes(file.schemaVersion)) return refuse(NOT_A_PAD_FILE);
   if (!isTimestamp(file.exportedAt)) return refuse(damaged('export date'));
 
-  const pad = file.schemaVersion === 1 ? readLegacyPad(file, now) : readPad(file);
+  const pad =
+    file.schemaVersion === 1 ? readLegacyPad(file, now) : readPad(file, file.schemaVersion);
   if (typeof pad === 'string') return refuse(pad);
   return { ok: true, exportedAt: file.exportedAt, pad };
 }
@@ -75,11 +78,12 @@ export function describePad(pad: PadData): string {
 }
 
 /** The pad's three parts, or the reason the first damaged one is refused. */
-function readPad(file: Record<string, unknown>): PadData | string {
+function readPad(file: Record<string, unknown>, schemaVersion: number): PadData | string {
   if (!isGoals(file.goals)) return damaged('goals');
   if (!isGratitude(file.gratitude)) return damaged('gratitude entries');
   if (!isUpcomingEvents(file.events)) return damaged('upcoming events');
-  return { goals: file.goals, gratitude: file.gratitude, events: file.events };
+  const goals = schemaVersion <= LAST_STARRED_SCHEMA_VERSION ? retireStars(file.goals) : file.goals;
+  return { goals, gratitude: file.gratitude, events: file.events };
 }
 
 function readLegacyPad(file: Record<string, unknown>, now: Stamp): PadData | string {

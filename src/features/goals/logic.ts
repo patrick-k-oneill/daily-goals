@@ -2,6 +2,7 @@ import {
   dayKeyOf,
   formatPadDate,
   formatWeekRange,
+  weekdayOf,
   weekKeyOf,
   yearKeyOf,
   type DayKey,
@@ -37,12 +38,16 @@ import {
   type LegacyGoalEntry,
   type LegacyGoals,
   type LegacyGoalTemplate,
+  type StarredGoalEntry,
+  type StarredGoals,
 } from './types';
 
 /** A goal line holds between one and this many checks. */
 export const MAX_CHECKS = 10;
 /** A check label is a short word over its box, at most this many characters. */
 export const MAX_CHECK_LABEL_LENGTH = 6;
+/** The ISO weekdays a daily template can name, Monday first. */
+export const EVERY_WEEKDAY: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
 
 export function periodKeyFor(cadence: Cadence, day: DayKey): string {
   switch (cadence) {
@@ -67,9 +72,9 @@ export function periodLabel(cadence: Cadence, day: DayKey): string {
   }
 }
 
-/** The lines on one period's section: starred first, then pad writing order. */
+/** The lines on one period's section, in their stored order. */
 export function entriesForPeriod(entries: GoalEntry[], periodKey: string): GoalEntry[] {
-  return entries.filter((e) => e.periodKey === periodKey).sort(byPadOrder);
+  return entries.filter((e) => e.periodKey === periodKey).sort(bySortOrder);
 }
 
 /** The id every device gives a template's line on a period, so two copies of it are one line. */
@@ -115,8 +120,9 @@ export function seedGoals(): Goals {
 /**
  * Materialize active templates onto a period's section — but only the period
  * containing `today`: a past page renders exactly what was written on it, like
- * paper. A line crossed off stays off. Idempotent; returns the same `goals`
- * when nothing is missing.
+ * paper. A daily template is written only on the weekdays it names. A line
+ * crossed off stays off. Idempotent; returns the same `goals` when nothing is
+ * missing.
  */
 export function ensurePeriod(
   goals: Goals,
@@ -134,6 +140,7 @@ export function ensurePeriod(
   const additions: GoalEntry[] = [];
   for (const t of goals.templates) {
     if (t.retiredAt || t.cadence !== cadence || instantiated.has(t.id)) continue;
+    if (!repeatsOn(t, periodKey)) continue;
     const id = materializedEntryId(t.id, periodKey);
     if (id in goals.tombstones) continue;
     additions.push({
@@ -144,7 +151,6 @@ export function ensurePeriod(
       title: t.title,
       checks: emptyChecks(t.targetCount),
       checkLabels: t.checkLabels,
-      starred: false,
       sortOrder: t.sortOrder,
       updatedAt: EPOCH,
     });
@@ -174,9 +180,15 @@ export interface AddGoalInput {
   checkLabels?: string[];
   /** Also create a template so the goal reappears every new period. */
   repeats: boolean;
+  /** The ISO weekdays a repeating daily goal is written on; omit, or name them all, for every day. */
+  weekdays?: readonly number[];
 }
 
-/** Write a new line at the bottom of a period's section. A blank title writes nothing. */
+/**
+ * Write a new line at the bottom of a period's section. A blank title writes
+ * nothing. A repeating daily goal whose weekdays exclude this period only
+ * gains its template; its first line waits for the next day it names.
+ */
 export function addGoal(goals: Goals, input: AddGoalInput, now: Stamp): Goals {
   const title = input.title.trim();
   if (!title) return goals;
@@ -188,10 +200,14 @@ export function addGoal(goals: Goals, input: AddGoalInput, now: Stamp): Goals {
   ]);
   const targetCount = clampChecks(input.targetCount);
   const checkLabels = fitCheckLabels(input.checkLabels, targetCount);
+  const weekdays = fitWeekdays(cadence, input.weekdays);
 
   const template: GoalTemplate | undefined = input.repeats
-    ? { id: newId(), cadence, title, targetCount, checkLabels, sortOrder, updatedAt: now }
+    ? { id: newId(), cadence, title, targetCount, checkLabels, weekdays, sortOrder, updatedAt: now }
     : undefined;
+  if (template && !repeatsOn(template, periodKey)) {
+    return { ...goals, templates: [...goals.templates, template] };
+  }
   const entry: GoalEntry = {
     id: template ? materializedEntryId(template.id, periodKey) : newId(),
     templateId: template?.id,
@@ -200,7 +216,6 @@ export function addGoal(goals: Goals, input: AddGoalInput, now: Stamp): Goals {
     title,
     checks: emptyChecks(targetCount),
     checkLabels,
-    starred: false,
     sortOrder,
     updatedAt: now,
   };
@@ -221,21 +236,20 @@ export function cycleCheck(goals: Goals, entryId: string, checkIndex: number, no
   }));
 }
 
-export function toggleStar(goals: Goals, entryId: string, now: Stamp): Goals {
-  return mapEntry(goals, entryId, (e) => ({ ...e, starred: !e.starred, updatedAt: now }));
-}
-
 export interface GoalEditPatch {
   title?: string;
   targetCount?: number;
   /** Replaces the line's labels; omit to keep them, fitted to the new count. */
   checkLabels?: string[];
+  /** Replaces the template's weekdays; omit to keep them. Lines already written are never moved. */
+  weekdays?: readonly number[];
 }
 
 /**
  * Edit a line in place. Edits to a recurring goal also update its template so
- * future pages inherit the new title, check count and labels. A blank title
- * keeps the old one; existing marks survive a resize and labels follow it.
+ * future pages inherit the new title, check count, labels and weekdays. A
+ * blank title keeps the old one; existing marks survive a resize and labels
+ * follow it.
  */
 export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
@@ -254,7 +268,16 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, 
     ),
     templates: entry.templateId
       ? goals.templates.map((t) =>
-          t.id === entry.templateId ? { ...t, title, targetCount, checkLabels, updatedAt: now } : t,
+          t.id === entry.templateId
+            ? {
+                ...t,
+                title,
+                targetCount,
+                checkLabels,
+                weekdays: fitWeekdays(t.cadence, patch.weekdays ?? t.weekdays),
+                updatedAt: now,
+              }
+            : t,
         )
       : goals.templates,
   };
@@ -316,7 +339,8 @@ export function mergeGoals(local: Goals, remote: Goals): Goals {
 /**
  * The pad as persisted before stamps, brought into shape: everything stamped
  * `now` (the moment this device first knew it), seed templates and materialized
- * lines given the ids every device shares, retirements marked at the epoch.
+ * lines given the ids every device shares, retirements marked at the epoch,
+ * and its stars retired.
  */
 export function upgradeLegacyGoals(legacy: LegacyGoals, now: Stamp): Goals {
   const seedIds = new Set(seedGoals().templates.map((t) => t.id));
@@ -338,7 +362,30 @@ export function upgradeLegacyGoals(legacy: LegacyGoals, now: Stamp): Goals {
     const templateId = templateIds.get(e.templateId) ?? e.templateId;
     return { ...e, id: materializedEntryId(templateId, e.periodKey), templateId, updatedAt: now };
   });
-  return { templates, entries, tombstones: {} };
+  return retireStars({ templates, entries, tombstones: {} });
+}
+
+/**
+ * The pad as persisted while the star ranked a line first in its section:
+ * each period's lines renumbered 1… in that order, starred first, so the
+ * stored sortOrder alone keeps what was visible. Stamps are untouched.
+ */
+export function retireStars(goals: StarredGoals): Goals {
+  const byPeriod = new Map<string, StarredGoalEntry[]>();
+  for (const e of goals.entries) {
+    byPeriod.set(e.periodKey, [...(byPeriod.get(e.periodKey) ?? []), e]);
+  }
+  const sortOrders = new Map<string, number>();
+  for (const lines of byPeriod.values()) {
+    lines.sort(byStarredOrder).forEach((e, i) => sortOrders.set(e.id, i + 1));
+  }
+  return {
+    ...goals,
+    entries: goals.entries.map(({ starred: _starred, ...e }) => ({
+      ...e,
+      sortOrder: sortOrders.get(e.id) ?? e.sortOrder,
+    })),
+  };
 }
 
 /**
@@ -387,6 +434,26 @@ function fitCheckLabels(labels: string[] | undefined, targetCount: number): stri
   return fitted.some(Boolean) ? fitted : undefined;
 }
 
+/**
+ * A daily template's weekdays, sorted and deduplicated, with anything outside
+ * Mon–Sun dropped. Naming every day, or none, is the default and stores
+ * nothing; so does any cadence other than daily.
+ */
+function fitWeekdays(
+  cadence: Cadence,
+  weekdays: readonly number[] | undefined,
+): number[] | undefined {
+  if (cadence !== 'daily' || !weekdays) return undefined;
+  const fitted = EVERY_WEEKDAY.filter((day) => weekdays.includes(day));
+  return fitted.length === 0 || fitted.length === EVERY_WEEKDAY.length ? undefined : fitted;
+}
+
+/** Whether a template writes a line on this period: a daily one only on the weekdays it names. */
+function repeatsOn(template: GoalTemplate, periodKey: string): boolean {
+  if (template.cadence !== 'daily' || !template.weekdays?.length) return true;
+  return template.weekdays.includes(weekdayOf(periodKey));
+}
+
 function cycleState(state: CheckState): CheckState {
   switch (state) {
     case 'empty':
@@ -398,10 +465,14 @@ function cycleState(state: CheckState): CheckState {
   }
 }
 
-/** Starred items float to the top, then pad writing order. */
-function byPadOrder(a: GoalEntry, b: GoalEntry): number {
-  if (a.starred !== b.starred) return a.starred ? -1 : 1;
+function bySortOrder(a: GoalEntry, b: GoalEntry): number {
   return a.sortOrder - b.sortOrder;
+}
+
+/** How a section read while the star was drawn: starred lines first, then stored order. */
+function byStarredOrder(a: StarredGoalEntry, b: StarredGoalEntry): number {
+  if (Boolean(a.starred) !== Boolean(b.starred)) return a.starred ? -1 : 1;
+  return bySortOrder(a, b);
 }
 
 function nextSortOrder(items: { sortOrder: number }[]): number {
@@ -412,7 +483,9 @@ const isCadence = isOneOf(CADENCES);
 const isCheckState = isOneOf(CHECK_STATES);
 const isOptionalString = isOptional(isString);
 const isOptionalStrings = isOptional(isArrayOf(isString));
+const isOptionalBoolean = isOptional(isBoolean);
 const isOptionalTimestamp = isOptional(isTimestamp);
+const isOptionalWeekdays = isOptional(isArrayOf(isWeekday));
 
 /** Goals as they arrive from a file — a pad file, a cloud file — in the current shape. */
 export function isGoals(value: unknown): value is Goals {
@@ -437,6 +510,7 @@ export function isGoalTemplate(value: unknown): value is GoalTemplate {
   return (
     isRecord(value) &&
     hasTemplateFields(value) &&
+    isOptionalWeekdays(value.weekdays) &&
     isOptionalTimestamp(value.retiredAt) &&
     isTimestamp(value.updatedAt)
   );
@@ -466,7 +540,7 @@ function hasTemplateFields(value: Record<string, unknown>): boolean {
   );
 }
 
-/** The fields an entry has had in every schema. */
+/** The fields an entry has had in every schema, and the star a file written while it was drawn carries. */
 function hasEntryFields(value: Record<string, unknown>): boolean {
   return (
     isString(value.id) &&
@@ -476,7 +550,11 @@ function hasEntryFields(value: Record<string, unknown>): boolean {
     isString(value.title) &&
     isArrayOf(isCheckState)(value.checks) &&
     isOptionalStrings(value.checkLabels) &&
-    isBoolean(value.starred) &&
+    isOptionalBoolean(value.starred) &&
     isNumber(value.sortOrder)
   );
+}
+
+function isWeekday(value: unknown): value is number {
+  return EVERY_WEEKDAY.includes(value as number);
 }

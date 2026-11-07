@@ -1,7 +1,7 @@
 import type { PadData } from '@/features/backup/types';
 import { isUpcomingEvent } from '@/features/events/logic';
 import type { UpcomingEvent } from '@/features/events/types';
-import { isGoalEntry, isGoalTemplate } from '@/features/goals/logic';
+import { isGoalEntry, isGoalTemplate, retireStars } from '@/features/goals/logic';
 import type { GoalEntry, GoalTemplate } from '@/features/goals/types';
 import { isGratitudeEntries } from '@/features/gratitude/logic';
 import type { GratitudeEntries } from '@/features/gratitude/types';
@@ -11,7 +11,9 @@ import { canonicalJson, isTombstones, type Stamp, type Tombstones } from '@/lib/
 import type { CloudFiles, CloudPad, SyncPhase } from './types';
 
 /** Bump when the cloud layout changes; an older app leaves a newer file alone. */
-export const CLOUD_SCHEMA_VERSION = 1;
+export const CLOUD_SCHEMA_VERSION = 2;
+/** The last layout whose goal lines carry a star. */
+const LAST_STARRED_CLOUD_SCHEMA_VERSION = 1;
 
 const GOALS_INDEX = 'goals/index.json';
 const GRATITUDE_INDEX = 'gratitude/index.json';
@@ -56,7 +58,7 @@ export function splitPad(pad: PadData): CloudFiles {
  */
 export function joinPad(files: CloudFiles): CloudPad {
   const unreadable: string[] = [];
-  const read = <T>(path: string, guard: Guard<T>): T | undefined => {
+  const read = <T>(path: string, guard: Guard<T>): (CloudFile & T) | undefined => {
     const text = files[path];
     if (text === undefined) return undefined;
     const body = readFile(text, guard);
@@ -72,7 +74,7 @@ export function joinPad(files: CloudFiles): CloudPad {
   for (const path of Object.keys(files).sort()) {
     const match = YEAR_FILE.exec(path);
     if (!match) continue;
-    if (match[1] === 'goals') entries.push(...(read(path, isGoalsYear)?.entries ?? []));
+    if (match[1] === 'goals') entries.push(...yearEntries(read(path, isGoalsYear)));
     else Object.assign(mornings, read(path, isGratitudeYear)?.entries ?? {});
   }
 
@@ -140,6 +142,11 @@ export function describeSync(
   }
 }
 
+/** Every cloud file opens with the layout version it was written under. */
+interface CloudFile {
+  schemaVersion: number;
+}
+
 interface GoalsIndex {
   templates: GoalTemplate[];
   tombstones: Tombstones;
@@ -186,11 +193,25 @@ function isEventsFile(value: unknown): value is EventsFile {
   );
 }
 
-function readFile<T>(text: string, guard: Guard<T>): T | undefined {
+function isCloudFile(value: unknown): value is CloudFile {
+  return isRecord(value) && isNumber(value.schemaVersion);
+}
+
+function readFile<T>(text: string, guard: Guard<T>): (CloudFile & T) | undefined {
   const body = parseJson(text);
-  if (!isRecord(body) || !isNumber(body.schemaVersion)) return undefined;
-  if (body.schemaVersion > CLOUD_SCHEMA_VERSION) return undefined;
+  if (!isCloudFile(body) || body.schemaVersion > CLOUD_SCHEMA_VERSION) return undefined;
   return guard(body) ? body : undefined;
+}
+
+/**
+ * A year's lines in the current shape. A file from the starred layout keeps
+ * its starred-first order by sortOrder alone; every line of a period sits in
+ * one year's file, so the period is renumbered whole.
+ */
+function yearEntries(year: (CloudFile & GoalsYear) | undefined): GoalEntry[] {
+  if (!year) return [];
+  if (year.schemaVersion > LAST_STARRED_CLOUD_SCHEMA_VERSION) return year.entries;
+  return retireStars({ templates: [], entries: year.entries, tombstones: {} }).entries;
 }
 
 function yearPath(feature: 'goals' | 'gratitude', year: string): string {

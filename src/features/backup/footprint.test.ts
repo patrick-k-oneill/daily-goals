@@ -16,9 +16,9 @@ const WEB_LOCAL_STORAGE_BYTES = 5 * 1024 * 1024;
  * moves them, and that is the moment to revisit the decision.
  */
 const RECORDED_FIGURES = [
-  { years: 1, goals: 905_876, gratitude: 177_784, events: 13_535, total: 1_097_195 },
-  { years: 3, goals: 2_711_133, gratitude: 533_294, events: 40_603, total: 3_285_030 },
-  { years: 5, goals: 4_516_352, gratitude: 888_804, events: 67_644, total: 5_472_800 },
+  { years: 1, goals: 842_109, gratitude: 177_784, events: 13_535, total: 1_033_428 },
+  { years: 3, goals: 2_519_796, gratitude: 533_294, events: 40_603, total: 3_093_693 },
+  { years: 5, goals: 4_197_468, gratitude: 888_804, events: 67_644, total: 5_153_916 },
 ];
 
 describe('storageFootprint', () => {
@@ -52,12 +52,12 @@ describe('storageFootprint', () => {
     expect(five / one).toBeLessThanOrEqual(5);
   });
 
-  it('keeps four years of pages under every platform ceiling, and five under Android’s', () => {
-    const fourYears = storageFootprint(syntheticPad(4));
+  it('keeps five years of pages under every platform ceiling, and six under Android’s', () => {
     const fiveYears = storageFootprint(syntheticPad(5));
-    expect(fourYears.total).toBeLessThan(WEB_LOCAL_STORAGE_BYTES);
-    expect(fiveYears.total).toBeGreaterThan(WEB_LOCAL_STORAGE_BYTES);
-    expect(fiveYears.total).toBeLessThan(ANDROID_ASYNC_STORAGE_DEFAULT_BYTES);
+    const sixYears = storageFootprint(syntheticPad(6));
+    expect(fiveYears.total).toBeLessThan(WEB_LOCAL_STORAGE_BYTES);
+    expect(sixYears.total).toBeGreaterThan(WEB_LOCAL_STORAGE_BYTES);
+    expect(sixYears.total).toBeLessThan(ANDROID_ASYNC_STORAGE_DEFAULT_BYTES);
   });
 });
 
@@ -114,7 +114,7 @@ const ANNUAL: [string, number][] = [
 ];
 
 const GRATITUDE_LINE =
-  'Grateful for a slow morning with Amy, Leto asleep on the porch, a long walk before the heat, ' +
+  'Grateful for a slow morning with good coffee, a long walk before the heat, ' +
   'a call with an old friend, and getting the hard thing done first. ';
 
 /** A pad written every morning for `years` years (0 years = templates only). */
@@ -193,7 +193,6 @@ function entry(t: GoalTemplate, periodKey: string, n: number): GoalEntry {
     title: t.title,
     checks: Array.from({ length: t.targetCount }, (_, i) => CHECK_CYCLE[(i + n) % 4]),
     checkLabels: t.checkLabels,
-    starred: n % 3 === 0,
     sortOrder: t.sortOrder,
     updatedAt: STAMP,
   };
