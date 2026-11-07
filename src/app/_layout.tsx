@@ -7,6 +7,7 @@ import AppTabs from '@/components/app-tabs';
 import { useEventsStore } from '@/features/events/store';
 import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
+import { useSyncEngine } from '@/features/sync/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { useHydrated } from '@/lib/persisted-store';
@@ -21,6 +22,7 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({ Caveat_700Bold });
   const storesHydrated = useHydrated(persistedStores);
   useMaterializeToday();
+  useSyncEngine(storesHydrated);
   const ready = (fontsLoaded || Boolean(fontError)) && storesHydrated;
 
   useEffect(() => {

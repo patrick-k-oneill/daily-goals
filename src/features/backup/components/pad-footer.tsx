@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { SyncLine } from '@/features/sync/components/sync-line';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -83,6 +84,7 @@ export function PadFooter() {
       <ThemedText type="small" themeColor="textSecondary">
         {formatBytes(footprint.total)} on this device
       </ThemedText>
+      <SyncLine />
       {notice && (
         <ThemedText
           type="small"
