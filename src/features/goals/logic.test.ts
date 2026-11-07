@@ -15,12 +15,19 @@ import {
   periodKeyFor,
   periodLabel,
   removeGoal,
+  retireStars,
   seedGoals,
-  toggleStar,
   updateGoal,
   upgradeLegacyGoals,
 } from './logic';
-import type { GoalEntry, GoalTemplate, Goals, LegacyGoals } from './types';
+import type {
+  GoalEntry,
+  GoalTemplate,
+  Goals,
+  LegacyGoals,
+  StarredGoalEntry,
+  StarredGoals,
+} from './types';
 
 // The legal-pad date: Fri 8/21/26, ISO week 2026-W34 (Mon 8/17 – Sun 8/23).
 const TODAY = '2026-08-21';
@@ -51,11 +58,15 @@ function entry(overrides: Partial<GoalEntry> = {}): GoalEntry {
     periodKey: TODAY,
     title: 'One-off',
     checks: ['empty'],
-    starred: false,
     sortOrder: 1,
     updatedAt: EPOCH,
     ...overrides,
   };
+}
+
+/** An entry as a pad persisted while the star was drawn carried it. */
+function starredEntry(overrides: Partial<StarredGoalEntry> = {}): StarredGoalEntry {
+  return { ...entry(), ...overrides };
 }
 
 function byId(state: Goals, id: string): GoalEntry | undefined {
@@ -78,6 +89,19 @@ describe('periods', () => {
   });
 });
 
+describe('entriesForPeriod', () => {
+  it("reads one period's lines in their stored order, however they were written", () => {
+    const state = goals({
+      entries: [
+        entry({ id: 'b', sortOrder: 2 }),
+        entry({ id: 'a', sortOrder: 1 }),
+        entry({ id: 'other', periodKey: '2026-08-22' }),
+      ],
+    });
+    expect(entriesForPeriod(state.entries, TODAY).map((e) => e.id)).toEqual(['a', 'b']);
+  });
+});
+
 describe('ensurePeriod', () => {
   it('materializes active templates onto the current period with their checks and labels', () => {
     const labels = ['Legs', 'Push', 'Pull'];
@@ -94,7 +118,6 @@ describe('ensurePeriod', () => {
       title: 'Daily Prod',
       checks: ['empty', 'empty', 'empty'],
       checkLabels: labels,
-      starred: false,
     });
   });
 
@@ -347,7 +370,7 @@ describe('addGoal', () => {
   });
 });
 
-describe('check marks and stars', () => {
+describe('check marks', () => {
   it('cycles one check empty → done → missed → empty, leaving the others alone', () => {
     let state = goals({ entries: [entry({ checks: ['empty', 'empty'] })] });
     state = cycleCheck(state, 'e1', 1, NOW);
@@ -361,21 +384,6 @@ describe('check marks and stars', () => {
   it('ignores unknown entries', () => {
     const start = goals({ entries: [entry()] });
     expect(cycleCheck(start, 'missing', 0, NOW)).toBe(start);
-    expect(toggleStar(start, 'missing', NOW)).toBe(start);
-  });
-
-  it('floats a starred line to the top of its section and back when unstarred', () => {
-    const start = goals({
-      entries: [
-        entry({ id: 'a', sortOrder: 1 }),
-        entry({ id: 'b', sortOrder: 2 }),
-        entry({ id: 'other', periodKey: '2026-08-22' }),
-      ],
-    });
-    const starred = toggleStar(start, 'b', NOW);
-    expect(entriesForPeriod(starred.entries, TODAY).map((e) => e.id)).toEqual(['b', 'a']);
-    const unstarred = toggleStar(starred, 'b', NOW);
-    expect(entriesForPeriod(unstarred.entries, TODAY).map((e) => e.id)).toEqual(['a', 'b']);
   });
 });
 
@@ -576,7 +584,6 @@ describe('stamps', () => {
       entries: [entry({ id: 'e1', templateId: 't1', title: 'Daily Prod', checks: ['empty'] })],
     });
     expect(byId(cycleCheck(start, 'e1', 0, NOW), 'e1')?.updatedAt).toBe(NOW);
-    expect(byId(toggleStar(start, 'e1', NOW), 'e1')?.updatedAt).toBe(NOW);
 
     const edited = updateGoal(start, 'e1', { title: 'Deep Work' }, NOW);
     expect(byId(edited, 'e1')?.updatedAt).toBe(NOW);
@@ -739,7 +746,6 @@ describe('upgradeLegacyGoals', () => {
         periodKey: TODAY,
         title: 'Recurring Dailies',
         checks: ['done'],
-        starred: false,
         sortOrder: 1,
       },
       {
@@ -749,7 +755,6 @@ describe('upgradeLegacyGoals', () => {
         periodKey: TODAY,
         title: 'Read',
         checks: ['empty'],
-        starred: false,
         sortOrder: 3,
       },
       {
@@ -763,6 +768,16 @@ describe('upgradeLegacyGoals', () => {
       },
     ],
   };
+
+  it('retires the star it drew, keeping the starred line first by its sortOrder', () => {
+    const upgraded = upgradeLegacyGoals(legacy, NOW);
+    expect(upgraded.entries.map((e) => [e.id, e.sortOrder])).toEqual([
+      ['seed:daily:1:2026-08-21', 2],
+      ['r4:2026-08-21', 3],
+      ['x3', 1],
+    ]);
+    expect(upgraded.entries.some((e) => 'starred' in e)).toBe(false);
+  });
 
   it('gives seed templates and materialized lines the ids every device shares', () => {
     const upgraded = upgradeLegacyGoals(legacy, NOW);
@@ -802,5 +817,36 @@ describe('upgradeLegacyGoals', () => {
       retiredAt: EPOCH,
     });
     expect(titlesOn(merged, TODAY)).toEqual(['One-off', 'Recurring Dailies', 'Read']);
+  });
+});
+
+describe('retireStars', () => {
+  it('renumbers each period in its starred-first order and drops the star', () => {
+    const starred: StarredGoals = goals({
+      entries: [
+        starredEntry({ id: 'a', sortOrder: 1 }),
+        starredEntry({ id: 'b', sortOrder: 2, starred: true }),
+        starredEntry({ id: 'c', sortOrder: 3, starred: false }),
+        starredEntry({ id: 'd', periodKey: '2026-08-22', sortOrder: 5 }),
+        starredEntry({ id: 'e', periodKey: '2026-08-22', sortOrder: 4, starred: true }),
+      ],
+    });
+    const state = retireStars(starred);
+    expect(entriesForPeriod(state.entries, TODAY).map((e) => e.id)).toEqual(['b', 'a', 'c']);
+    expect(entriesForPeriod(state.entries, '2026-08-22').map((e) => e.id)).toEqual(['e', 'd']);
+    expect(state.entries.map((e) => e.sortOrder)).toEqual([2, 1, 3, 2, 1]);
+    expect(state.entries.some((e) => 'starred' in e)).toBe(false);
+  });
+
+  it('leaves stamps, templates and tombstones as they were', () => {
+    const start: StarredGoals = goals({
+      templates: [template()],
+      entries: [starredEntry({ starred: true, updatedAt: NOW })],
+      tombstones: { gone: NOW },
+    });
+    const state = retireStars(start);
+    expect(state.templates).toBe(start.templates);
+    expect(state.tombstones).toBe(start.tombstones);
+    expect(state.entries[0]).toEqual({ ...entry(), updatedAt: NOW });
   });
 });

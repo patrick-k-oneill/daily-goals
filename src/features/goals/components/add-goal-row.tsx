@@ -12,8 +12,6 @@ import type { Cadence } from '../types';
 
 import { GoalForm } from './goal-form';
 
-const EVERY: Record<Cadence, string> = { daily: 'day', weekly: 'week', annual: 'year' };
-
 /** The blank next line on the pad — tap to write a new goal on this page. */
 export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey: string }) {
   const theme = useTheme();
@@ -47,7 +45,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
       accessory={
         <View style={styles.repeatToggle}>
           <ThemedText type="small" themeColor="textSecondary">
-            Repeats every {EVERY[cadence]}
+            Repeats
           </ThemedText>
           <Switch
             value={repeats}
@@ -55,7 +53,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
             trackColor={{ false: theme.border, true: theme.accent }}
             // Web renders no platform track, so the knob needs its own contrast.
             thumbColor={Platform.OS === 'web' ? theme.text : undefined}
-            accessibilityLabel="Repeats every period"
+            accessibilityLabel="Repeats"
           />
         </View>
       }

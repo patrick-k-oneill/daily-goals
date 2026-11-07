@@ -11,7 +11,7 @@ Everything written for one day — its three goal sections, the upcoming events,
 _Avoid_: screen, view
 
 **Section**:
-One cadence's block of goal lines on a page: Daily Goals, Weekly Goals, or Annual Goals. A section keeps one layout rhythm.
+One cadence's block of goal lines on a page: Daily Goals, Weekly Goals, or Annual Goals. Its lines read in their stored order (`sortOrder`); a new line is written at the bottom. A section keeps one layout rhythm.
 _Avoid_: list, category, block
 
 **Period**:
@@ -29,8 +29,8 @@ A recurring goal. It is not itself on any page; it materializes into an entry on
 _Avoid_: habit, default, recurring goal (as a noun)
 
 **Entry**:
-A goal line on a specific period's section, either materialized from a template or written one-off.
-_Avoid_: goal instance, task, item
+A goal line on a specific period's section, either materialized from a template or written one-off. Its place is its stored `sortOrder`; nothing ranks a line ahead of it.
+_Avoid_: goal instance, task, item, starred or key goal (the margin star is retired)
 
 **Materialize**:
 Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
@@ -46,10 +46,6 @@ _Avoid_: checkbox, tick, completion
 **Check label**:
 A short word over one check of a multi-check entry, like Fitness's Legs/Push/Pull: positional, at most six characters, written from the goal form and inherited from the template. A one-check entry has none.
 _Avoid_: sublabel, tag, caption
-
-**Star**:
-The margin mark on a page's key goal. Starred entries float to the top of their section.
-_Avoid_: pin, favorite, priority
 
 ### Journal
 
