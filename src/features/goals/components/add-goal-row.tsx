@@ -50,7 +50,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
           <Switch
             value={repeats}
             onValueChange={setRepeats}
-            trackColor={{ false: theme.border, true: theme.accent }}
+            trackColor={{ false: theme.border, true: theme.primary }}
             // Web renders no platform track, so the knob needs its own contrast.
             thumbColor={Platform.OS === 'web' ? theme.text : undefined}
             accessibilityLabel="Repeats"
