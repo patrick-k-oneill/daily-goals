@@ -15,6 +15,7 @@ function samplePad(): PadData {
           cadence: 'daily',
           title: 'Daily Prod',
           targetCount: 8,
+          weekdays: [1, 2, 3, 4, 5],
           sortOrder: 2,
           updatedAt: STAMP,
         },
@@ -158,14 +159,21 @@ describe('serializePad', () => {
   });
 
   it('is readable as a text file', () => {
-    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 2,\n');
+    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 3,\n');
   });
 });
 
 describe('parsePad', () => {
-  it('round-trips every template, entry, check, star, tombstone, gratitude entry and event', () => {
+  it('round-trips every template, its weekdays, entry, check, star, tombstone, gratitude entry and event', () => {
     const pad = samplePad();
     expect(parsePad(serializePad(pad, NOW), NOW)).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('reads a schema 2 file, whose templates name no weekdays, unchanged', () => {
+    const pad = samplePad();
+    pad.goals.templates = pad.goals.templates.map(({ weekdays: _weekdays, ...t }) => t);
+    const parsed = parsePad(fileWith({ schemaVersion: 2, goals: pad.goals }), NOW);
+    expect(parsed).toEqual({ ok: true, exportedAt: NOW, pad });
   });
 
   it('reads a schema 1 file, stamping its items with the import and sharing its ids', () => {
@@ -224,6 +232,17 @@ describe('parsePad', () => {
 
     const badTombstone = { ...pad.goals, tombstones: { x: 'yesterday' } };
     expect(reasonOf(fileWith({ goals: badTombstone }))).toMatch(/damaged: its goals/);
+
+    const weekdayOutOfRange = {
+      ...pad.goals,
+      templates: [{ ...pad.goals.templates[0], weekdays: [0, 1] }],
+    };
+    expect(reasonOf(fileWith({ goals: weekdayOutOfRange }))).toMatch(/damaged: its goals/);
+    const weekdayByName = {
+      ...pad.goals,
+      templates: [{ ...pad.goals.templates[0], weekdays: ['Mon'] }],
+    };
+    expect(reasonOf(fileWith({ goals: weekdayByName }))).toMatch(/damaged: its goals/);
 
     expect(reasonOf(fileWith({ goals: { templates: [], entries: [] } }))).toMatch(
       /damaged: its goals/,
