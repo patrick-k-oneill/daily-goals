@@ -1,32 +1,49 @@
-import { EPOCH } from '@/lib/merge';
+import { EPOCH, LEGACY } from '@/lib/merge';
 
 import {
+  acceptSuggestion,
   addGoal,
+  carriedEntryId,
   cycleCheck,
+  declineSuggestion,
   ensurePeriod,
   entriesForPeriod,
   EVERY_WEEKDAY,
   hasCheckLabels,
+  isSectionComplete,
   materializedEntryId,
   materializeToday,
   MAX_CHECK_LABEL_LENGTH,
   MAX_CHECKS,
   mergeGoals,
+  moveEntry,
+  msUntilSettled,
   periodKeyFor,
-  periodLabel,
   removeGoal,
   retireStars,
+  REWARD_GRACE_MS,
+  sectionStatus,
+  sectionTitle,
+  SETTLE_MS,
+  settleAfterTap,
+  settleSection,
   seedGoals,
+  stopRepeating,
+  suggestionNote,
+  suggestionsFor,
   updateGoal,
   upgradeLegacyGoals,
+  type GoalEditPatch,
 } from './logic';
 import type {
   GoalEntry,
   GoalTemplate,
   Goals,
   LegacyGoals,
+  Rewards,
   StarredGoalEntry,
   StarredGoals,
+  Suggestion,
 } from './types';
 
 // The legal-pad date: Fri 8/21/26, ISO week 2026-W34 (Mon 8/17 – Sun 8/23).
@@ -78,14 +95,10 @@ function titlesOn(state: Goals, periodKey: string) {
 }
 
 describe('periods', () => {
-  it('maps a day to each cadence period and labels it the way the pad does', () => {
+  it('maps a day to each cadence period', () => {
     expect(periodKeyFor('daily', TODAY)).toBe('2026-08-21');
     expect(periodKeyFor('weekly', TODAY)).toBe('2026-W34');
     expect(periodKeyFor('annual', TODAY)).toBe('2026');
-
-    expect(periodLabel('daily', TODAY)).toBe('Fri 8/21/26');
-    expect(periodLabel('weekly', TODAY)).toBe('Aug 17 – 23');
-    expect(periodLabel('annual', TODAY)).toBe('2026');
   });
 });
 
@@ -387,6 +400,271 @@ describe('check marks', () => {
   });
 });
 
+describe('achieved sections', () => {
+  const WEEK = '2026-W34';
+  const YESTERDAY = '2026-08-20';
+  const NO_REWARDS: Rewards = { settling: {}, played: {} };
+
+  const after = (ms: number, since = NOW) => new Date(Date.parse(since) + ms).toISOString();
+
+  /** One pen tap as the stores apply it: the check cycles, then the section's settling follows. */
+  function tap(
+    pad: { goals: Goals; rewards: Rewards },
+    entryId: string,
+    at: string,
+    checkIndex = 0,
+  ) {
+    const next = cycleCheck(pad.goals, entryId, checkIndex, at);
+    return { goals: next, rewards: settleAfterTap(pad.rewards, next.entries, entryId, at) };
+  }
+
+  /** Today's section with one line done and the last one still empty. */
+  const lastGoalOpen = () => ({
+    goals: goals({
+      entries: [entry({ id: 'a', checks: ['done'] }), entry({ id: 'b', checks: ['empty'] })],
+    }),
+    rewards: NO_REWARDS,
+  });
+
+  it('is complete only when every check on every line of the period is done', () => {
+    const lines = [
+      entry({ id: 'a', checks: ['done', 'done'] }),
+      entry({ id: 'b', checks: ['done'] }),
+      entry({ id: 'y', periodKey: YESTERDAY, checks: ['empty'] }),
+    ];
+    expect(isSectionComplete(lines, TODAY)).toBe(true);
+    expect(isSectionComplete(lines, YESTERDAY)).toBe(false);
+    expect(isSectionComplete([entry({ checks: ['done', 'missed'] })], TODAY)).toBe(false);
+  });
+
+  it('never counts a section with no lines as complete', () => {
+    expect(isSectionComplete([], TODAY)).toBe(false);
+    expect(sectionStatus({}, [], TODAY)).toBe('open');
+  });
+
+  it('heads a section with its name, and with "Achieved!" only once it is achieved', () => {
+    expect(sectionTitle('daily', 'open')).toBe('Daily Goals');
+    expect(sectionTitle('weekly', 'settling')).toBe('Weekly Goals');
+    expect(sectionTitle('daily', 'achieved')).toBe('Daily Goals Achieved!');
+    expect(sectionTitle('weekly', 'achieved')).toBe('Weekly Goals Achieved!');
+    expect(sectionTitle('annual', 'achieved')).toBe('Annual Goals Achieved!');
+  });
+
+  it('holds a section the last tap completed as settling, then achieves it and plays the reward moment', () => {
+    const tapped = tap(lastGoalOpen(), 'b', NOW);
+    expect(sectionStatus(tapped.rewards.settling, tapped.goals.entries, TODAY)).toBe('settling');
+
+    const early = settleSection(
+      tapped.rewards,
+      tapped.goals.entries,
+      TODAY,
+      TODAY,
+      after(SETTLE_MS - 1),
+    );
+    expect(early).toEqual({ rewards: tapped.rewards, outcome: 'waiting' });
+
+    const settled = settleSection(
+      tapped.rewards,
+      tapped.goals.entries,
+      TODAY,
+      TODAY,
+      after(SETTLE_MS),
+    );
+    expect(settled.outcome).toBe('rewarded');
+    expect(settled.rewards).toEqual({ settling: {}, played: { daily: TODAY } });
+    expect(sectionStatus(settled.rewards.settling, tapped.goals.entries, TODAY)).toBe('achieved');
+  });
+
+  it('never achieves a section whose last check is cycled past done to missed', () => {
+    const passingDone = tap(lastGoalOpen(), 'b', NOW);
+    const missed = tap(passingDone, 'b', after(400));
+    expect(byId(missed.goals, 'b')?.checks).toEqual(['missed']);
+    expect(missed.rewards).toEqual(NO_REWARDS);
+    expect(sectionStatus(missed.rewards.settling, missed.goals.entries, TODAY)).toBe('open');
+
+    const settled = settleSection(
+      missed.rewards,
+      missed.goals.entries,
+      TODAY,
+      TODAY,
+      after(SETTLE_MS),
+    );
+    expect(settled).toEqual({ rewards: NO_REWARDS, outcome: 'lapsed' });
+  });
+
+  it('settles from the tap that completed the section, not from an earlier pass', () => {
+    let pad = tap(lastGoalOpen(), 'b', NOW);
+    pad = tap(pad, 'b', after(300));
+    pad = tap(pad, 'b', after(600));
+    pad = tap(pad, 'b', after(900));
+    expect(byId(pad.goals, 'b')?.checks).toEqual(['done']);
+    expect(msUntilSettled(pad.rewards.settling[TODAY], after(SETTLE_MS))).toBe(900);
+    expect(
+      settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(SETTLE_MS)).outcome,
+    ).toBe('waiting');
+    expect(
+      settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(900 + SETTLE_MS)).outcome,
+    ).toBe('rewarded');
+  });
+
+  it('leaves settling alone when a tap does not complete the section', () => {
+    const start = {
+      goals: goals({ entries: [entry({ id: 'a' }), entry({ id: 'b' })] }),
+      rewards: NO_REWARDS,
+    };
+    expect(tap(start, 'a', NOW).rewards).toBe(NO_REWARDS);
+    expect(settleAfterTap(NO_REWARDS, start.goals.entries, 'missing', NOW)).toBe(NO_REWARDS);
+  });
+
+  it('plays the reward moment once per period, and again on the next one', () => {
+    let pad = tap(lastGoalOpen(), 'b', NOW);
+    pad = {
+      ...pad,
+      rewards: settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(SETTLE_MS))
+        .rewards,
+    };
+
+    pad = tap(pad, 'b', LATER);
+    pad = tap(pad, 'b', LATER);
+    pad = tap(pad, 'b', LATER);
+    expect(sectionStatus(pad.rewards.settling, pad.goals.entries, TODAY)).toBe('settling');
+    const again = settleSection(
+      pad.rewards,
+      pad.goals.entries,
+      TODAY,
+      TODAY,
+      after(SETTLE_MS, LATER),
+    );
+    expect(again.outcome).toBe('achieved');
+    expect(again.rewards).toEqual({ settling: {}, played: { daily: TODAY } });
+
+    const TOMORROW = '2026-08-22';
+    const nextDay = tap(
+      {
+        goals: goals({ entries: [entry({ id: 'c', periodKey: TOMORROW })] }),
+        rewards: again.rewards,
+      },
+      'c',
+      '2026-08-22T09:00:00.000Z',
+    );
+    const settled = settleSection(
+      nextDay.rewards,
+      nextDay.goals.entries,
+      TOMORROW,
+      TOMORROW,
+      '2026-08-22T09:00:02.000Z',
+    );
+    expect(settled.outcome).toBe('rewarded');
+    expect(settled.rewards.played).toEqual({ daily: TOMORROW });
+  });
+
+  it('achieves a section that settles late without its reward moment, which is still owed', () => {
+    const tapped = tap(lastGoalOpen(), 'b', NOW);
+    const { entries } = tapped.goals;
+    const onTime = after(SETTLE_MS + REWARD_GRACE_MS);
+    expect(settleSection(tapped.rewards, entries, TODAY, TODAY, onTime).outcome).toBe('rewarded');
+
+    const late = settleSection(tapped.rewards, entries, TODAY, TODAY, LATER);
+    expect(late).toEqual({ rewards: NO_REWARDS, outcome: 'achieved' });
+    expect(sectionStatus(late.rewards.settling, entries, TODAY)).toBe('achieved');
+
+    let pad = { goals: tapped.goals, rewards: late.rewards };
+    pad = tap(pad, 'b', LATER);
+    pad = tap(pad, 'b', LATER);
+    pad = tap(pad, 'b', LATER);
+    expect(
+      settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(SETTLE_MS, LATER)).outcome,
+    ).toBe('rewarded');
+  });
+
+  it('achieves a past period without a reward moment', () => {
+    const tapped = tap(
+      {
+        goals: goals({ entries: [entry({ id: 'y', periodKey: YESTERDAY })] }),
+        rewards: NO_REWARDS,
+      },
+      'y',
+      NOW,
+    );
+    expect(sectionStatus(tapped.rewards.settling, tapped.goals.entries, YESTERDAY)).toBe(
+      'settling',
+    );
+    const settled = settleSection(tapped.rewards, tapped.goals.entries, YESTERDAY, TODAY, LATER);
+    expect(settled).toEqual({ rewards: NO_REWARDS, outcome: 'achieved' });
+  });
+
+  it('settles and rewards each section on its own', () => {
+    let pad = {
+      goals: goals({
+        entries: [
+          entry({ id: 'd' }),
+          entry({ id: 'w', cadence: 'weekly', periodKey: WEEK }),
+          entry({ id: 'y', cadence: 'annual', periodKey: '2026' }),
+        ],
+      }),
+      rewards: NO_REWARDS,
+    };
+    pad = tap(pad, 'd', NOW);
+    expect(sectionStatus(pad.rewards.settling, pad.goals.entries, TODAY)).toBe('settling');
+    expect(sectionStatus(pad.rewards.settling, pad.goals.entries, WEEK)).toBe('open');
+
+    pad = {
+      ...pad,
+      rewards: settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(SETTLE_MS))
+        .rewards,
+    };
+    pad = tap(pad, 'w', LATER);
+    pad = tap(pad, 'y', LATER);
+    const { entries } = pad.goals;
+    const weekly = settleSection(pad.rewards, entries, WEEK, TODAY, after(SETTLE_MS, LATER));
+    expect(weekly.outcome).toBe('rewarded');
+    const annual = settleSection(weekly.rewards, entries, '2026', TODAY, after(SETTLE_MS, LATER));
+    expect(annual.outcome).toBe('rewarded');
+    expect(annual.rewards).toEqual({
+      settling: {},
+      played: { daily: TODAY, weekly: WEEK, annual: '2026' },
+    });
+  });
+
+  it('lapses when the section is no longer complete by the time it settles', () => {
+    const tapped = tap(lastGoalOpen(), 'b', NOW);
+    const withNewLine = addGoal(
+      tapped.goals,
+      { cadence: 'daily', periodKey: TODAY, title: 'One more', targetCount: 1, repeats: false },
+      after(500),
+    );
+    expect(sectionStatus(tapped.rewards.settling, withNewLine.entries, TODAY)).toBe('open');
+    const settled = settleSection(tapped.rewards, withNewLine.entries, TODAY, TODAY, LATER);
+    expect(settled).toEqual({ rewards: NO_REWARDS, outcome: 'lapsed' });
+  });
+
+  it('keeps settling through an edit that leaves the section complete', () => {
+    const tapped = tap(lastGoalOpen(), 'b', NOW);
+    const renamed = updateGoal(tapped.goals, 'a', { title: 'Renamed' }, after(500));
+    expect(msUntilSettled(tapped.rewards.settling[TODAY], after(500))).toBe(SETTLE_MS - 500);
+    expect(
+      settleSection(tapped.rewards, renamed.entries, TODAY, TODAY, after(SETTLE_MS)).outcome,
+    ).toBe('rewarded');
+  });
+
+  it('achieves at once, with no reward moment, a section no tap completed', () => {
+    const local = goals({ entries: [entry({ id: 'a', checks: ['empty'], updatedAt: NOW })] });
+    const remote = goals({ entries: [entry({ id: 'a', checks: ['done'], updatedAt: LATER })] });
+    const merged = mergeGoals(local, remote);
+    expect(sectionStatus(NO_REWARDS.settling, merged.entries, TODAY)).toBe('achieved');
+    expect(settleSection(NO_REWARDS, merged.entries, TODAY, TODAY, LATER)).toEqual({
+      rewards: NO_REWARDS,
+      outcome: 'lapsed',
+    });
+  });
+
+  it('counts down to the moment a tap has rested', () => {
+    expect(msUntilSettled(NOW, NOW)).toBe(SETTLE_MS);
+    expect(msUntilSettled(NOW, after(SETTLE_MS - 200))).toBe(200);
+    expect(msUntilSettled(NOW, LATER)).toBe(0);
+  });
+});
+
 describe('updateGoal', () => {
   const recurring = () =>
     goals({
@@ -505,6 +783,325 @@ describe('updateGoal', () => {
     const everyDay = updateGoal(weekend, 'e1', { weekdays: [...EVERY_WEEKDAY] }, NOW);
     expect(everyDay.templates[0].weekdays).toBeUndefined();
   });
+  describe('on a line whose count differs from its template', () => {
+    /** The count went down to two on today's line; yesterday's line keeps its three. */
+    const loweredSinceYesterday = () => {
+      const start = recurring();
+      start.entries.push(
+        entry({
+          id: 'y',
+          templateId: 't1',
+          periodKey: '2026-08-20',
+          title: 'Daily Prod',
+          checks: ['done', 'done', 'empty'],
+        }),
+      );
+      return updateGoal(start, 'e1', { targetCount: 2 }, NOW);
+    };
+    /** What the goal form sends on Save: the line's own title, count and labels, changed or not. */
+    const formOf = (state: Goals, id: string): GoalEditPatch => {
+      const line = byId(state, id);
+      return {
+        title: line?.title,
+        targetCount: line?.checks.length,
+        checkLabels: line?.checkLabels ?? [],
+        weekdays: EVERY_WEEKDAY,
+      };
+    };
+
+    it("renames the template without writing the older line's count back to it", () => {
+      const start = loweredSinceYesterday();
+      const renamed = updateGoal(start, 'y', { ...formOf(start, 'y'), title: 'Deep Work' }, LATER);
+
+      expect(byId(renamed, 'y')?.checks).toEqual(['done', 'done', 'empty']);
+      expect(renamed.templates[0]).toMatchObject({ title: 'Deep Work', targetCount: 2 });
+      const tomorrow = ensurePeriod(renamed, 'daily', '2026-08-22', '2026-08-22');
+      expect(byId(tomorrow, 't1:2026-08-22')?.checks).toHaveLength(2);
+    });
+
+    it('leaves the template as it was when the form is saved with nothing changed', () => {
+      const start = loweredSinceYesterday();
+      const saved = updateGoal(start, 'y', formOf(start, 'y'), LATER);
+      expect(saved.templates).toEqual(start.templates);
+    });
+
+    it("fits new labels to the template's own count", () => {
+      const start = loweredSinceYesterday();
+      const labeled = updateGoal(start, 'y', { checkLabels: ['Legs', 'Push', 'Pull'] }, LATER);
+
+      expect(byId(labeled, 'y')?.checkLabels).toEqual(['Legs', 'Push', 'Pull']);
+      expect(labeled.templates[0]).toMatchObject({
+        targetCount: 2,
+        checkLabels: ['Legs', 'Push'],
+        updatedAt: LATER,
+      });
+    });
+
+    it('still carries a count the edit changed, with the labels written over its new boxes', () => {
+      const start = loweredSinceYesterday();
+      const grown = updateGoal(start, 'y', { ...formOf(start, 'y'), targetCount: 4 }, LATER);
+      expect(byId(grown, 'y')?.checks).toHaveLength(4);
+      expect(grown.templates[0].targetCount).toBe(4);
+      expect(grown.templates[0].checkLabels).toBeUndefined();
+
+      const labeled = updateGoal(
+        grown,
+        'y',
+        { ...formOf(grown, 'y'), targetCount: 5, checkLabels: ['', '', '', '', 'Core'] },
+        LATER,
+      );
+      expect(labeled.templates[0]).toMatchObject({
+        targetCount: 5,
+        checkLabels: ['', '', '', '', 'Core'],
+      });
+    });
+  });
+});
+
+describe('moveEntry', () => {
+  const YESTERDAY = '2026-08-20';
+  const TOMORROW = '2026-08-22';
+
+  /** One-off lines on a page, placed 1… in the order given; each line's id is its title. */
+  function page(titles: string[], periodKey = TODAY): GoalEntry[] {
+    return titles.map((title, i) => entry({ id: title, title, periodKey, sortOrder: i + 1 }));
+  }
+
+  /** A template and its line on today's page, each at its own place. */
+  function recurring(title: string, linePlace: number, templatePlace = linePlace) {
+    const id = title.toLowerCase();
+    return {
+      template: template({ id, title, targetCount: 1, sortOrder: templatePlace }),
+      line: entry({
+        id: materializedEntryId(id, TODAY),
+        templateId: id,
+        title,
+        sortOrder: linePlace,
+      }),
+    };
+  }
+
+  it('moves a line up its section', () => {
+    const start = goals({ entries: page(['Read', 'Walk', 'Write']) });
+    expect(titlesOn(moveEntry(start, 'Write', 0, TODAY, NOW), TODAY)).toEqual([
+      'Write',
+      'Read',
+      'Walk',
+    ]);
+    expect(titlesOn(moveEntry(start, 'Write', 1, TODAY, NOW), TODAY)).toEqual([
+      'Read',
+      'Write',
+      'Walk',
+    ]);
+  });
+
+  it('moves a line down its section', () => {
+    const start = goals({ entries: page(['Read', 'Walk', 'Write']) });
+    expect(titlesOn(moveEntry(start, 'Read', 1, TODAY, NOW), TODAY)).toEqual([
+      'Walk',
+      'Read',
+      'Write',
+    ]);
+    expect(titlesOn(moveEntry(start, 'Read', 2, TODAY, NOW), TODAY)).toEqual([
+      'Walk',
+      'Write',
+      'Read',
+    ]);
+  });
+
+  it('writes the moved line alone, at a place between its new neighbors', () => {
+    const start = goals({ entries: page(['Read', 'Walk', 'Write', 'Call']) });
+    const moved = moveEntry(start, 'Call', 1, TODAY, NOW);
+    expect(moved.entries.slice(0, 3)).toEqual(start.entries.slice(0, 3));
+    expect(byId(moved, 'Read')).toBe(start.entries[0]);
+    expect(byId(moved, 'Call')).toMatchObject({ sortOrder: 1.5, updatedAt: NOW });
+  });
+
+  it('keeps finding room as lines are moved into the same gap again and again', () => {
+    let state = goals({ entries: page(['Read', 'Walk', 'Write', 'Call']) });
+    for (let i = 0; i < 80; i += 1) {
+      state = moveEntry(state, i % 2 ? 'Write' : 'Call', 1, TODAY, NOW);
+    }
+    expect(titlesOn(state, TODAY)).toEqual(['Read', 'Write', 'Call', 'Walk']);
+    expect(byId(state, 'Read')?.updatedAt).toBe(EPOCH);
+  });
+
+  it('renumbers the section 1… when the neighbors share a place', () => {
+    const [read, walk, write] = page(['Read', 'Walk', 'Write']);
+    const start = goals({ entries: [read, { ...walk, sortOrder: 1 }, write] });
+    const moved = moveEntry(start, 'Write', 1, TODAY, NOW);
+    expect(entriesForPeriod(moved.entries, TODAY).map((e) => [e.title, e.sortOrder])).toEqual([
+      ['Read', 1],
+      ['Write', 2],
+      ['Walk', 3],
+    ]);
+    expect(byId(moved, 'Walk')?.updatedAt).toBe(NOW);
+  });
+
+  it('settles a line dropped past either end on that end', () => {
+    const start = goals({ entries: page(['Read', 'Walk', 'Write']) });
+    expect(titlesOn(moveEntry(start, 'Read', 99, TODAY, NOW), TODAY)).toEqual([
+      'Walk',
+      'Write',
+      'Read',
+    ]);
+    expect(titlesOn(moveEntry(start, 'Write', -5, TODAY, NOW), TODAY)).toEqual([
+      'Write',
+      'Read',
+      'Walk',
+    ]);
+  });
+
+  it('writes nothing for a line dropped where it was, or one not on the pad', () => {
+    const start = goals({ entries: page(['Read', 'Walk']) });
+    expect(moveEntry(start, 'Walk', 1, TODAY, NOW)).toBe(start);
+    expect(moveEntry(start, 'Walk', 7, TODAY, NOW)).toBe(start);
+    expect(moveEntry(start, 'nope', 0, TODAY, NOW)).toBe(start);
+  });
+
+  it('leaves every other period as it was', () => {
+    const earlier = page(['Read', 'Walk'], YESTERDAY).map((e) => ({ ...e, id: `y:${e.id}` }));
+    const start = goals({ entries: [...earlier, ...page(['Read', 'Walk'])] });
+    const moved = moveEntry(start, 'Walk', 0, TODAY, NOW);
+    expect(moved.entries.slice(0, 2)).toEqual(earlier);
+    expect(titlesOn(moved, YESTERDAY)).toEqual(['Read', 'Walk']);
+  });
+
+  it('carries the move forward: the next period materializes the way this one was left', () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 2);
+    const write = recurring('Write', 3);
+    const start = goals({
+      templates: [read.template, walk.template, write.template],
+      entries: [read.line, walk.line, write.line],
+    });
+
+    const toTop = moveEntry(start, write.line.id, 0, TODAY, NOW);
+    expect(titlesOn(materializeToday(toTop, TOMORROW), TOMORROW)).toEqual([
+      'Write',
+      'Read',
+      'Walk',
+    ]);
+    const toMiddle = moveEntry(start, read.line.id, 1, TODAY, NOW);
+    expect(titlesOn(materializeToday(toMiddle, TOMORROW), TOMORROW)).toEqual([
+      'Walk',
+      'Read',
+      'Write',
+    ]);
+    expect(toMiddle.templates.slice(1)).toEqual(start.templates.slice(1));
+    expect(toMiddle.templates[0]).toMatchObject({ sortOrder: 2.5, updatedAt: NOW });
+  });
+
+  it("places the template among the recurring lines' templates, past any one-off between them", () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 3);
+    const call = entry({ id: 'Call', title: 'Call', sortOrder: 2 });
+    const start = goals({
+      templates: [read.template, walk.template],
+      entries: [read.line, call, walk.line],
+    });
+
+    const moved = moveEntry(start, read.line.id, 2, TODAY, NOW);
+    expect(titlesOn(moved, TODAY)).toEqual(['Call', 'Walk', 'Read']);
+    expect(titlesOn(materializeToday(moved, TOMORROW), TOMORROW)).toEqual(['Walk', 'Read']);
+  });
+
+  it('writes no template when the recurring lines keep their order among themselves', () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 3);
+    const call = entry({ id: 'Call', title: 'Call', sortOrder: 2 });
+    const start = goals({
+      templates: [read.template, walk.template],
+      entries: [read.line, call, walk.line],
+    });
+
+    expect(moveEntry(start, 'Call', 0, TODAY, NOW).templates).toBe(start.templates);
+    expect(moveEntry(start, walk.line.id, 1, TODAY, NOW).templates).toBe(start.templates);
+  });
+
+  it("renumbers the page's templates when their places no longer follow the page", () => {
+    // A page whose order differs from its templates', as a retired star left it.
+    const write = recurring('Write', 1, 3);
+    const read = recurring('Read', 2, 1);
+    const walk = recurring('Walk', 3, 2);
+    const start = goals({
+      templates: [read.template, walk.template, write.template],
+      entries: [write.line, read.line, walk.line],
+    });
+
+    const moved = moveEntry(start, walk.line.id, 1, TODAY, NOW);
+    expect(titlesOn(moved, TODAY)).toEqual(['Write', 'Walk', 'Read']);
+    expect(titlesOn(materializeToday(moved, TOMORROW), TOMORROW)).toEqual([
+      'Write',
+      'Walk',
+      'Read',
+    ]);
+  });
+
+  it("carries a week's order into the next week", () => {
+    const fitness = template({ id: 'fitness', cadence: 'weekly', title: 'Fitness', sortOrder: 1 });
+    const prod = template({ id: 'prod', cadence: 'weekly', title: 'Weekly Prod', sortOrder: 2 });
+    const start = materializeToday(goals({ templates: [fitness, prod] }), TODAY);
+
+    const moved = moveEntry(start, 'prod:2026-W34', 0, TODAY, NOW);
+    const nextWeek = materializeToday(moved, '2026-08-24');
+    expect(titlesOn(nextWeek, '2026-W35')).toEqual(['Weekly Prod', 'Fitness']);
+  });
+
+  it("keeps a past page's order to itself", () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 2);
+    const start = goals({
+      templates: [read.template, walk.template],
+      entries: [read.line, walk.line],
+    });
+
+    const moved = moveEntry(start, walk.line.id, 0, TOMORROW, NOW);
+    expect(titlesOn(moved, TODAY)).toEqual(['Walk', 'Read']);
+    expect(moved.templates).toBe(start.templates);
+  });
+
+  it('never writes a retired template, nor places another against it', () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 2);
+    const write = recurring('Write', 3);
+    const retired = { ...walk.template, retiredAt: NOW, updatedAt: NOW };
+    const start = goals({
+      templates: [read.template, retired, write.template],
+      entries: [read.line, walk.line, write.line],
+    });
+
+    expect(moveEntry(start, walk.line.id, 0, TODAY, LATER).templates).toBe(start.templates);
+    const moved = moveEntry(start, write.line.id, 0, TODAY, LATER);
+    expect(moved.templates[1]).toBe(retired);
+    expect(titlesOn(materializeToday(moved, TOMORROW), TOMORROW)).toEqual(['Write', 'Read']);
+  });
+
+  it('reaches another device through a merge, keeping what that device wrote on the lines it passed', () => {
+    const phone = goals({ entries: page(['Read', 'Walk', 'Write']) });
+    const ipad = cycleCheck(structuredClone(phone), 'Read', 0, NOW);
+
+    const moved = moveEntry(phone, 'Write', 0, TODAY, LATER);
+    const merged = mergeGoals(moved, ipad);
+    expect(titlesOn(merged, TODAY)).toEqual(['Write', 'Read', 'Walk']);
+    expect(byId(merged, 'Read')?.checks).toEqual(['done']);
+    expect(mergeGoals(ipad, moved)).toEqual(merged);
+  });
+
+  it('leaves a retirement it has not heard of standing: the lines it passed stay untouched', () => {
+    const read = template({ id: 'read', title: 'Read', targetCount: 1, sortOrder: 1 });
+    const walk = template({ id: 'walk', title: 'Walk', targetCount: 1, sortOrder: 2 });
+    const phone = materializeToday(goals({ templates: [read, walk] }), TODAY);
+    const retired = removeGoal(phone, 'read:2026-08-21', NOW);
+    // The iPad, not yet having heard, writes tomorrow's page and moves Walk above Read's line.
+    const ipad = materializeToday(structuredClone(phone), TOMORROW);
+    const moved = moveEntry(ipad, 'walk:2026-08-22', 0, TOMORROW, '2026-08-22T09:00:00.000Z');
+
+    const merged = mergeGoals(moved, retired);
+    expect(titlesOn(merged, TOMORROW)).toEqual(['Walk']);
+    expect(merged.templates.find((t) => t.id === 'read')?.retiredAt).toBe(NOW);
+    expect(mergeGoals(retired, moved)).toEqual(merged);
+  });
 });
 
 describe('hasCheckLabels', () => {
@@ -540,7 +1137,315 @@ describe('removeGoal', () => {
   });
 });
 
+describe('stopRepeating', () => {
+  /** Yesterday's and today's lines of one recurring goal, today's with a check done. */
+  function recurringGoal(): Goals {
+    const yesterday = entry({
+      id: 't1:2026-08-20',
+      templateId: 't1',
+      periodKey: '2026-08-20',
+      title: 'Daily Prod',
+      checks: ['done', 'missed'],
+      updatedAt: '2026-08-20T09:00:00.000Z',
+    });
+    const written = materializeToday(
+      goals({ templates: [template({ targetCount: 2 })], entries: [yesterday] }),
+      TODAY,
+    );
+    return cycleCheck(written, 't1:2026-08-21', 0, NOW);
+  }
+
+  it('retires the template and keeps the line where it was written, with its checks', () => {
+    const start = recurringGoal();
+    const state = stopRepeating(start, 't1:2026-08-21', LATER);
+
+    expect(state.templates[0]).toMatchObject({ retiredAt: LATER, updatedAt: LATER });
+    expect(byId(state, 't1:2026-08-21')).toEqual({
+      ...byId(start, 't1:2026-08-21'),
+      updatedAt: LATER,
+    });
+    expect(byId(state, 't1:2026-08-21')).toMatchObject({
+      templateId: 't1',
+      checks: ['done', 'empty'],
+    });
+  });
+
+  it('writes the goal on no later page and leaves past pages as they were', () => {
+    const start = recurringGoal();
+    const state = stopRepeating(start, 't1:2026-08-21', LATER);
+
+    expect(materializeToday(state, TODAY)).toBe(state);
+    expect(materializeToday(state, '2026-08-22')).toBe(state);
+    expect(byId(state, 't1:2026-08-20')).toBe(byId(start, 't1:2026-08-20'));
+  });
+
+  it('stops only the goal the line belongs to', () => {
+    const start = materializeToday(
+      goals({ templates: [template(), template({ id: 't2', title: 'Read', sortOrder: 2 })] }),
+      TODAY,
+    );
+    const state = stopRepeating(start, 't1:2026-08-21', NOW);
+    expect(state.templates.map((t) => t.retiredAt)).toEqual([NOW, undefined]);
+    expect(titlesOn(materializeToday(state, '2026-08-22'), '2026-08-22')).toEqual(['Read']);
+  });
+
+  it('ignores a one-off line, an unknown entry and a goal already stopped', () => {
+    const start = goals({ templates: [template()], entries: [entry()] });
+    expect(stopRepeating(start, 'e1', NOW)).toBe(start);
+    expect(stopRepeating(start, 'missing', NOW)).toBe(start);
+
+    const stopped = stopRepeating(recurringGoal(), 't1:2026-08-21', NOW);
+    expect(stopRepeating(stopped, 't1:2026-08-21', LATER)).toBe(stopped);
+  });
+
+  it('keeps the moment of the stop when the kept line is crossed off later', () => {
+    const stopped = stopRepeating(recurringGoal(), 't1:2026-08-21', NOW);
+    const removed = removeGoal(stopped, 't1:2026-08-21', LATER);
+    expect(byId(removed, 't1:2026-08-21')).toBeUndefined();
+    expect(removed.templates[0]).toBe(stopped.templates[0]);
+  });
+});
+
+describe('suggestions', () => {
+  const YESTERDAY = '2026-08-20';
+
+  /** A one-off line on yesterday's page, its one check still empty. */
+  function left(overrides: Partial<GoalEntry> = {}): GoalEntry {
+    return entry({ periodKey: YESTERDAY, ...overrides });
+  }
+
+  function carryover(overrides: Partial<Suggestion> = {}): Suggestion {
+    return {
+      kind: 'carryover',
+      sourceEntryId: 'e1',
+      sourcePeriodKey: YESTERDAY,
+      cadence: 'daily',
+      title: 'One-off',
+      targetCount: 1,
+      checkLabels: undefined,
+      ...overrides,
+    };
+  }
+
+  function sourcesFor(state: Goals, day = TODAY) {
+    return suggestionsFor(state, 'daily', day, day).map((s) => s.sourceEntryId);
+  }
+
+  describe('suggestionsFor', () => {
+    it("offers yesterday's unfinished one-off lines for today, in their stored order", () => {
+      const state = goals({
+        entries: [
+          left({
+            id: 'b',
+            title: 'Call the bank',
+            checks: ['done', 'missed'],
+            checkLabels: ['AM', 'PM'],
+            sortOrder: 2,
+          }),
+          left({ id: 'a', title: 'Mow the lawn', sortOrder: 1 }),
+        ],
+      });
+      expect(suggestionsFor(state, 'daily', TODAY, TODAY)).toEqual([
+        carryover({ sourceEntryId: 'a', title: 'Mow the lawn' }),
+        carryover({
+          sourceEntryId: 'b',
+          title: 'Call the bank',
+          targetCount: 2,
+          checkLabels: ['AM', 'PM'],
+        }),
+      ]);
+    });
+
+    it('never offers a recurring line or a line with every check done', () => {
+      const state = goals({
+        templates: [template()],
+        entries: [
+          left({ id: 't1:2026-08-20', templateId: 't1', title: 'Daily Prod' }),
+          left({ id: 'done', title: 'Finished', checks: ['done', 'done'] }),
+          left({ id: 'missed', title: 'Skipped', checks: ['missed'] }),
+        ],
+      });
+      expect(sourcesFor(state)).toEqual(['missed']);
+    });
+
+    it('offers nothing on a past page', () => {
+      const state = goals({ entries: [left({ id: 'old', periodKey: '2026-08-19' }), left()] });
+      expect(suggestionsFor(state, 'daily', YESTERDAY, TODAY)).toEqual([]);
+      expect(suggestionsFor(state, 'daily', '2026-08-22', TODAY)).toEqual([]);
+    });
+
+    it('reaches back to the most recent earlier page with any line, and no further', () => {
+      const friday = goals({ entries: [left({ periodKey: '2026-08-14' })] });
+      expect(suggestionsFor(friday, 'daily', TODAY, TODAY)).toEqual([
+        carryover({ sourcePeriodKey: '2026-08-14' }),
+      ]);
+
+      const openedSince = goals({
+        entries: [
+          ...friday.entries,
+          left({ id: 'later', title: 'Finished', periodKey: '2026-08-19', checks: ['done'] }),
+        ],
+      });
+      expect(sourcesFor(openedSince)).toEqual([]);
+      expect(sourcesFor(goals())).toEqual([]);
+    });
+
+    it("drops a line whose title is already written on today's page, whatever its case", () => {
+      const state = goals({
+        entries: [
+          left({ id: 'a', title: 'Call the bank' }),
+          left({ id: 'b', title: 'Mow the lawn' }),
+          entry({ id: 'today', title: ' call the Bank ' }),
+        ],
+      });
+      expect(sourcesFor(state)).toEqual(['b']);
+    });
+
+    it('carries each cadence over from its own earlier period', () => {
+      const state = goals({
+        entries: [
+          left({ id: 'd' }),
+          left({ id: 'w', cadence: 'weekly', periodKey: '2026-W33' }),
+          left({ id: 'y', cadence: 'annual', periodKey: '2025' }),
+        ],
+      });
+      expect(sourcesFor(state)).toEqual(['d']);
+      expect(suggestionsFor(state, 'weekly', '2026-W34', TODAY)).toEqual([
+        carryover({ sourceEntryId: 'w', sourcePeriodKey: '2026-W33', cadence: 'weekly' }),
+      ]);
+      expect(suggestionsFor(state, 'annual', '2026', TODAY)).toEqual([
+        carryover({ sourceEntryId: 'y', sourcePeriodKey: '2025', cadence: 'annual' }),
+      ]);
+    });
+  });
+
+  describe('suggestionNote', () => {
+    it('names the period a suggestion comes from, the one just before today by its everyday name', () => {
+      expect(suggestionNote(carryover(), TODAY)).toBe('from yesterday');
+      expect(suggestionNote(carryover({ sourcePeriodKey: '2026-08-14' }), TODAY)).toBe(
+        'from Fri 8/14',
+      );
+
+      const weekly = (sourcePeriodKey: string) => carryover({ cadence: 'weekly', sourcePeriodKey });
+      expect(suggestionNote(weekly('2026-W33'), TODAY)).toBe('from last week');
+      expect(suggestionNote(weekly('2026-W31'), TODAY)).toBe('from an earlier week');
+      // Mon 1/4/27 is in ISO week 2027-W01; the week before it is 2026-W53.
+      expect(suggestionNote(weekly('2026-W53'), '2027-01-04')).toBe('from last week');
+
+      const annual = (sourcePeriodKey: string) => carryover({ cadence: 'annual', sourcePeriodKey });
+      expect(suggestionNote(annual('2025'), TODAY)).toBe('from last year');
+      expect(suggestionNote(annual('2023'), TODAY)).toBe('from 2023');
+    });
+  });
+
+  describe('acceptSuggestion', () => {
+    /** Today's page with its recurring line written, and an unfinished labelled one-off yesterday. */
+    function withUnfinished(): Goals {
+      const source = left({
+        id: 'a',
+        title: 'Call the bank',
+        checks: ['done', 'missed'],
+        checkLabels: ['AM', 'PM'],
+        updatedAt: '2026-08-20T09:00:00.000Z',
+      });
+      return materializeToday(goals({ templates: [template()], entries: [source] }), TODAY);
+    }
+
+    it("writes a fresh one-off line at the bottom of today's page, its checks empty", () => {
+      const start = withUnfinished();
+      const [suggestion] = suggestionsFor(start, 'daily', TODAY, TODAY);
+      const state = acceptSuggestion(start, suggestion, TODAY, NOW);
+
+      const [recurring, carried] = entriesForPeriod(state.entries, TODAY);
+      expect(recurring.id).toBe('t1:2026-08-21');
+      expect(carried).toEqual({
+        id: 'a>2026-08-21',
+        cadence: 'daily',
+        periodKey: TODAY,
+        title: 'Call the bank',
+        checks: ['empty', 'empty'],
+        checkLabels: ['AM', 'PM'],
+        carriedFrom: 'a',
+        sortOrder: 2,
+        updatedAt: NOW,
+      });
+      expect(state.templates).toBe(start.templates);
+    });
+
+    it("leaves yesterday's line as written and stops offering it", () => {
+      const start = withUnfinished();
+      const [suggestion] = suggestionsFor(start, 'daily', TODAY, TODAY);
+      const state = acceptSuggestion(start, suggestion, TODAY, NOW);
+
+      expect(byId(state, 'a')).toBe(byId(start, 'a'));
+      expect(sourcesFor(state)).toEqual([]);
+      expect(acceptSuggestion(state, suggestion, TODAY, LATER)).toBe(state);
+    });
+
+    it('offers the carried line again on the next page while it stays unfinished', () => {
+      const start = withUnfinished();
+      const [suggestion] = suggestionsFor(start, 'daily', TODAY, TODAY);
+      const state = acceptSuggestion(start, suggestion, TODAY, NOW);
+
+      const tomorrow = materializeToday(state, '2026-08-22');
+      const [again] = suggestionsFor(tomorrow, 'daily', '2026-08-22', '2026-08-22');
+      expect(again).toEqual(
+        carryover({
+          sourceEntryId: 'a>2026-08-21',
+          sourcePeriodKey: TODAY,
+          title: 'Call the bank',
+          targetCount: 2,
+          checkLabels: ['AM', 'PM'],
+        }),
+      );
+
+      // Carried over a second time, the line keeps the first entry's id as its root.
+      const carriedTwice = acceptSuggestion(tomorrow, again, '2026-08-22', LATER);
+      expect(byId(carriedTwice, 'a>2026-08-22')).toMatchObject({ carriedFrom: 'a>2026-08-21' });
+    });
+
+    it('keeps a carried line that was crossed off from being offered or written again', () => {
+      const start = withUnfinished();
+      const [suggestion] = suggestionsFor(start, 'daily', TODAY, TODAY);
+      const crossedOff = removeGoal(
+        acceptSuggestion(start, suggestion, TODAY, NOW),
+        'a>2026-08-21',
+        LATER,
+      );
+      expect(sourcesFor(crossedOff)).toEqual([]);
+      expect(acceptSuggestion(crossedOff, suggestion, TODAY, LATER)).toBe(crossedOff);
+    });
+  });
+
+  describe('declineSuggestion', () => {
+    it('stops offering the line and leaves it as written', () => {
+      const start = goals({ entries: [left({ id: 'a' }), left({ id: 'b', title: 'Other' })] });
+      const state = declineSuggestion(start, 'a');
+      expect(state.declinedSuggestions).toEqual(['a']);
+      expect(state.entries).toBe(start.entries);
+      expect(sourcesFor(state)).toEqual(['b']);
+    });
+
+    it('keeps the declined ids sorted and ignores a repeat', () => {
+      const state = declineSuggestion(declineSuggestion(goals(), 'b'), 'a');
+      expect(state.declinedSuggestions).toEqual(['a', 'b']);
+      expect(declineSuggestion(state, 'b')).toBe(state);
+    });
+
+    it('stays declined through a later write elsewhere on the pad', () => {
+      const declined = declineSuggestion(goals({ entries: [left({ id: 'a' }), entry()] }), 'a');
+      expect(removeGoal(declined, 'e1', NOW).declinedSuggestions).toEqual(['a']);
+      expect(cycleCheck(declined, 'e1', 0, NOW).declinedSuggestions).toEqual(['a']);
+    });
+  });
+});
+
 describe('identity across devices', () => {
+  it('gives a carried-over line the same id on every device: its first entry and period', () => {
+    expect(carriedEntryId('a', TODAY)).toBe('a>2026-08-21');
+    expect(carriedEntryId('a>2026-08-21', '2026-08-22')).toBe('a>2026-08-22');
+  });
+
   it('gives a materialized line the same id on every device: its template and period', () => {
     const state = materializeToday(goals({ templates: [template()] }), TODAY);
     expect(state.entries[0].id).toBe(materializedEntryId('t1', TODAY));
@@ -698,6 +1603,97 @@ describe('mergeGoals', () => {
     expect(merged.entries.map((e) => e.id)).toEqual(['t1:2026-08-20', 't1:2026-08-22']);
   });
 
+  it('keeps a stopped goal stopped, and its line, against a device that has not heard', () => {
+    const [phone, ipad] = twoDevices();
+    const stopped = stopRepeating(
+      cycleCheck(phone, 't1:2026-08-21', 0, NOW),
+      't1:2026-08-21',
+      LATER,
+    );
+    // The iPad still holds the live template and an untouched line, and writes tomorrow's page from them.
+    const stale = ensurePeriod(ipad, 'daily', '2026-08-22', '2026-08-22');
+    expect(byId(stale, 't1:2026-08-22')).toBeDefined();
+
+    const merged = mergeGoals(stale, stopped);
+    expect(merged.entries.map((e) => e.id)).toEqual(['t1:2026-08-21']);
+    expect(byId(merged, 't1:2026-08-21')?.checks).toEqual(['done', 'empty']);
+    expect(merged.templates[0].retiredAt).toBe(LATER);
+    expect(merged).toEqual(mergeGoals(stopped, stale));
+    expect(materializeToday(merged, '2026-08-22')).toBe(merged);
+  });
+
+  it('keeps the kept line of a stopped goal when a stale device writes on it afterwards', () => {
+    const [phone, ipad] = twoDevices();
+    const stopped = stopRepeating(phone, 't1:2026-08-21', NOW);
+    const tappedLater = cycleCheck(ipad, 't1:2026-08-21', 1, LATER);
+
+    const merged = mergeGoals(stopped, tappedLater);
+    expect(byId(merged, 't1:2026-08-21')?.checks).toEqual(['empty', 'done']);
+    expect(merged.templates[0].retiredAt).toBe(NOW);
+    expect(merged).toEqual(mergeGoals(tappedLater, stopped));
+  });
+
+  it('keeps a goal stopped when a stale device edits it after the stop', () => {
+    const [phone, ipad] = twoDevices();
+    const stopped = stopRepeating(phone, 't1:2026-08-21', NOW);
+    // The iPad, not yet having heard, renames the goal: its live template is the later write.
+    const renamed = updateGoal(ipad, 't1:2026-08-21', { title: 'Deep Work' }, LATER);
+    expect(renamed.templates[0].retiredAt).toBeUndefined();
+
+    const merged = mergeGoals(stopped, renamed);
+    expect(merged.templates[0]).toMatchObject({ title: 'Deep Work', retiredAt: NOW });
+    expect(titlesOn(merged, TODAY)).toEqual(['Deep Work']);
+    expect(merged).toEqual(mergeGoals(renamed, stopped));
+    expect(mergeGoals(merged, renamed)).toEqual(merged);
+    expect(materializeToday(merged, '2026-08-22')).toBe(merged);
+  });
+
+  it('keeps the first retirement when both devices retire the same goal', () => {
+    const [phone, ipad] = twoDevices();
+    const stoppedFirst = stopRepeating(phone, 't1:2026-08-21', NOW);
+    const removedLater = removeGoal(ipad, 't1:2026-08-21', LATER);
+    expect(mergeGoals(stoppedFirst, removedLater).templates[0].retiredAt).toBe(NOW);
+    expect(mergeGoals(removedLater, stoppedFirst).templates[0].retiredAt).toBe(NOW);
+  });
+
+  it('keeps a suggestion declined on either device declined, in one canonical order', () => {
+    const [phone, ipad] = twoDevices();
+    const onPhone = declineSuggestion(phone, 'b');
+    const onIpad = declineSuggestion(ipad, 'a');
+
+    const merged = mergeGoals(onPhone, onIpad);
+    expect(merged.declinedSuggestions).toEqual(['a', 'b']);
+    expect(merged).toEqual(mergeGoals(onIpad, onPhone));
+    expect(mergeGoals(merged, onPhone)).toEqual(merged);
+    expect('declinedSuggestions' in mergeGoals(phone, ipad)).toBe(false);
+  });
+
+  it('carries a line accepted on one device to the other, where it is no longer offered', () => {
+    const [phone, ipad] = twoDevices().map((device) => ({
+      ...device,
+      entries: [...device.entries, entry({ id: 'a', periodKey: '2026-08-20' })],
+    }));
+    const [suggestion] = suggestionsFor(phone, 'daily', TODAY, TODAY);
+    const merged = mergeGoals(ipad, acceptSuggestion(phone, suggestion, TODAY, NOW));
+
+    expect(titlesOn(merged, TODAY)).toEqual(['Daily Prod', 'One-off']);
+    expect(suggestionsFor(merged, 'daily', TODAY, TODAY)).toEqual([]);
+  });
+
+  it('sees one line where both devices accepted the same suggestion', () => {
+    const [phone, ipad] = twoDevices().map((device) => ({
+      ...device,
+      entries: [...device.entries, entry({ id: 'a', periodKey: '2026-08-20' })],
+    }));
+    const [suggestion] = suggestionsFor(phone, 'daily', TODAY, TODAY);
+    const onPhone = acceptSuggestion(phone, suggestion, TODAY, NOW);
+    const onIpad = acceptSuggestion(ipad, suggestion, TODAY, LATER);
+
+    const merged = mergeGoals(onPhone, onIpad);
+    expect(titlesOn(merged, TODAY)).toEqual(['Daily Prod', 'One-off']);
+    expect(merged).toEqual(mergeGoals(onIpad, onPhone));
+  });
+
   it('is idempotent and canonical, so a device with nothing new pushes nothing', () => {
     const [phone, ipad] = twoDevices();
     const merged = mergeGoals(cycleCheck(phone, 't1:2026-08-21', 0, NOW), ipad);
@@ -770,7 +1766,7 @@ describe('upgradeLegacyGoals', () => {
   };
 
   it('retires the star it drew, keeping the starred line first by its sortOrder', () => {
-    const upgraded = upgradeLegacyGoals(legacy, NOW);
+    const upgraded = upgradeLegacyGoals(legacy);
     expect(upgraded.entries.map((e) => [e.id, e.sortOrder])).toEqual([
       ['seed:daily:1:2026-08-21', 2],
       ['r4:2026-08-21', 3],
@@ -780,7 +1776,7 @@ describe('upgradeLegacyGoals', () => {
   });
 
   it('gives seed templates and materialized lines the ids every device shares', () => {
-    const upgraded = upgradeLegacyGoals(legacy, NOW);
+    const upgraded = upgradeLegacyGoals(legacy);
     expect(upgraded.templates.map((t) => t.id)).toEqual([
       'seed:daily:1',
       'seed:daily:2',
@@ -794,10 +1790,10 @@ describe('upgradeLegacyGoals', () => {
     ]);
   });
 
-  it('stamps everything with the moment of the upgrade and marks retirements at the epoch', () => {
-    const upgraded = upgradeLegacyGoals(legacy, NOW);
-    expect(upgraded.templates.every((t) => t.updatedAt === NOW)).toBe(true);
-    expect(upgraded.entries.every((e) => e.updatedAt === NOW)).toBe(true);
+  it('stamps everything legacy and marks retirements at the epoch', () => {
+    const upgraded = upgradeLegacyGoals(legacy);
+    expect(upgraded.templates.every((t) => t.updatedAt === LEGACY)).toBe(true);
+    expect(upgraded.entries.every((e) => e.updatedAt === LEGACY)).toBe(true);
     expect(upgraded.templates.map((t) => t.retiredAt)).toEqual([
       undefined,
       EPOCH,
@@ -809,7 +1805,7 @@ describe('upgradeLegacyGoals', () => {
   });
 
   it('keeps the upgraded pad ahead of a fresh seed, so a new device adopts it', () => {
-    const upgraded = upgradeLegacyGoals(legacy, NOW);
+    const upgraded = upgradeLegacyGoals(legacy);
     const fresh = materializeToday(seedGoals(), TODAY);
     const merged = mergeGoals(fresh, upgraded);
     expect(merged.templates.find((t) => t.id === 'seed:daily:2')).toMatchObject({
@@ -817,6 +1813,25 @@ describe('upgradeLegacyGoals', () => {
       retiredAt: EPOCH,
     });
     expect(titlesOn(merged, TODAY)).toEqual(['One-off', 'Recurring Dailies', 'Read']);
+  });
+
+  it('loses every shared line to a write another device made before the upgrade', () => {
+    const upgraded = upgradeLegacyGoals(legacy);
+    const phone = goals({
+      templates: [
+        { ...upgraded.templates[0], title: 'Recurring Dailies, renamed', updatedAt: NOW },
+      ],
+      entries: [{ ...upgraded.entries[0], checks: ['missed'], updatedAt: NOW }],
+      tombstones: { 'r4:2026-08-21': NOW },
+    });
+    const merged = mergeGoals(upgraded, phone);
+    expect(merged.templates).toHaveLength(4);
+    expect(merged.templates.find((t) => t.id === 'seed:daily:1')).toMatchObject({
+      title: 'Recurring Dailies, renamed',
+    });
+    expect(byId(merged, 'seed:daily:1:2026-08-21')?.checks).toEqual(['missed']);
+    expect(byId(merged, 'r4:2026-08-21')).toBeUndefined();
+    expect(mergeGoals(phone, upgraded)).toEqual(merged);
   });
 });
 

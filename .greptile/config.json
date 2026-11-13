@@ -1,0 +1,13 @@
+{
+  "effort": "base",
+  "statusCheck": true,
+  "summarySection": { "included": false },
+  "sequenceDiagramSection": { "included": false },
+  "rules": [
+    {
+      "id": "pure-feature-core",
+      "rule": "Pure transitions and queries over plain data, with `today` and timestamps injected; tests assert at that interface only. Flag a clock read, a side effect, or a test that reaches past the interface into a private helper.",
+      "scope": ["src/features/**/logic.ts"]
+    }
+  ]
+}

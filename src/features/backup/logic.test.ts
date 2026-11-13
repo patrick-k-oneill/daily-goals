@@ -1,5 +1,5 @@
 import type { StarredGoals } from '@/features/goals/types';
-import { EPOCH } from '@/lib/merge';
+import { EPOCH, LEGACY } from '@/lib/merge';
 
 import { describePad, padFileName, parsePad, SCHEMA_VERSION, serializePad } from './logic';
 import type { LegacyPadData, PadData } from './types';
@@ -65,20 +65,6 @@ function samplePad(): PadData {
       },
       tombstones: { '2026-08-24': STAMP },
     },
-    events: {
-      events: [
-        {
-          id: 'ev1',
-          date: '2026-08-30',
-          title: 'IRC',
-          timeLabel: '4pm–5:30pm',
-          note: 'omg lol',
-          updatedAt: STAMP,
-        },
-        { id: 'ev2', date: '2026-09-01', title: 'Cutover', updatedAt: STAMP },
-      ],
-      tombstones: {},
-    },
   };
 }
 
@@ -124,7 +110,6 @@ function legacyPad(): LegacyPadData {
         text: 'Good coffee',
       },
     },
-    events: [{ id: 'ev1', date: '2026-08-30', title: 'IRC', timeLabel: '4pm–5:30pm' }],
   };
 }
 
@@ -161,7 +146,7 @@ function legacyFileWith(overrides: Record<string, unknown>): string {
 }
 
 function reasonOf(text: string): string {
-  const parsed = parsePad(text, NOW);
+  const parsed = parsePad(text);
   if (parsed.ok) throw new Error('expected the file to be refused');
   return parsed.reason;
 }
@@ -169,30 +154,64 @@ function reasonOf(text: string): string {
 describe('serializePad', () => {
   it('writes the versioned envelope, stamped with the export time', () => {
     const file = JSON.parse(serializePad(samplePad(), NOW));
-    expect(Object.keys(file)).toEqual([
-      'schemaVersion',
-      'exportedAt',
-      'goals',
-      'gratitude',
-      'events',
-    ]);
+    expect(Object.keys(file)).toEqual(['schemaVersion', 'exportedAt', 'goals', 'gratitude']);
     expect(file.schemaVersion).toBe(SCHEMA_VERSION);
     expect(file.exportedAt).toBe(NOW);
   });
 
   it('is readable as a text file', () => {
-    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 4,\n');
+    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 5,\n');
   });
 });
 
 describe('parsePad', () => {
-  it('round-trips every template, its weekdays, entry, check, tombstone, gratitude entry and event', () => {
+  it('round-trips every template, its weekdays, entry, check, tombstone and gratitude entry', () => {
     const pad = samplePad();
-    expect(parsePad(serializePad(pad, NOW), NOW)).toEqual({ ok: true, exportedAt: NOW, pad });
+    expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('round-trips a stopped goal: its retired template and the line it kept', () => {
+    const pad = samplePad();
+    pad.goals.entries.push({
+      id: 't2:2026-W35',
+      templateId: 't2',
+      cadence: 'weekly',
+      periodKey: '2026-W35',
+      title: 'Fitness',
+      checks: ['done', 'empty', 'empty', 'empty', 'empty', 'empty', 'empty'],
+      checkLabels: ['Legs', 'Push', 'Pull', 'Legs', 'Push', 'Pull', 'Core'],
+      sortOrder: 2,
+      updatedAt: STAMP,
+    });
+    expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('round-trips a carried-over line and the declined suggestions', () => {
+    const pad = samplePad();
+    pad.goals.entries.push({
+      id: 'e4',
+      cadence: 'daily',
+      periodKey: '2026-08-27',
+      title: 'Call the bank',
+      checks: ['empty'],
+      sortOrder: 3,
+      carriedFrom: 'e3',
+      updatedAt: STAMP,
+    });
+    pad.goals.declinedSuggestions = ['e5', 'e6'];
+    expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('reads a schema 4 file, which holds no suggestions, as it is', () => {
+    expect(parsePad(fileWith({ schemaVersion: 4 }))).toEqual({
+      ok: true,
+      exportedAt: NOW,
+      pad: samplePad(),
+    });
   });
 
   it('reads a schema 3 file, keeping its starred line first by sortOrder and dropping the star', () => {
-    const parsed = parsePad(fileWith({ schemaVersion: 3, goals: starredGoals() }), NOW);
+    const parsed = parsePad(fileWith({ schemaVersion: 3, goals: starredGoals() }));
     if (!parsed.ok) throw new Error(parsed.reason);
     expect(parsed.pad.goals.entries.map((e) => [e.id, e.sortOrder])).toEqual([
       ['t1:2026-08-26', 2],
@@ -200,13 +219,14 @@ describe('parsePad', () => {
       ['e3', 1],
     ]);
     expect(parsed.pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
+    expect(parsed.pad.goals.entries.map((e) => e.updatedAt)).toEqual([STAMP, EPOCH, STAMP]);
     expect(parsed.pad.goals.templates).toEqual(samplePad().goals.templates);
   });
 
   it('reads a schema 2 file, whose templates name no weekdays, the same way', () => {
     const goals = starredGoals();
     goals.templates = goals.templates.map(({ weekdays: _weekdays, ...t }) => t);
-    const parsed = parsePad(fileWith({ schemaVersion: 2, goals }), NOW);
+    const parsed = parsePad(fileWith({ schemaVersion: 2, goals }));
     if (!parsed.ok) throw new Error(parsed.reason);
     expect(parsed.pad.goals.entries.map((e) => [e.id, e.sortOrder])).toEqual([
       ['t1:2026-08-26', 2],
@@ -214,27 +234,40 @@ describe('parsePad', () => {
       ['e3', 1],
     ]);
     expect(parsed.pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
+    expect(parsed.pad.goals.entries.map((e) => e.updatedAt)).toEqual([STAMP, EPOCH, STAMP]);
     expect(parsed.pad.goals.templates).toEqual(goals.templates);
   });
 
-  it('reads a schema 1 file, stamping its items with the import and sharing its ids', () => {
-    const parsed = parsePad(legacyFileWith({}), NOW);
+  it('reads a schema 1 file, stamping its items legacy and sharing its ids', () => {
+    const parsed = parsePad(legacyFileWith({}));
     if (!parsed.ok) throw new Error(parsed.reason);
     expect(parsed.exportedAt).toBe(NOW);
     expect(parsed.pad.goals.templates.map((t) => [t.id, t.updatedAt, t.retiredAt])).toEqual([
-      ['seed:daily:2', NOW, undefined],
-      ['seed:weekly:2', NOW, EPOCH],
+      ['seed:daily:2', LEGACY, undefined],
+      ['seed:weekly:2', LEGACY, EPOCH],
     ]);
     expect(parsed.pad.goals.entries[0]).toMatchObject({
       id: 'seed:daily:2:2026-08-26',
       templateId: 'seed:daily:2',
-      updatedAt: NOW,
+      updatedAt: LEGACY,
     });
     expect('starred' in parsed.pad.goals.entries[0]).toBe(false);
     expect(parsed.pad.goals.tombstones).toEqual({});
     expect(parsed.pad.gratitude).toEqual({ entries: legacyPad().gratitude, tombstones: {} });
-    expect(parsed.pad.events.events[0]).toMatchObject({ id: 'ev1', updatedAt: NOW });
-    expect(parsed.pad.events.tombstones).toEqual({});
+  });
+
+  it('reads a file that holds upcoming events, leaving them out of the pad', () => {
+    const event = { id: 'ev1', date: '2026-08-30', title: 'Dentist', timeLabel: '4pm' };
+    const stamped = { events: [{ ...event, updatedAt: STAMP }], tombstones: { ev0: STAMP } };
+    expect(parsePad(fileWith({ schemaVersion: 4, events: stamped }))).toEqual({
+      ok: true,
+      exportedAt: NOW,
+      pad: samplePad(),
+    });
+
+    const legacy = parsePad(legacyFileWith({ events: [event] }));
+    if (!legacy.ok) throw new Error(legacy.reason);
+    expect(Object.keys(legacy.pad)).toEqual(['goals', 'gratitude']);
   });
 
   it('refuses text that is not a pad file', () => {
@@ -278,6 +311,11 @@ describe('parsePad', () => {
     const badStar = { ...pad.goals, entries: [{ ...pad.goals.entries[0], starred: 'yes' }] };
     expect(reasonOf(fileWith({ schemaVersion: 3, goals: badStar }))).toMatch(/damaged: its goals/);
 
+    const badCarry = { ...pad.goals, entries: [{ ...pad.goals.entries[0], carriedFrom: 7 }] };
+    expect(reasonOf(fileWith({ goals: badCarry }))).toMatch(/damaged: its goals/);
+    const badDeclined = { ...pad.goals, declinedSuggestions: [7] };
+    expect(reasonOf(fileWith({ goals: badDeclined }))).toMatch(/damaged: its goals/);
+
     const weekdayOutOfRange = {
       ...pad.goals,
       templates: [{ ...pad.goals.templates[0], weekdays: [0, 1] }],
@@ -319,20 +357,6 @@ describe('parsePad', () => {
     );
     expect(reasonOf(fileWith({ gratitude: [] }))).toMatch(/damaged: its gratitude entries/);
   });
-
-  it('refuses events in the wrong shape', () => {
-    const events = (list: unknown) => fileWith({ events: { events: list, tombstones: {} } });
-    expect(reasonOf(events([{ id: 'ev1', date: '2026-08-30' }]))).toMatch(
-      /damaged: its upcoming events/,
-    );
-    expect(
-      reasonOf(events([{ id: 'ev1', date: '2026-08-30', title: 'IRC', note: 3, updatedAt: NOW }])),
-    ).toMatch(/damaged: its upcoming events/);
-    expect(reasonOf(events([{ id: 'ev1', date: '2026-08-30', title: 'IRC' }]))).toMatch(
-      /damaged: its upcoming events/,
-    );
-    expect(reasonOf(fileWith({ events: [] }))).toMatch(/damaged: its upcoming events/);
-  });
 });
 
 describe('padFileName', () => {
@@ -343,16 +367,13 @@ describe('padFileName', () => {
 
 describe('describePad', () => {
   it('counts what an import would bring, pluralized', () => {
-    expect(describePad(samplePad())).toBe(
-      '2 templates, 2 entries, 2 gratitude entries and 2 upcoming events',
-    );
+    expect(describePad(samplePad())).toBe('2 templates, 2 entries and 2 gratitude entries');
     expect(
       describePad({
         goals: { templates: [], entries: [], tombstones: {} },
         gratitude: { entries: {}, tombstones: {} },
-        events: { events: [], tombstones: {} },
       }),
-    ).toBe('0 templates, 0 entries, 0 gratitude entries and 0 upcoming events');
+    ).toBe('0 templates, 0 entries and 0 gratitude entries');
     const one = samplePad();
     expect(
       describePad({
@@ -365,8 +386,7 @@ describe('describePad', () => {
           entries: { '2026-08-25': one.gratitude.entries['2026-08-25'] },
           tombstones: {},
         },
-        events: { events: one.events.events.slice(0, 1), tombstones: {} },
       }),
-    ).toBe('1 template, 1 entry, 1 gratitude entry and 1 upcoming event');
+    ).toBe('1 template, 1 entry and 1 gratitude entry');
   });
 });

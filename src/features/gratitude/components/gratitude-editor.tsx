@@ -1,7 +1,8 @@
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ListTextInput } from '@/components/ui/list-text-input';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
@@ -12,9 +13,8 @@ import { useGratitudeStore } from '../store';
 
 /**
  * The morning ritual card: written today, about yesterday — exactly like
- * writing on the previous day's pad page. Fully controlled by the store, so
- * every mount of the same reflection date (Today page + Journal) shares one
- * source of truth and stays in live sync; zustand persist saves each edit.
+ * writing on the previous day's pad page. Fully controlled by the store;
+ * zustand persist saves each edit.
  */
 export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) {
   const theme = useTheme();
@@ -48,10 +48,9 @@ export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) 
         Reflecting on {formatDayLong(reflectionDate)}
       </ThemedText>
 
-      <TextInput
+      <ListTextInput
         value={text}
         onChangeText={(next) => saveEntry(reflectionDate, next)}
-        multiline
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         style={[styles.input, { color: theme.text }]}
