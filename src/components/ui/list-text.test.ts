@@ -178,13 +178,9 @@ describe('applyListEdit', () => {
 });
 
 describe('rebaseEdit', () => {
-  it('passes an edit of the current text through', () => {
+  it('passes a key typed on the current text through', () => {
     expect(rebaseEdit(['- '], '● ', '● a')).toBe('● a');
-    expect(rebaseEdit(['● a'], '● a', '● ab')).toBe('● ab');
-  });
-
-  it('keeps a rewrite the input reports again without it', () => {
-    expect(rebaseEdit(['- '], '● ', '- ')).toBe('● ');
+    expect(rebaseEdit(['● a'], '● a\n● ', '● a\n●')).toBe('● a\n●');
   });
 
   it('replays a key typed on the text from before a rewrite', () => {
@@ -198,8 +194,13 @@ describe('rebaseEdit', () => {
     expect(rebaseEdit(['● ab', '● a\n● b'], '● a\n● b\n● ', '● a\n● bc')).toBe('● a\n● b\n● c');
   });
 
-  it('takes the reported text when the edit overlaps the rewrite', () => {
-    expect(rebaseEdit(['- '], '● ', 'x')).toBe('x');
+  it('passes an edit that undoes a rewrite through', () => {
+    expect(rebaseEdit(['ab'], 'ab\n', 'ab')).toBe('ab');
+    expect(rebaseEdit(['● a', '● a\n● '], '● a\n', '')).toBe('');
+  });
+
+  it('passes a key typed inside the rewritten text through', () => {
+    expect(rebaseEdit(['a\n● '], 'a\n', 'a\n●x ')).toBe('a\n●x ');
   });
 });
 

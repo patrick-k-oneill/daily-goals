@@ -66,26 +66,23 @@ export function applyListEdit(prev: string, next: string): ListEdit {
 
 /**
  * `next`, the text an input reports, read as an edit of `text`, the text it
- * should hold. An input running behind reports an edit of a text it held
- * earlier instead: a repeated change event, or a key typed before a rewrite
- * reached it. `held` lists those earlier texts; the edit is replayed on
- * `text`, so the rewrites made since survive it.
+ * should hold. An input that a rewrite has not reached yet reports a key
+ * typed on a text it held before; `held` lists those, latest last, and the
+ * key is replayed on `text` so the rewrite survives it. Any other edit is the
+ * input's own and passes through.
  */
 export function rebaseEdit(held: readonly string[], text: string, next: string): string {
-  const base = held.reduce(
-    (nearest, candidate) =>
-      editSize(diffEdit(candidate, next)) < editSize(diffEdit(nearest, next)) ? candidate : nearest,
-    text,
-  );
-  if (base === text) return next;
-  const edit = diffEdit(base, next);
-  const rewrite = diffEdit(base, text);
-  const isAfterRewrite = edit.start >= rewrite.start + rewrite.removed.length;
-  const isBeforeRewrite = edit.start + edit.removed.length <= rewrite.start;
-  if (!isAfterRewrite && !isBeforeRewrite) return next;
-  const shift = isAfterRewrite ? rewrite.inserted.length - rewrite.removed.length : 0;
-  const start = edit.start + shift;
-  return splice(text, start, start + edit.removed.length, edit.inserted).text;
+  if (editSize(diffEdit(text, next)) <= 1) return next;
+  for (const base of [...held].reverse()) {
+    const key = diffEdit(base, next);
+    if (key.removed !== '' || key.inserted.length !== 1) continue;
+    const rewrite = diffEdit(base, text);
+    const isAfterRewrite = key.start >= rewrite.start + rewrite.removed.length;
+    if (!isAfterRewrite && key.start > rewrite.start) continue;
+    const shift = isAfterRewrite ? rewrite.inserted.length - rewrite.removed.length : 0;
+    return splice(text, key.start + shift, key.start + shift, key.inserted).text;
+  }
+  return next;
 }
 
 /** The text with every line's marker removed. */

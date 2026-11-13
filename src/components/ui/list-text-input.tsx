@@ -47,9 +47,9 @@ export function ListTextInput({
   const [remeasures, remeasure] = useReducer((count: number) => count + 1, 0);
   const pendingCaret = useRef<ListEdit | undefined>(undefined);
   // As of the last event, ahead of the next render: the text the input should
-  // hold, the texts it may still hold instead (the one it last reported and
-  // each rewrite since), and its caret.
-  const latest = useRef({ text: value, held: [value], caret: { start: 0, end: 0 } });
+  // hold, the texts it may hold instead while a rewrite has not reached it,
+  // the report iOS may repeat, and the caret.
+  const latest = useRef<Latest>({ text: value, held: [], caret: { start: 0, end: 0 } });
 
   useLayoutEffect(() => {
     if (latest.current.text !== value) {
@@ -57,7 +57,7 @@ export function ListTextInput({
       // keeps its distance from the end, as iOS places it.
       const { text, caret } = latest.current;
       const at = Math.max(0, value.length - (text.length - caret.end));
-      latest.current = { text: value, held: [value], caret: { start: at, end: at } };
+      latest.current = { text: value, held: [], caret: { start: at, end: at } };
     }
     const pending = pendingCaret.current;
     pendingCaret.current = undefined;
@@ -87,15 +87,26 @@ export function ListTextInput({
       nativeID={Platform.OS === 'web' ? undefined : `list-text-input-${remeasures}`}
       value={value}
       onChangeText={(next) => {
-        const { text, held } = latest.current;
-        commit(applyListEdit(text, rebaseEdit(held, text, next)), next);
-        latest.current.held = [next];
+        const { text, held, repeat } = latest.current;
+        // iOS can report one keystroke's change twice; the second report
+        // must not undo what the first was rewritten to.
+        if (next === repeat && next !== text) return;
+        const edit = applyListEdit(text, rebaseEdit(held, text, next));
+        commit(edit, next);
+        const isBehind = edit.text !== next;
+        latest.current.held = isBehind ? [next] : [];
+        latest.current.repeat = isBehind ? next : undefined;
       }}
       onSubmitEditing={() => commit(breakLine(latest.current.text, latest.current.caret))}
       onSelectionChange={(e) => {
-        // iOS reports its text with the caret; a caret in any other text is stale.
+        // iOS reports its text with the caret: in the current text the
+        // input has caught up, in any other the caret is stale.
         const { selection, text } = e.nativeEvent as SelectionEvent;
-        if (text === undefined || text === latest.current.text) latest.current.caret = selection;
+        if (text === latest.current.text) {
+          latest.current = { text, held: [], caret: selection };
+        } else if (text === undefined) {
+          latest.current.caret = selection;
+        }
         onSelectionChange?.(e);
       }}
       onKeyPress={(e) => {
@@ -110,6 +121,13 @@ export function ListTextInput({
       {...props}
     />
   );
+}
+
+interface Latest {
+  text: string;
+  held: string[];
+  repeat?: string;
+  caret: TextSelection;
 }
 
 /** Rewrites kept as texts the input may still hold; a few cover the lag of a fast typist. */
