@@ -52,8 +52,13 @@ export function ListTextInput({
   const latest = useRef({ text: value, held: [value], caret: { start: 0, end: 0 } });
 
   useLayoutEffect(() => {
-    // A value from outside this input replaces what it holds.
-    if (latest.current.text !== value) latest.current = { ...latest.current, text: value };
+    if (latest.current.text !== value) {
+      // A value from outside this input replaces what it holds, and the caret
+      // keeps its distance from the end, as iOS places it.
+      const { text, caret } = latest.current;
+      const at = Math.max(0, value.length - (text.length - caret.end));
+      latest.current = { text: value, held: [value], caret: { start: at, end: at } };
+    }
     const pending = pendingCaret.current;
     pendingCaret.current = undefined;
     if (pending?.text === value && input.current) {
