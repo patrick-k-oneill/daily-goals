@@ -19,7 +19,11 @@ import type { LegacyPadData, PadData, PadFile } from './types';
 export const SCHEMA_VERSION = 5;
 /** The last schema whose entries carry a star; 2 and 3 differ only by a template's optional weekdays. */
 const LAST_STARRED_SCHEMA_VERSION = 3;
-/** Every shape this app still reads. A file up to schema 4 also holds upcoming events, which are left unread. */
+/**
+ * Every shape this app still reads. A file up to schema 4 also holds upcoming
+ * events, which are left unread; 5 adds an entry's optional `carriedFrom` and
+ * the goals' optional `declinedSuggestions`.
+ */
 const READABLE_SCHEMA_VERSIONS = [1, 2, LAST_STARRED_SCHEMA_VERSION, 4, SCHEMA_VERSION];
 
 /** What a readable pad file holds. */
@@ -209,7 +213,12 @@ function hasEntryFields(value: Record<string, unknown>): boolean {
 }
 
 function isGoalEntry(value: unknown): value is GoalEntry {
-  return isRecord(value) && hasEntryFields(value) && isTimestamp(value.updatedAt);
+  return (
+    isRecord(value) &&
+    hasEntryFields(value) &&
+    isOptionalString(value.carriedFrom) &&
+    isTimestamp(value.updatedAt)
+  );
 }
 
 function isLegacyGoalEntry(value: unknown): value is LegacyGoalEntry {
@@ -221,7 +230,8 @@ function isGoals(value: unknown): value is Goals {
     isRecord(value) &&
     isArrayOf(isGoalTemplate)(value.templates) &&
     isArrayOf(isGoalEntry)(value.entries) &&
-    isTombstones(value.tombstones)
+    isTombstones(value.tombstones) &&
+    isOptionalStrings(value.declinedSuggestions)
   );
 }
 

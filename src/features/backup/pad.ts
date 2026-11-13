@@ -8,7 +8,12 @@ export function readPad(): PadData {
   const goals = useGoalsStore.getState();
   const gratitude = useGratitudeStore.getState();
   return {
-    goals: { templates: goals.templates, entries: goals.entries, tombstones: goals.tombstones },
+    goals: {
+      templates: goals.templates,
+      entries: goals.entries,
+      tombstones: goals.tombstones,
+      declinedSuggestions: goals.declinedSuggestions,
+    },
     gratitude: { entries: gratitude.entries, tombstones: gratitude.tombstones },
   };
 }

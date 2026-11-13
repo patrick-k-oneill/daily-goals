@@ -144,3 +144,9 @@ export function formatDayLong(key: DayKey): string {
   const date = parseDayKey(key);
   return `${WEEKDAY_LABELS[weekdayIndex(key)]}, ${MONTH_LABELS[date.getMonth()]} ${date.getDate()}`;
 }
+
+/** "Sun 8/23": a day named without its year. */
+export function formatDayWithWeekday(key: DayKey): string {
+  const date = parseDayKey(key);
+  return `${WEEKDAY_LABELS[weekdayIndex(key)]} ${date.getMonth() + 1}/${date.getDate()}`;
+}

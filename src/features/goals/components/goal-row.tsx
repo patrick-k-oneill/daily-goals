@@ -14,6 +14,7 @@ import type { GoalEntry } from '../types';
 import { CheckBox } from './check-box';
 import { GoalForm } from './goal-form';
 import { CHECK_BOX_GAP, MIN_INLINE_TITLE_WIDTH, type GoalRowLayout } from './goal-row-layout';
+import { RepeatsToggle } from './repeats-toggle';
 
 /**
  * One ruled line of the pad: the goal's checkboxes at the margin edge, then
@@ -102,8 +103,11 @@ function TitleButton({
 function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void }) {
   const updateGoal = useGoalsStore((s) => s.updateGoal);
   const removeGoal = useGoalsStore((s) => s.removeGoal);
+  const stopRepeating = useGoalsStore((s) => s.stopRepeating);
   const template = useGoalsStore((s) => s.templates.find((t) => t.id === entry.templateId));
-  const recurring = Boolean(entry.templateId);
+  // A line kept from a stopped template edits as a one-off.
+  const recurring = template !== undefined && !template.retiredAt;
+  const [repeats, setRepeats] = useState(true);
 
   const remove = () => {
     confirmAction(
@@ -126,12 +130,16 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
       placeholder="Goal title…"
       submitLabel="Save"
       style={styles.editor}
-      showWeekdays={recurring && entry.cadence === 'daily'}
+      showWeekdays={recurring && repeats && entry.cadence === 'daily'}
       onSubmit={(draft) => {
         updateGoal(entry.id, draft);
+        if (recurring && !repeats) stopRepeating(entry.id);
         onDone();
       }}
       onCancel={onDone}
+      accessory={
+        recurring ? <RepeatsToggle value={repeats} onValueChange={setRepeats} /> : undefined
+      }
       footer={
         <Pressable
           accessibilityRole="button"

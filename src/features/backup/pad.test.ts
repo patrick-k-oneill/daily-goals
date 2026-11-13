@@ -38,6 +38,7 @@ const written: PadData = {
       },
     ],
     tombstones: { 't1:2026-08-25': NOW },
+    declinedSuggestions: ['e0'],
   },
   gratitude: {
     entries: {
@@ -52,7 +53,7 @@ const written: PadData = {
 };
 
 function freshInstall() {
-  useGoalsStore.setState(seedGoals());
+  useGoalsStore.setState({ ...seedGoals(), declinedSuggestions: undefined });
   useGratitudeStore.setState({ entries: {}, tombstones: {} });
 }
 

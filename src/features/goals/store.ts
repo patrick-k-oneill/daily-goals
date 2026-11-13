@@ -7,7 +7,7 @@ import { todayKey, type DayKey } from '@/lib/dates';
 import { persistOptions } from '@/lib/persisted-store';
 
 import * as logic from './logic';
-import type { Goals, LegacyGoals, StarredGoals } from './types';
+import type { Goals, LegacyGoals, StarredGoals, Suggestion } from './types';
 
 interface GoalsState extends Goals {
   /** Write today's page: every active template's line on its current period. */
@@ -16,6 +16,9 @@ interface GoalsState extends Goals {
   cycleCheck: (entryId: string, checkIndex: number) => void;
   updateGoal: (entryId: string, patch: logic.GoalEditPatch) => void;
   removeGoal: (entryId: string) => void;
+  stopRepeating: (entryId: string) => void;
+  acceptSuggestion: (suggestion: Suggestion, periodKey: string) => void;
+  declineSuggestion: (sourceEntryId: string) => void;
   /** Replace every template and entry with an imported pad's; it lands with today written. */
   replaceGoals: (goals: Goals) => void;
   /** Reconcile with another device's copy; it lands with today written. */
@@ -40,7 +43,14 @@ export const useGoalsStore = create<GoalsState>()(
       updateGoal: (entryId, patch) =>
         set((goals) => logic.updateGoal(goals, entryId, patch, nowStamp())),
       removeGoal: (entryId) => set((goals) => logic.removeGoal(goals, entryId, nowStamp())),
-      replaceGoals: (goals) => set(logic.materializeToday(goals, todayKey())),
+      stopRepeating: (entryId) => set((goals) => logic.stopRepeating(goals, entryId, nowStamp())),
+      acceptSuggestion: (suggestion, periodKey) =>
+        set((goals) => logic.acceptSuggestion(goals, suggestion, periodKey, nowStamp())),
+      declineSuggestion: (sourceEntryId) =>
+        set((goals) => logic.declineSuggestion(goals, sourceEntryId)),
+      // `set` merges, so a pad without declined suggestions has to clear the ones held.
+      replaceGoals: (goals) =>
+        set({ declinedSuggestions: undefined, ...logic.materializeToday(goals, todayKey()) }),
       mergeGoals: (remote) =>
         set((goals) => logic.materializeToday(logic.mergeGoals(goals, remote), todayKey())),
     }),

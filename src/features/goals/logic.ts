@@ -1,4 +1,12 @@
-import { dayKeyOf, weekdayOf, weekKeyOf, yearKeyOf, type DayKey } from '@/lib/dates';
+import {
+  addDays,
+  dayKeyOf,
+  formatDayWithWeekday,
+  weekdayOf,
+  weekKeyOf,
+  yearKeyOf,
+  type DayKey,
+} from '@/lib/dates';
 import { newId } from '@/lib/id';
 import { EPOCH, LEGACY, mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
@@ -12,6 +20,7 @@ import {
   type LegacyGoals,
   type StarredGoalEntry,
   type StarredGoals,
+  type Suggestion,
 } from './types';
 
 /** A goal line holds between one and this many checks. */
@@ -40,6 +49,18 @@ export function entriesForPeriod(entries: GoalEntry[], periodKey: string): GoalE
 /** The id every device gives a template's line on a period, so two copies of it are one line. */
 export function materializedEntryId(templateId: string, periodKey: string): string {
   return `${templateId}:${periodKey}`;
+}
+
+const CARRY_MARK = '>';
+
+/**
+ * The id every device gives the line that carries an entry over onto a period,
+ * so two copies of it are one line. It is rooted at the first entry of the
+ * chain: a carried line carried over again gets an id of the same length.
+ */
+export function carriedEntryId(sourceEntryId: string, periodKey: string): string {
+  const [root] = sourceEntryId.split(CARRY_MARK);
+  return `${root}${CARRY_MARK}${periodKey}`;
 }
 
 function seedTemplateId(cadence: Cadence, sortOrder: number): string {
@@ -251,21 +272,142 @@ export function hasCheckLabels(checkLabels: string[] | undefined): boolean {
 /**
  * Cross a line off the page, leaving a tombstone so no copy of it comes back.
  * Removing a recurring goal also retires its template, so it neither returns
- * to this page nor appears on future ones.
+ * to this page nor appears on future ones. A template already retired keeps
+ * the moment it was retired.
  */
 export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
 
   return {
+    ...goals,
     entries: goals.entries.filter((e) => e.id !== entryId),
     tombstones: withTombstone(goals.tombstones, entryId, now),
     templates: entry.templateId
       ? goals.templates.map((t) =>
-          t.id === entry.templateId ? { ...t, retiredAt: now, updatedAt: now } : t,
+          t.id === entry.templateId && !t.retiredAt ? { ...t, retiredAt: now, updatedAt: now } : t,
         )
       : goals.templates,
   };
+}
+
+/**
+ * Stop a recurring goal without crossing its line off: the template is
+ * retired, so it writes no more lines, while the line keeps its place, its
+ * checks and its `templateId`. The line is stamped, and a stamped line is
+ * never a ghost, so no merge drops it.
+ */
+export function stopRepeating(goals: Goals, entryId: string, now: Stamp): Goals {
+  const entry = goals.entries.find((e) => e.id === entryId);
+  const template = goals.templates.find((t) => t.id === entry?.templateId);
+  if (!entry || !template || template.retiredAt) return goals;
+
+  return {
+    ...goals,
+    templates: goals.templates.map((t) =>
+      t.id === template.id ? { ...t, retiredAt: now, updatedAt: now } : t,
+    ),
+    entries: goals.entries.map((e) => (e.id === entryId ? { ...e, updatedAt: now } : e)),
+  };
+}
+
+/**
+ * What the pad offers to write on a period's section: the unfinished one-off
+ * lines of the most recent earlier period with any lines, in their stored
+ * order. Only the period containing `today` gets suggestions. A line stops
+ * being offered once it is carried over or declined, and while its title is
+ * written on this period.
+ */
+export function suggestionsFor(
+  goals: Pick<Goals, 'entries' | 'tombstones' | 'declinedSuggestions'>,
+  cadence: Cadence,
+  periodKey: string,
+  today: DayKey,
+): Suggestion[] {
+  if (periodKeyFor(cadence, today) !== periodKey) return [];
+
+  const sourcePeriodKey = latestPeriodBefore(goals.entries, cadence, periodKey);
+  if (sourcePeriodKey === undefined) return [];
+
+  const declined = new Set(goals.declinedSuggestions);
+  const written = new Set<string>();
+  for (const e of goals.entries) {
+    if (e.periodKey === periodKey) written.add(titleKey(e.title));
+  }
+
+  return entriesForPeriod(goals.entries, sourcePeriodKey)
+    .filter(
+      (e) =>
+        !e.templateId &&
+        e.checks.some((check) => check !== 'done') &&
+        !declined.has(e.id) &&
+        !isCarriedOver(goals, e.id, periodKey) &&
+        !written.has(titleKey(e.title)),
+    )
+    .map((e) => ({
+      kind: 'carryover',
+      sourceEntryId: e.id,
+      sourcePeriodKey,
+      cadence,
+      title: e.title,
+      targetCount: e.checks.length,
+      checkLabels: e.checkLabels,
+    }));
+}
+
+/** The note under a suggestion's title: "from yesterday", or the earlier period it comes from. */
+export function suggestionNote(suggestion: Suggestion, today: DayKey): string {
+  const { cadence, sourcePeriodKey } = suggestion;
+  switch (cadence) {
+    case 'daily':
+      return sourcePeriodKey === addDays(today, -1)
+        ? 'from yesterday'
+        : `from ${formatDayWithWeekday(sourcePeriodKey)}`;
+    case 'weekly':
+      return sourcePeriodKey === weekKeyOf(addDays(today, -7))
+        ? 'from last week'
+        : 'from an earlier week';
+    case 'annual':
+      return sourcePeriodKey === String(Number(yearKeyOf(today)) - 1)
+        ? 'from last year'
+        : `from ${sourcePeriodKey}`;
+  }
+}
+
+/**
+ * Accept a suggestion: a fresh one-off line at the bottom of the period's
+ * section with the source's title, check count and labels, its checks empty,
+ * marked as carrying the source over. The source line is untouched. A
+ * suggestion already carried over writes nothing.
+ */
+export function acceptSuggestion(
+  goals: Goals,
+  suggestion: Suggestion,
+  periodKey: string,
+  now: Stamp,
+): Goals {
+  const { sourceEntryId, cadence, title, targetCount, checkLabels } = suggestion;
+  if (isCarriedOver(goals, sourceEntryId, periodKey)) return goals;
+
+  const written = addGoal(
+    goals,
+    { cadence, periodKey, title, targetCount, checkLabels, repeats: false },
+    now,
+  );
+  if (written === goals) return goals;
+  const line = {
+    ...written.entries[written.entries.length - 1],
+    id: carriedEntryId(sourceEntryId, periodKey),
+    carriedFrom: sourceEntryId,
+  };
+  return { ...written, entries: [...goals.entries, line] };
+}
+
+/** Decline a suggestion: its source line is never offered again, and is itself untouched. */
+export function declineSuggestion(goals: Goals, sourceEntryId: string): Goals {
+  const declined = goals.declinedSuggestions ?? [];
+  if (declined.includes(sourceEntryId)) return goals;
+  return { ...goals, declinedSuggestions: [...declined, sourceEntryId].sort() };
 }
 
 const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => x.updatedAt };
@@ -273,26 +415,34 @@ const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => 
 /**
  * Reconcile two copies of the goals, item by item (ADR 0005): templates and
  * entries each by id, the later write winning, crossed-off lines staying off.
- * A line a stale device wrote for a template after it was retired is dropped.
+ * A template retired on either copy stays retired from its first retirement,
+ * whichever write is later (ADR 0008). A line a stale device wrote for a
+ * template after it was retired is dropped. A suggestion declined on either
+ * device stays declined.
  */
 export function mergeGoals(local: Goals, remote: Goals): Goals {
+  const retired = firstRetirements([...local.templates, ...remote.templates]);
   const templates = mergeKeyed(
     { items: local.templates, tombstones: {} },
     { items: remote.templates, tombstones: {} },
     byId,
-  ).items;
+  ).items.map((t) => {
+    const retiredAt = retired.get(t.id);
+    return retiredAt === t.retiredAt ? t : { ...t, retiredAt };
+  });
   const entries = mergeKeyed(
     { items: local.entries, tombstones: local.tombstones },
     { items: remote.entries, tombstones: remote.tombstones },
     byId,
   );
-  const retired = new Map(
-    templates.flatMap((t) => (t.retiredAt ? [[t.id, t.retiredAt] as const] : [])),
-  );
+  const declinedSuggestions = [
+    ...new Set([...(local.declinedSuggestions ?? []), ...(remote.declinedSuggestions ?? [])]),
+  ].sort();
   return {
     templates,
     entries: entries.items.filter((e) => !isGhost(e, retired)),
     tombstones: entries.tombstones,
+    ...(declinedSuggestions.length > 0 ? { declinedSuggestions } : {}),
   };
 }
 
@@ -363,6 +513,58 @@ function isGhost(entry: GoalEntry, retired: Map<string, Stamp>): boolean {
   const retiredAt = retired.get(entry.templateId);
   if (retiredAt === undefined) return false;
   return periodKeyFor(entry.cadence, dayKeyOf(new Date(retiredAt))) < entry.periodKey;
+}
+
+/** When each template was first retired, on any of the copies given. */
+function firstRetirements(templates: GoalTemplate[]): Map<string, Stamp> {
+  const first = new Map<string, Stamp>();
+  for (const { id, retiredAt } of templates) {
+    if (retiredAt === undefined) continue;
+    const known = first.get(id);
+    if (known === undefined || isEarlier(retiredAt, known)) first.set(id, retiredAt);
+  }
+  return first;
+}
+
+/** Whether stamp `a` is before `b`; the same moment written two ways orders by its text. */
+function isEarlier(a: Stamp, b: Stamp): boolean {
+  const gap = Date.parse(a) - Date.parse(b);
+  return gap < 0 || (gap === 0 && a < b);
+}
+
+/**
+ * Whether an entry is already carried over: some entry carries it, or its
+ * carried line on this period exists or was crossed off.
+ */
+function isCarriedOver(
+  goals: Pick<Goals, 'entries' | 'tombstones'>,
+  sourceEntryId: string,
+  periodKey: string,
+): boolean {
+  const carriedId = carriedEntryId(sourceEntryId, periodKey);
+  return (
+    carriedId in goals.tombstones ||
+    goals.entries.some((e) => e.id === carriedId || e.carriedFrom === sourceEntryId)
+  );
+}
+
+/** The latest period of a cadence before `periodKey` that has any line written on it. */
+function latestPeriodBefore(
+  entries: GoalEntry[],
+  cadence: Cadence,
+  periodKey: string,
+): string | undefined {
+  let latest: string | undefined;
+  for (const e of entries) {
+    if (e.cadence !== cadence || e.periodKey >= periodKey) continue;
+    if (latest === undefined || e.periodKey > latest) latest = e.periodKey;
+  }
+  return latest;
+}
+
+/** Two titles are the same goal when they match ignoring case and surrounding space. */
+function titleKey(title: string): string {
+  return title.trim().toLowerCase();
 }
 
 function mapEntry(goals: Goals, entryId: string, update: (e: GoalEntry) => GoalEntry): Goals {

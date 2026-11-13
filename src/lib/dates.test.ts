@@ -2,6 +2,7 @@ import {
   addDays,
   addMonths,
   dayKeyOf,
+  formatDayWithWeekday,
   formatMonth,
   formatPadDate,
   monthGrid,
@@ -78,6 +79,7 @@ describe('month grids', () => {
 describe('formatting', () => {
   it('writes the date the way the pad does', () => {
     expect(formatPadDate('2026-08-21')).toBe('Fri 8/21/26');
+    expect(formatDayWithWeekday('2026-08-23')).toBe('Sun 8/23');
   });
 
   it('extracts the year key', () => {
