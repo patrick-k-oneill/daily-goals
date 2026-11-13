@@ -58,7 +58,7 @@ The day a gratitude entry is about — the day before it is written. Entries are
 _Avoid_: entry date, journal date
 
 **Gratitude entry**:
-The morning's text about one reflection date, written as a bulleted list: one thing per `• ` line, stored as plain text. Only text beyond bullets and whitespace counts as written; emptying the text removes the entry.
+The morning's text about one reflection date, stored as plain text. Lines may be bullets: `● ` at the top tier, or `○ ` indented two spaces for the one tier below. Only text beyond bullets and whitespace counts as written; emptying the text removes the entry.
 _Avoid_: journal post, note
 
 **Streak**:
