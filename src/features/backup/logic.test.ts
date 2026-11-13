@@ -1,3 +1,4 @@
+import type { StarredGoals } from '@/features/goals/types';
 import { EPOCH, LEGACY } from '@/lib/merge';
 
 import { describePad, padFileName, parsePad, SCHEMA_VERSION, serializePad } from './logic';
@@ -15,6 +16,7 @@ function samplePad(): PadData {
           cadence: 'daily',
           title: 'Daily Prod',
           targetCount: 8,
+          weekdays: [1, 2, 3, 4, 5],
           sortOrder: 2,
           updatedAt: STAMP,
         },
@@ -37,7 +39,6 @@ function samplePad(): PadData {
           periodKey: '2026-08-26',
           title: 'Daily Prod',
           checks: ['done', 'done', 'missed', 'empty', 'empty', 'empty', 'empty', 'empty'],
-          starred: true,
           sortOrder: 2,
           updatedAt: STAMP,
         },
@@ -47,7 +48,6 @@ function samplePad(): PadData {
           periodKey: '2026',
           title: 'Ship the pad',
           checks: ['empty'],
-          starred: false,
           sortOrder: 1,
           updatedAt: EPOCH,
         },
@@ -59,7 +59,7 @@ function samplePad(): PadData {
         '2026-08-25': {
           forDate: '2026-08-25',
           writtenAt: '2026-08-26T07:00:00.000Z',
-          text: 'Amy, Leto',
+          text: 'Good coffee, a long walk',
         },
         '2026-08-26': { forDate: '2026-08-26', writtenAt: NOW, text: 'A quiet morning' },
       },
@@ -118,9 +118,36 @@ function legacyPad(): LegacyPadData {
       ],
     },
     gratitude: {
-      '2026-08-25': { forDate: '2026-08-25', writtenAt: '2026-08-26T07:00:00.000Z', text: 'Amy' },
+      '2026-08-25': {
+        forDate: '2026-08-25',
+        writtenAt: '2026-08-26T07:00:00.000Z',
+        text: 'Good coffee',
+      },
     },
     events: [{ id: 'ev1', date: '2026-08-30', title: 'IRC', timeLabel: '4pm–5:30pm' }],
+  };
+}
+
+/** The sample pad's goals as a schema 2 or 3 file carried them: a star on each entry, one of them drawn. */
+function starredGoals(): StarredGoals {
+  const { goals } = samplePad();
+  const [daily, annual] = goals.entries;
+  return {
+    ...goals,
+    entries: [
+      { ...daily, starred: false },
+      { ...annual, starred: false },
+      {
+        id: 'e3',
+        cadence: 'daily',
+        periodKey: '2026-08-26',
+        title: 'Call the bank',
+        checks: ['empty'],
+        starred: true,
+        sortOrder: 3,
+        updatedAt: STAMP,
+      },
+    ],
   };
 }
 
@@ -154,14 +181,40 @@ describe('serializePad', () => {
   });
 
   it('is readable as a text file', () => {
-    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 2,\n');
+    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 4,\n');
   });
 });
 
 describe('parsePad', () => {
-  it('round-trips every template, entry, check, star, tombstone, gratitude entry and event', () => {
+  it('round-trips every template, its weekdays, entry, check, tombstone, gratitude entry and event', () => {
     const pad = samplePad();
     expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('reads a schema 3 file, keeping its starred line first by sortOrder and dropping the star', () => {
+    const parsed = parsePad(fileWith({ schemaVersion: 3, goals: starredGoals() }));
+    if (!parsed.ok) throw new Error(parsed.reason);
+    expect(parsed.pad.goals.entries.map((e) => [e.id, e.sortOrder])).toEqual([
+      ['t1:2026-08-26', 2],
+      ['e2', 1],
+      ['e3', 1],
+    ]);
+    expect(parsed.pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
+    expect(parsed.pad.goals.templates).toEqual(samplePad().goals.templates);
+  });
+
+  it('reads a schema 2 file, whose templates name no weekdays, the same way', () => {
+    const goals = starredGoals();
+    goals.templates = goals.templates.map(({ weekdays: _weekdays, ...t }) => t);
+    const parsed = parsePad(fileWith({ schemaVersion: 2, goals }));
+    if (!parsed.ok) throw new Error(parsed.reason);
+    expect(parsed.pad.goals.entries.map((e) => [e.id, e.sortOrder])).toEqual([
+      ['t1:2026-08-26', 2],
+      ['e2', 1],
+      ['e3', 1],
+    ]);
+    expect(parsed.pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
+    expect(parsed.pad.goals.templates).toEqual(goals.templates);
   });
 
   it('reads a schema 1 file, stamping its items legacy and sharing its ids', () => {
@@ -177,6 +230,7 @@ describe('parsePad', () => {
       templateId: 'seed:daily:2',
       updatedAt: LEGACY,
     });
+    expect('starred' in parsed.pad.goals.entries[0]).toBe(false);
     expect(parsed.pad.goals.tombstones).toEqual({});
     expect(parsed.pad.gratitude).toEqual({ entries: legacyPad().gratitude, tombstones: {} });
     expect(parsed.pad.events.events[0]).toMatchObject({ id: 'ev1', updatedAt: LEGACY });
@@ -220,6 +274,20 @@ describe('parsePad', () => {
 
     const badTombstone = { ...pad.goals, tombstones: { x: 'yesterday' } };
     expect(reasonOf(fileWith({ goals: badTombstone }))).toMatch(/damaged: its goals/);
+
+    const badStar = { ...pad.goals, entries: [{ ...pad.goals.entries[0], starred: 'yes' }] };
+    expect(reasonOf(fileWith({ schemaVersion: 3, goals: badStar }))).toMatch(/damaged: its goals/);
+
+    const weekdayOutOfRange = {
+      ...pad.goals,
+      templates: [{ ...pad.goals.templates[0], weekdays: [0, 1] }],
+    };
+    expect(reasonOf(fileWith({ goals: weekdayOutOfRange }))).toMatch(/damaged: its goals/);
+    const weekdayByName = {
+      ...pad.goals,
+      templates: [{ ...pad.goals.templates[0], weekdays: ['Mon'] }],
+    };
+    expect(reasonOf(fileWith({ goals: weekdayByName }))).toMatch(/damaged: its goals/);
 
     expect(reasonOf(fileWith({ goals: { templates: [], entries: [] } }))).toMatch(
       /damaged: its goals/,

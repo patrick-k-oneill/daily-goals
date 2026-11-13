@@ -7,14 +7,13 @@ import { todayKey, type DayKey } from '@/lib/dates';
 import { persistOptions } from '@/lib/persisted-store';
 
 import * as logic from './logic';
-import type { Goals, LegacyGoals } from './types';
+import type { Goals, LegacyGoals, StarredGoals } from './types';
 
 interface GoalsState extends Goals {
   /** Write today's page: every active template's line on its current period. */
   materializeToday: (today: DayKey) => void;
   addGoal: (input: logic.AddGoalInput) => void;
   cycleCheck: (entryId: string, checkIndex: number) => void;
-  toggleStar: (entryId: string) => void;
   updateGoal: (entryId: string, patch: logic.GoalEditPatch) => void;
   removeGoal: (entryId: string) => void;
   /** Replace every template and entry with an imported pad's; it lands with today written. */
@@ -38,7 +37,6 @@ export const useGoalsStore = create<GoalsState>()(
       addGoal: (input) => set((goals) => logic.addGoal(goals, input, nowStamp())),
       cycleCheck: (entryId, checkIndex) =>
         set((goals) => logic.cycleCheck(goals, entryId, checkIndex, nowStamp())),
-      toggleStar: (entryId) => set((goals) => logic.toggleStar(goals, entryId, nowStamp())),
       updateGoal: (entryId, patch) =>
         set((goals) => logic.updateGoal(goals, entryId, patch, nowStamp())),
       removeGoal: (entryId) => set((goals) => logic.removeGoal(goals, entryId, nowStamp())),
@@ -47,12 +45,15 @@ export const useGoalsStore = create<GoalsState>()(
         set((goals) => logic.materializeToday(logic.mergeGoals(goals, remote), todayKey())),
     }),
     persistOptions<GoalsState>('goals', {
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         // v1 persisted a `seeded` flag alongside the data; the seed is now the initial state.
         const { seeded: _seeded, ...legacy } = persisted as LegacyGoals & { seeded?: boolean };
-        // v2 had no stamps, tombstones or shared ids (ADR 0005).
-        const goals = version < 3 ? logic.upgradeLegacyGoals(legacy) : persisted;
+        // v2 had no stamps, tombstones or shared ids (ADR 0005); v3 ranked a starred line first.
+        const goals =
+          version < 3
+            ? logic.upgradeLegacyGoals(legacy)
+            : logic.retireStars(persisted as StarredGoals);
         return goals as GoalsState;
       },
       // The saved pad may be from an earlier day; today is written before the first render.
