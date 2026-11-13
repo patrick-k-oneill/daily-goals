@@ -41,6 +41,12 @@
             "image": "./assets/images/splash-icon-dark.png"
           }
         }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
       ]
     ],
     "experiments": {

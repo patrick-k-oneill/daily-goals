@@ -70,6 +70,12 @@ _Avoid_: backup file, snapshot, dump
 The pad's size on this device — the bytes of each store's persisted JSON, and their total — projected for future years in ADR 0004.
 _Avoid_: storage usage, disk size, quota
 
+### Feedback
+
+**Feedback note**:
+An unshaped note to self written from the pad footer and filed as a GitHub issue labelled `needs-triage`: its first line is the title, the rest the body, closed by a footer saying where it was written. It is never part of the pad.
+_Avoid_: bug report, ticket, comment
+
 ### Sync
 
 **Stamp**:
