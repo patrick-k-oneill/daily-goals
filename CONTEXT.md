@@ -44,6 +44,18 @@ _Avoid_: recommendation, prompt, reminder
 The first kind of suggestion: an unfinished one-off entry (some check not done) from the most recent earlier period with any entries. Accepting it writes a fresh one-off entry with empty checks that records the entry it was carried from; declining it records the entry so it is never offered again. Either way the earlier entry stays as written. Every device gives the carried entry the same id (the first entry of its chain and the period), so accepting on two devices writes one line, and a carried entry that is crossed off is not offered again on that period. Nothing carries over by itself, and a recurring entry is never offered.
 _Avoid_: roll over, auto-carry, migrate
 
+**Place**:
+An entry's position in its section, stored as `sortOrder`: a section reads in ascending order, and the numbers need be neither whole nor consecutive. A template has a place too: the one its entry is materialized at.
+_Avoid_: rank, priority, position
+
+**Move**:
+Giving an entry a new place in its section: long-press its title and drag, or use the title's Move up and Move down actions. Only the moved entry is written: its place becomes a number between its new neighbors'.
+_Avoid_: reorder (as a noun), sort, rearrange
+
+**Carry forward**:
+What a move on the current period does beyond its own page: the moved entry's template takes a place between the templates of the recurring entries now around it, so the next period materializes in the same order. A move on a past page stays on that page.
+_Avoid_: propagate, sync (for this)
+
 **Materialize**:
 Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
 _Avoid_: instantiate, generate
@@ -59,6 +71,14 @@ _Avoid_: checkbox, tick, completion
 A short word over one check of a multi-check entry, like Fitness's Legs/Push/Pull: positional, at most six characters, written from the goal form and inherited from the template. A one-check entry has none.
 _Avoid_: sublabel, tag, caption
 
+**Achieved**:
+A section with every check on every entry done, once it has settled; its header then reads "Daily Goals Achieved!" (or Weekly, Annual). A section with no entries is never achieved. A section a check tap has just completed is settling: for a moment it keeps its plain header, so a check cycled past done to missed never shows as achieved.
+_Avoid_: complete, finished, all done
+
+**Reward moment**:
+The reinforcement played when a check tap achieves a section: the header's red-pen flourish drawn in, with a haptic. It plays once per period per section, only on the current period, and only ever from a tap — a rehydrated, imported or merged pad plays none. Which periods have played is remembered per device, outside the pad.
+_Avoid_: celebration, confetti
+
 ### Journal
 
 **Reflection date**:
@@ -66,7 +86,7 @@ The day a gratitude entry is about — the day before it is written. Entries are
 _Avoid_: entry date, journal date
 
 **Gratitude entry**:
-The morning's free text about one reflection date. Emptying the text removes the entry.
+The morning's text about one reflection date, stored as plain text. Lines may be bullets: `● ` at the top tier, or `○ ` indented two spaces for the one tier below. Only text beyond bullets and whitespace counts as written; emptying the text removes the entry.
 _Avoid_: journal post, note
 
 **Streak**:

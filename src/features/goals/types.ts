@@ -82,6 +82,24 @@ export interface Suggestion {
   checkLabels?: string[];
 }
 
+/** How a section reads: open, settling after the check tap that completed it, or achieved. */
+export type SectionStatus = 'open' | 'settling' | 'achieved';
+
+/** What this device remembers of its reward moments. It is in no pad file and is never merged. */
+export interface Rewards {
+  /** Sections a check tap has just completed, by period key, each with the moment of that tap. */
+  settling: Record<string, Stamp>;
+  /** The last period each cadence's reward moment played on. */
+  played: Partial<Record<Cadence, string>>;
+}
+
+/**
+ * What settling a section came to: `waiting` when its tap has not rested yet,
+ * `lapsed` when it is no longer complete, `achieved` when it settled without a
+ * reward moment, `rewarded` when the reward moment plays.
+ */
+export type SettleOutcome = 'waiting' | 'lapsed' | 'achieved' | 'rewarded';
+
 /** An entry as stored while the star was drawn (store v3, pad file 2–3): `starred` ranked it first in its section. */
 export type StarredGoalEntry = GoalEntry & { starred?: boolean };
 

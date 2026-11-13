@@ -196,6 +196,23 @@ describe('joinPad', () => {
     expect('declinedSuggestions' in pad.goals).toBe(false);
   });
 
+  it('carries a moved line’s fractional place and a bulleted gratitude text through unchanged', () => {
+    const pad = samplePad();
+    pad.goals.templates[1] = { ...pad.goals.templates[1], sortOrder: 1.5 };
+    pad.goals.entries[0] = { ...pad.goals.entries[0], sortOrder: 2.25 };
+    pad.gratitude.entries['2026-01-01'].text =
+      '● Good coffee\n  ○ with an old friend\n● A long walk';
+
+    const files = splitPad(pad);
+    const { pad: joined } = joinPad(files);
+    expect(joined.goals.templates.find((t) => t.id === 't1')?.sortOrder).toBe(1.5);
+    expect(joined.goals.entries.find((e) => e.id === 't1:2026-01-02')?.sortOrder).toBe(2.25);
+    expect(joined.gratitude.entries['2026-01-01'].text).toBe(
+      pad.gratitude.entries['2026-01-01'].text,
+    );
+    expect(splitPad(joined)).toEqual(files);
+  });
+
   it('reads an empty cloud as an empty pad', () => {
     expect(joinPad({})).toEqual({ pad: emptyPad(), unreadable: [] });
   });

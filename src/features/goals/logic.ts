@@ -39,6 +39,9 @@ import {
   type LegacyGoalEntry,
   type LegacyGoals,
   type LegacyGoalTemplate,
+  type Rewards,
+  type SectionStatus,
+  type SettleOutcome,
   type StarredGoalEntry,
   type StarredGoals,
   type Suggestion,
@@ -238,6 +241,101 @@ export function cycleCheck(goals: Goals, entryId: string, checkIndex: number, no
   }));
 }
 
+/** A section a check tap completes reads as achieved only once that tap has rested this long. */
+export const SETTLE_MS = 1500;
+/** A reward moment plays only when its section settles within this long of being due. */
+export const REWARD_GRACE_MS = 1000;
+
+const SECTION_NAMES: Record<Cadence, string> = {
+  daily: 'Daily Goals',
+  weekly: 'Weekly Goals',
+  annual: 'Annual Goals',
+};
+
+/** Whether every check on every line of a period's section is done. A section with no lines never is. */
+export function isSectionComplete(entries: GoalEntry[], periodKey: string): boolean {
+  const lines = entries.filter((e) => e.periodKey === periodKey);
+  return lines.length > 0 && lines.every((e) => e.checks.every((c) => c === 'done'));
+}
+
+/** How a period's section reads: a complete one is settling until its completing tap has rested. */
+export function sectionStatus(
+  settling: Rewards['settling'],
+  entries: GoalEntry[],
+  periodKey: string,
+): SectionStatus {
+  if (!isSectionComplete(entries, periodKey)) return 'open';
+  return periodKey in settling ? 'settling' : 'achieved';
+}
+
+/** A section's header: its name, with "Achieved!" once it is. */
+export function sectionTitle(cadence: Cadence, status: SectionStatus): string {
+  const name = SECTION_NAMES[cadence];
+  return status === 'achieved' ? `${name} Achieved!` : name;
+}
+
+/**
+ * What a check tap does to its section's settling, given the lines as the tap
+ * left them: a tap that completes the section starts it settling from `now`,
+ * any other tap stops it. Nothing but a tap starts a section settling, so a
+ * section completed by a rehydrate, an import or a merge is achieved at once
+ * and plays no reward moment.
+ */
+export function settleAfterTap(
+  rewards: Rewards,
+  entries: GoalEntry[],
+  entryId: string,
+  now: Stamp,
+): Rewards {
+  const periodKey = entries.find((e) => e.id === entryId)?.periodKey;
+  if (periodKey === undefined) return rewards;
+  if (isSectionComplete(entries, periodKey)) {
+    return { ...rewards, settling: { ...rewards.settling, [periodKey]: now } };
+  }
+  if (!(periodKey in rewards.settling)) return rewards;
+  return { ...rewards, settling: withoutSettling(rewards.settling, periodKey) };
+}
+
+/** Milliseconds from `now` until a section that began settling at `since` has settled. */
+export function msUntilSettled(since: Stamp, now: Stamp): number {
+  return Math.max(0, SETTLE_MS - (Date.parse(now) - Date.parse(since)));
+}
+
+/**
+ * Settle a section once the tap that completed it has rested SETTLE_MS; before
+ * then nothing changes. A settled section stops settling, and if it is still
+ * complete it is achieved. Its reward moment plays only on the period
+ * containing `today`, once per period (playing it records the period), and
+ * only when the section settles on time: one left settling while its page was
+ * turned away or the app was in the background is achieved without it.
+ */
+export function settleSection(
+  rewards: Rewards,
+  entries: GoalEntry[],
+  periodKey: string,
+  today: DayKey,
+  now: Stamp,
+): { rewards: Rewards; outcome: SettleOutcome } {
+  const since = rewards.settling[periodKey];
+  if (since === undefined) return { rewards, outcome: 'lapsed' };
+  if (msUntilSettled(since, now) > 0) return { rewards, outcome: 'waiting' };
+
+  const settled = { ...rewards, settling: withoutSettling(rewards.settling, periodKey) };
+  if (!isSectionComplete(entries, periodKey)) return { rewards: settled, outcome: 'lapsed' };
+
+  const cadence = entries.find((e) => e.periodKey === periodKey)?.cadence;
+  const isRewardDue =
+    cadence !== undefined &&
+    periodKeyFor(cadence, today) === periodKey &&
+    rewards.played[cadence] !== periodKey &&
+    Date.parse(now) - Date.parse(since) <= SETTLE_MS + REWARD_GRACE_MS;
+  if (!isRewardDue) return { rewards: settled, outcome: 'achieved' };
+  return {
+    rewards: { ...settled, played: { ...settled.played, [cadence]: periodKey } },
+    outcome: 'rewarded',
+  };
+}
+
 export interface GoalEditPatch {
   title?: string;
   targetCount?: number;
@@ -248,10 +346,11 @@ export interface GoalEditPatch {
 }
 
 /**
- * Edit a line in place. Edits to a recurring goal also update its template so
- * future pages inherit the new title, check count, labels and weekdays. A
- * blank title keeps the old one; existing marks survive a resize and labels
- * follow it.
+ * Edit a line in place. What an edit changes on a recurring goal's line also
+ * goes to its template, so future pages inherit the new title, check count,
+ * labels and weekdays; what it leaves alone on the line is left alone on the
+ * template. A blank title keeps the old one; existing marks survive a resize
+ * and labels follow it.
  */
 export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
@@ -270,19 +369,51 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, 
     ),
     templates: entry.templateId
       ? goals.templates.map((t) =>
-          t.id === entry.templateId
-            ? {
-                ...t,
-                title,
-                targetCount,
-                checkLabels,
-                weekdays: fitWeekdays(t.cadence, patch.weekdays ?? t.weekdays),
-                updatedAt: now,
-              }
-            : t,
+          t.id === entry.templateId ? editedTemplate(t, entry, patch, title, targetCount, now) : t,
         )
       : goals.templates,
   };
+}
+
+/**
+ * A template after an edit to one of its lines. It takes the title and count
+ * only where the edit changed them on the line, and new labels fitted to its
+ * own count: a line may differ from its template (an older page, a count
+ * changed since), and saving it must not write that difference back. An edit
+ * that changes nothing on the template leaves it unstamped.
+ */
+function editedTemplate(
+  template: GoalTemplate,
+  line: GoalEntry,
+  patch: GoalEditPatch,
+  title: string,
+  targetCount: number,
+  now: Stamp,
+): GoalTemplate {
+  // Both fitted to the edited count, so a label written over a box the edit added counts.
+  const isRelabeled =
+    patch.checkLabels !== undefined &&
+    !isSameJson(
+      fitCheckLabels(patch.checkLabels, targetCount),
+      fitCheckLabels(line.checkLabels, targetCount),
+    );
+  const count = targetCount === line.checks.length ? template.targetCount : targetCount;
+  const edited = {
+    title: title === line.title ? template.title : title,
+    targetCount: count,
+    checkLabels: fitCheckLabels(isRelabeled ? patch.checkLabels : template.checkLabels, count),
+    weekdays: fitWeekdays(template.cadence, patch.weekdays ?? template.weekdays),
+  };
+  const isUnchanged =
+    edited.title === template.title &&
+    edited.targetCount === template.targetCount &&
+    isSameJson(edited.checkLabels, template.checkLabels) &&
+    isSameJson(edited.weekdays, template.weekdays);
+  return isUnchanged ? template : { ...template, ...edited, updatedAt: now };
+}
+
+function isSameJson(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** Whether any box on a line carries a label. */
@@ -429,6 +560,46 @@ export function declineSuggestion(goals: Goals, sourceEntryId: string): Goals {
   const declined = goals.declinedSuggestions ?? [];
   if (declined.includes(sourceEntryId)) return goals;
   return { ...goals, declinedSuggestions: [...declined, sourceEntryId].sort() };
+}
+
+/**
+ * Move a line to `toIndex` in its period's section. Only the moved line is
+ * written: its place becomes a number between its new neighbors', so every
+ * other line keeps its stamp through a merge. On the period containing
+ * `today` the move carries forward (ADR 0007): the line's template takes a
+ * place between the templates of the recurring lines now around it, so the
+ * next period materializes in the same order. A past page's order stays its
+ * own. Neighbors whose places leave no room between them are renumbered 1….
+ */
+export function moveEntry(
+  goals: Goals,
+  entryId: string,
+  toIndex: number,
+  today: DayKey,
+  now: Stamp,
+): Goals {
+  const moved = goals.entries.find((e) => e.id === entryId);
+  if (!moved) return goals;
+
+  const lines = entriesForPeriod(goals.entries, moved.periodKey);
+  const to = Math.min(lines.length - 1, Math.max(0, toIndex));
+  if (to === lines.indexOf(moved)) return goals;
+
+  const reordered = lines.filter((e) => e !== moved);
+  reordered.splice(to, 0, moved);
+  const entries = rewritten(goals.entries, placedAmong(reordered, to, now));
+  if (periodKeyFor(moved.cadence, today) !== moved.periodKey) return { ...goals, entries };
+
+  // A retired template writes no more lines, so it neither takes a place nor marks one.
+  const live = new Map(goals.templates.flatMap((t) => (t.retiredAt ? [] : [[t.id, t] as const])));
+  const recurring = reordered.flatMap((e) => live.get(e.templateId ?? '') ?? []);
+  const at = recurring.findIndex((t) => t.id === moved.templateId);
+  if (at < 0) return { ...goals, entries };
+  return {
+    ...goals,
+    entries,
+    templates: rewritten(goals.templates, placedAmong(recurring, at, now)),
+  };
 }
 
 const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => x.updatedAt };
@@ -596,6 +767,11 @@ function mapEntry(goals: Goals, entryId: string, update: (e: GoalEntry) => GoalE
   };
 }
 
+function withoutSettling(settling: Rewards['settling'], periodKey: string): Rewards['settling'] {
+  const { [periodKey]: _settled, ...rest } = settling;
+  return rest;
+}
+
 function clampChecks(targetCount: number): number {
   return Math.min(MAX_CHECKS, Math.max(1, targetCount));
 }
@@ -661,6 +837,46 @@ function bySortOrder(a: GoalEntry, b: GoalEntry): number {
 function byStarredOrder(a: StarredGoalEntry, b: StarredGoalEntry): number {
   if (Boolean(a.starred) !== Boolean(b.starred)) return a.starred ? -1 : 1;
   return bySortOrder(a, b);
+}
+
+type Placed = { id: string; sortOrder: number; updatedAt: Stamp };
+
+/**
+ * The writes that make `ordered` read in the order given, `ordered[at]` being
+ * the one out of place: its place alone, set between its neighbors', or every
+ * place renumbered 1… when the neighbors' leave no room. Keyed by id.
+ */
+function placedAmong<T extends Placed>(ordered: T[], at: number, now: Stamp): Map<string, T> {
+  const place = placeBetween(
+    ordered[at - 1]?.sortOrder,
+    ordered[at].sortOrder,
+    ordered[at + 1]?.sortOrder,
+  );
+  const writes = new Map<string, T>();
+  ordered.forEach((item, i) => {
+    const sortOrder = place === undefined ? i + 1 : i === at ? place : item.sortOrder;
+    if (sortOrder !== item.sortOrder) writes.set(item.id, { ...item, sortOrder, updatedAt: now });
+  });
+  return writes;
+}
+
+/** A place strictly between two neighbors': `current` when it already is one, undefined when there is none. */
+function placeBetween(
+  before: number | undefined,
+  current: number,
+  after: number | undefined,
+): number | undefined {
+  const fits = (place: number) =>
+    (before === undefined || before < place) && (after === undefined || place < after);
+  if (fits(current)) return current;
+  if (before === undefined) return (after ?? 1) - 1;
+  const place = after === undefined ? before + 1 : (before + after) / 2;
+  return fits(place) ? place : undefined;
+}
+
+/** `items` with each written item in place of the one it replaces; the same array when nothing was written. */
+function rewritten<T extends { id: string }>(items: T[], writes: Map<string, T>): T[] {
+  return writes.size === 0 ? items : items.map((item) => writes.get(item.id) ?? item);
 }
 
 function nextSortOrder(items: { sortOrder: number }[]): number {
