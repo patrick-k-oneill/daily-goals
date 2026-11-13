@@ -2,7 +2,7 @@
 
 # daily-goals
 
-Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and Android. A digital version of Patrick's legal-pad ritual: Daily/Weekly/Annual goals with multi-check goals, a morning Gratitude Journal written about the previous day, and jotted upcoming events.
+Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and Android. A digital version of Patrick's legal-pad ritual: Daily/Weekly/Annual goals with multi-check goals, and a morning Gratitude Journal written about the previous day.
 
 ## Commands
 
@@ -29,7 +29,7 @@ The domain language lives in `CONTEXT.md` (page, section, period, cadence, templ
 
 - Write self-explanatory code: clear names and small focused functions over explanatory comments.
 - Comment only what the code can't say — intent, non-obvious constraints, deliberate deviations. Keep comments to one or two short lines; no restating what the code does.
-- Platform-specific behavior goes in `.web.tsx`/`.web.ts` sibling files (see `app-tabs`), or `Platform.select` for small forks.
+- Platform-specific behavior goes in `.web.tsx`/`.web.ts` sibling files (see `pad-file`), or `Platform.select` for small forks.
 - React Compiler is enabled — don't add `useMemo`/`useCallback`/`React.memo` for performance.
 
 ## Commit points
