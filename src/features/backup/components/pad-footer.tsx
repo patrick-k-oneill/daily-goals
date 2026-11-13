@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { FeedbackForm } from '@/features/feedback/components/feedback-form';
 import type { SendOutcome } from '@/features/feedback/types';
+import { RemindersToggle } from '@/features/goals/components/reminders-toggle';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -86,6 +87,7 @@ export function PadFooter() {
           <FooterAction icon="↓" label="Import data" onPress={importPad} />
           <FooterAction icon="✎" label="Send feedback" onPress={toggleFeedback} />
         </View>
+        <RemindersToggle />
       </View>
       {isFeedbackOpen && (
         <FeedbackForm

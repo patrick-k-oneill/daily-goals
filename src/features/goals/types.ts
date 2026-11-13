@@ -51,6 +51,8 @@ export interface GoalEntry {
   sortOrder: number;
   /** The entry this line carries over, when it was written by accepting a suggestion. */
   carriedFrom?: string;
+  /** The reminder this line is linked to; reminder ids mean something only on the device that wrote them. */
+  reminderId?: string;
   /** The epoch until someone writes on the line. */
   updatedAt: Stamp;
 }
@@ -61,25 +63,45 @@ export interface Goals {
   entries: GoalEntry[];
   /** Entries crossed off the page, by id. */
   tombstones: Tombstones;
-  /** The entries whose carryover suggestion was declined, by id, sorted; absent when none was. */
+  /** The entries and reminders whose suggestion was declined, by id, sorted; absent when none was. */
   declinedSuggestions?: string[];
+}
+
+/** A reminder in the device's Today list, as the goals core reads it. */
+export interface Reminder {
+  id: string;
+  title: string;
+  completed: boolean;
 }
 
 /**
  * A goal the pad offers to write on the current period's section. It is on no
  * page until it is accepted.
  */
-export interface Suggestion {
-  /** Carryover: an unfinished one-off line from the most recent earlier period. */
+export type Suggestion = CarryoverSuggestion | ReminderSuggestion;
+
+interface SuggestedGoal {
+  cadence: Cadence;
+  title: string;
+  targetCount: number;
+  checkLabels?: string[];
+}
+
+/** An unfinished one-off line from the most recent earlier period. */
+export interface CarryoverSuggestion extends SuggestedGoal {
   kind: 'carryover';
   /** The entry it would carry over. */
   sourceEntryId: string;
   /** The period the source entry is written on. */
   sourcePeriodKey: string;
-  cadence: Cadence;
-  title: string;
-  targetCount: number;
-  checkLabels?: string[];
+  /** The reminder the source entry is linked to; the carried line stays linked to it. */
+  reminderId?: string;
+}
+
+/** An unfinished reminder in the Today list that no entry is linked to. */
+export interface ReminderSuggestion extends SuggestedGoal {
+  kind: 'reminder';
+  sourceReminderId: string;
 }
 
 /** How a section reads: open, settling after the check tap that completed it, or achieved. */

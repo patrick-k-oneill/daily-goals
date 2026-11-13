@@ -37,12 +37,20 @@ Retiring a template from one of its lines without crossing that line off, by tur
 _Avoid_: pause, disable, archive
 
 **Suggestion**:
-A goal the pad offers to write on the current period's section: a faded row at the foot of the section with Add and Decline. It is on no page until it is accepted, and a past page shows none. Only the Daily section offers suggestions.
+A goal the pad offers to write on the current period's section: a faded row at the foot of the section with Add and Decline. It is on no page until it is accepted, and a past page shows none. Only the Daily section offers suggestions, from two sources: carryovers first, then the Today list.
 _Avoid_: recommendation, prompt, reminder
 
 **Carry over**:
-The first kind of suggestion: an unfinished one-off entry (some check not done) from the most recent earlier period with any entries. Accepting it writes a fresh one-off entry with empty checks that records the entry it was carried from; declining it records the entry so it is never offered again. Either way the earlier entry stays as written. Every device gives the carried entry the same id (the first entry of its chain and the period), so accepting on two devices writes one line, and a carried entry that is crossed off is not offered again on that period. Nothing carries over by itself, and a recurring entry is never offered.
+The first kind of suggestion: an unfinished one-off entry (some check not done) from the most recent earlier period with any entries. Accepting it writes a fresh one-off entry with empty checks that records the entry it was carried from; declining it records the entry so it is never offered again. Either way the earlier entry stays as written. Every device gives the carried entry the same id (the first entry of its chain and the period), so accepting on two devices writes one line, and a carried entry that is crossed off is not offered again on that period. Nothing carries over by itself, and a recurring entry is never offered. A carried entry keeps its source's linked reminder.
 _Avoid_: roll over, auto-carry, migrate
+
+**Today list**:
+The list named Today in the device's Reminders app. While the Reminders switch is on, its unfinished reminders are the second kind of suggestion: offered on today's Daily section, marked "from Reminders". A goal both sources hold under one title is offered once, as the carryover. The list is read at launch, on each return to the foreground and every minute in front, and is never saved; only iOS has one. The smart Today view in Reminders is not a list and is not read.
+_Avoid_: Reminders sync, inbox, import
+
+**Linked reminder**:
+The reminder an entry was written from, kept on the entry as `reminderId`. A reminder with a linked entry on any page is never offered again, whether or not that entry was finished. Reminder ids belong to one device: a link that arrived by merge or pad file points at nothing on another. The pad is the source of truth and Reminders a mirror (ADR 0011): nothing done on the pad changes a reminder.
+_Avoid_: synced reminder, attached reminder
 
 **Materialize**:
 Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
