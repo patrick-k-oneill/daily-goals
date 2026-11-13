@@ -191,6 +191,22 @@ describe('parsePad', () => {
     expect(parsePad(serializePad(pad, NOW), NOW)).toEqual({ ok: true, exportedAt: NOW, pad });
   });
 
+  it('round-trips a stopped goal: its retired template and the line it kept', () => {
+    const pad = samplePad();
+    pad.goals.entries.push({
+      id: 't2:2026-W35',
+      templateId: 't2',
+      cadence: 'weekly',
+      periodKey: '2026-W35',
+      title: 'Fitness',
+      checks: ['done', 'empty', 'empty', 'empty', 'empty', 'empty', 'empty'],
+      checkLabels: ['Legs', 'Push', 'Pull', 'Legs', 'Push', 'Pull', 'Core'],
+      sortOrder: 2,
+      updatedAt: STAMP,
+    });
+    expect(parsePad(serializePad(pad, NOW), NOW)).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
   it('reads a schema 3 file, keeping its starred line first by sortOrder and dropping the star', () => {
     const parsed = parsePad(fileWith({ schemaVersion: 3, goals: starredGoals() }), NOW);
     if (!parsed.ok) throw new Error(parsed.reason);

@@ -271,7 +271,8 @@ export function hasCheckLabels(checkLabels: string[] | undefined): boolean {
 /**
  * Cross a line off the page, leaving a tombstone so no copy of it comes back.
  * Removing a recurring goal also retires its template, so it neither returns
- * to this page nor appears on future ones.
+ * to this page nor appears on future ones. A template already retired keeps
+ * the moment it was retired.
  */
 export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
@@ -282,9 +283,29 @@ export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
     tombstones: withTombstone(goals.tombstones, entryId, now),
     templates: entry.templateId
       ? goals.templates.map((t) =>
-          t.id === entry.templateId ? { ...t, retiredAt: now, updatedAt: now } : t,
+          t.id === entry.templateId && !t.retiredAt ? { ...t, retiredAt: now, updatedAt: now } : t,
         )
       : goals.templates,
+  };
+}
+
+/**
+ * Stop a recurring goal without crossing its line off: the template is
+ * retired, so it writes no more lines, while the line keeps its place, its
+ * checks and its `templateId`. The line is stamped, and a stamped line is
+ * never a ghost, so no merge drops it.
+ */
+export function stopRepeating(goals: Goals, entryId: string, now: Stamp): Goals {
+  const entry = goals.entries.find((e) => e.id === entryId);
+  const template = goals.templates.find((t) => t.id === entry?.templateId);
+  if (!entry || !template || template.retiredAt) return goals;
+
+  return {
+    ...goals,
+    templates: goals.templates.map((t) =>
+      t.id === template.id ? { ...t, retiredAt: now, updatedAt: now } : t,
+    ),
+    entries: goals.entries.map((e) => (e.id === entryId ? { ...e, updatedAt: now } : e)),
   };
 }
 
@@ -293,21 +314,24 @@ const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => 
 /**
  * Reconcile two copies of the goals, item by item (ADR 0005): templates and
  * entries each by id, the later write winning, crossed-off lines staying off.
- * A line a stale device wrote for a template after it was retired is dropped.
+ * A template retired on either copy stays retired from its first retirement,
+ * whichever write is later (ADR 0008). A line a stale device wrote for a
+ * template after it was retired is dropped.
  */
 export function mergeGoals(local: Goals, remote: Goals): Goals {
+  const retired = firstRetirements([...local.templates, ...remote.templates]);
   const templates = mergeKeyed(
     { items: local.templates, tombstones: {} },
     { items: remote.templates, tombstones: {} },
     byId,
-  ).items;
+  ).items.map((t) => {
+    const retiredAt = retired.get(t.id);
+    return retiredAt === t.retiredAt ? t : { ...t, retiredAt };
+  });
   const entries = mergeKeyed(
     { items: local.entries, tombstones: local.tombstones },
     { items: remote.entries, tombstones: remote.tombstones },
     byId,
-  );
-  const retired = new Map(
-    templates.flatMap((t) => (t.retiredAt ? [[t.id, t.retiredAt] as const] : [])),
   );
   return {
     templates,
@@ -378,6 +402,23 @@ function isGhost(entry: GoalEntry, retired: Map<string, Stamp>): boolean {
   const retiredAt = retired.get(entry.templateId);
   if (retiredAt === undefined) return false;
   return periodKeyFor(entry.cadence, dayKeyOf(new Date(retiredAt))) < entry.periodKey;
+}
+
+/** When each template was first retired, on any of the copies given. */
+function firstRetirements(templates: GoalTemplate[]): Map<string, Stamp> {
+  const first = new Map<string, Stamp>();
+  for (const { id, retiredAt } of templates) {
+    if (retiredAt === undefined) continue;
+    const known = first.get(id);
+    if (known === undefined || isEarlier(retiredAt, known)) first.set(id, retiredAt);
+  }
+  return first;
+}
+
+/** Whether stamp `a` is before `b`; the same moment written two ways orders by its text. */
+function isEarlier(a: Stamp, b: Stamp): boolean {
+  const gap = Date.parse(a) - Date.parse(b);
+  return gap < 0 || (gap === 0 && a < b);
 }
 
 function mapEntry(goals: Goals, entryId: string, update: (e: GoalEntry) => GoalEntry): Goals {

@@ -17,6 +17,7 @@ import {
   removeGoal,
   retireStars,
   seedGoals,
+  stopRepeating,
   updateGoal,
   upgradeLegacyGoals,
 } from './logic';
@@ -540,6 +541,75 @@ describe('removeGoal', () => {
   });
 });
 
+describe('stopRepeating', () => {
+  /** Yesterday's and today's lines of one recurring goal, today's with a check done. */
+  function recurringGoal(): Goals {
+    const yesterday = entry({
+      id: 't1:2026-08-20',
+      templateId: 't1',
+      periodKey: '2026-08-20',
+      title: 'Daily Prod',
+      checks: ['done', 'missed'],
+      updatedAt: '2026-08-20T09:00:00.000Z',
+    });
+    const written = materializeToday(
+      goals({ templates: [template({ targetCount: 2 })], entries: [yesterday] }),
+      TODAY,
+    );
+    return cycleCheck(written, 't1:2026-08-21', 0, NOW);
+  }
+
+  it('retires the template and keeps the line where it was written, with its checks', () => {
+    const start = recurringGoal();
+    const state = stopRepeating(start, 't1:2026-08-21', LATER);
+
+    expect(state.templates[0]).toMatchObject({ retiredAt: LATER, updatedAt: LATER });
+    expect(byId(state, 't1:2026-08-21')).toEqual({
+      ...byId(start, 't1:2026-08-21'),
+      updatedAt: LATER,
+    });
+    expect(byId(state, 't1:2026-08-21')).toMatchObject({
+      templateId: 't1',
+      checks: ['done', 'empty'],
+    });
+  });
+
+  it('writes the goal on no later page and leaves past pages as they were', () => {
+    const start = recurringGoal();
+    const state = stopRepeating(start, 't1:2026-08-21', LATER);
+
+    expect(materializeToday(state, TODAY)).toBe(state);
+    expect(materializeToday(state, '2026-08-22')).toBe(state);
+    expect(byId(state, 't1:2026-08-20')).toBe(byId(start, 't1:2026-08-20'));
+  });
+
+  it('stops only the goal the line belongs to', () => {
+    const start = materializeToday(
+      goals({ templates: [template(), template({ id: 't2', title: 'Read', sortOrder: 2 })] }),
+      TODAY,
+    );
+    const state = stopRepeating(start, 't1:2026-08-21', NOW);
+    expect(state.templates.map((t) => t.retiredAt)).toEqual([NOW, undefined]);
+    expect(titlesOn(materializeToday(state, '2026-08-22'), '2026-08-22')).toEqual(['Read']);
+  });
+
+  it('ignores a one-off line, an unknown entry and a goal already stopped', () => {
+    const start = goals({ templates: [template()], entries: [entry()] });
+    expect(stopRepeating(start, 'e1', NOW)).toBe(start);
+    expect(stopRepeating(start, 'missing', NOW)).toBe(start);
+
+    const stopped = stopRepeating(recurringGoal(), 't1:2026-08-21', NOW);
+    expect(stopRepeating(stopped, 't1:2026-08-21', LATER)).toBe(stopped);
+  });
+
+  it('keeps the moment of the stop when the kept line is crossed off later', () => {
+    const stopped = stopRepeating(recurringGoal(), 't1:2026-08-21', NOW);
+    const removed = removeGoal(stopped, 't1:2026-08-21', LATER);
+    expect(byId(removed, 't1:2026-08-21')).toBeUndefined();
+    expect(removed.templates[0]).toBe(stopped.templates[0]);
+  });
+});
+
 describe('identity across devices', () => {
   it('gives a materialized line the same id on every device: its template and period', () => {
     const state = materializeToday(goals({ templates: [template()] }), TODAY);
@@ -696,6 +766,59 @@ describe('mergeGoals', () => {
     );
     const merged = mergeGoals(retired, ghostTapped);
     expect(merged.entries.map((e) => e.id)).toEqual(['t1:2026-08-20', 't1:2026-08-22']);
+  });
+
+  it('keeps a stopped goal stopped, and its line, against a device that has not heard', () => {
+    const [phone, ipad] = twoDevices();
+    const stopped = stopRepeating(
+      cycleCheck(phone, 't1:2026-08-21', 0, NOW),
+      't1:2026-08-21',
+      LATER,
+    );
+    // The iPad still holds the live template and an untouched line, and writes tomorrow's page from them.
+    const stale = ensurePeriod(ipad, 'daily', '2026-08-22', '2026-08-22');
+    expect(byId(stale, 't1:2026-08-22')).toBeDefined();
+
+    const merged = mergeGoals(stale, stopped);
+    expect(merged.entries.map((e) => e.id)).toEqual(['t1:2026-08-21']);
+    expect(byId(merged, 't1:2026-08-21')?.checks).toEqual(['done', 'empty']);
+    expect(merged.templates[0].retiredAt).toBe(LATER);
+    expect(merged).toEqual(mergeGoals(stopped, stale));
+    expect(materializeToday(merged, '2026-08-22')).toBe(merged);
+  });
+
+  it('keeps the kept line of a stopped goal when a stale device writes on it afterwards', () => {
+    const [phone, ipad] = twoDevices();
+    const stopped = stopRepeating(phone, 't1:2026-08-21', NOW);
+    const tappedLater = cycleCheck(ipad, 't1:2026-08-21', 1, LATER);
+
+    const merged = mergeGoals(stopped, tappedLater);
+    expect(byId(merged, 't1:2026-08-21')?.checks).toEqual(['empty', 'done']);
+    expect(merged.templates[0].retiredAt).toBe(NOW);
+    expect(merged).toEqual(mergeGoals(tappedLater, stopped));
+  });
+
+  it('keeps a goal stopped when a stale device edits it after the stop', () => {
+    const [phone, ipad] = twoDevices();
+    const stopped = stopRepeating(phone, 't1:2026-08-21', NOW);
+    // The iPad, not yet having heard, renames the goal: its live template is the later write.
+    const renamed = updateGoal(ipad, 't1:2026-08-21', { title: 'Deep Work' }, LATER);
+    expect(renamed.templates[0].retiredAt).toBeUndefined();
+
+    const merged = mergeGoals(stopped, renamed);
+    expect(merged.templates[0]).toMatchObject({ title: 'Deep Work', retiredAt: NOW });
+    expect(titlesOn(merged, TODAY)).toEqual(['Deep Work']);
+    expect(merged).toEqual(mergeGoals(renamed, stopped));
+    expect(mergeGoals(merged, renamed)).toEqual(merged);
+    expect(materializeToday(merged, '2026-08-22')).toBe(merged);
+  });
+
+  it('keeps the first retirement when both devices retire the same goal', () => {
+    const [phone, ipad] = twoDevices();
+    const stoppedFirst = stopRepeating(phone, 't1:2026-08-21', NOW);
+    const removedLater = removeGoal(ipad, 't1:2026-08-21', LATER);
+    expect(mergeGoals(stoppedFirst, removedLater).templates[0].retiredAt).toBe(NOW);
+    expect(mergeGoals(removedLater, stoppedFirst).templates[0].retiredAt).toBe(NOW);
   });
 
   it('is idempotent and canonical, so a device with nothing new pushes nothing', () => {

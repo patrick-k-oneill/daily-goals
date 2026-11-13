@@ -25,12 +25,16 @@ _Avoid_: frequency, type
 ### Goals
 
 **Template**:
-A recurring goal. It is not itself on any page; it materializes into an entry on each new period's section. A daily template may name the weekdays it repeats on (Monday first); it is written only on those days, and one that names none is written every day. Weekly and annual templates have no weekday schedule. Removing its line retires it: it writes no more lines.
+A recurring goal. It is not itself on any page; it materializes into an entry on each new period's section. A daily template may name the weekdays it repeats on (Monday first); it is written only on those days, and one that names none is written every day. Weekly and annual templates have no weekday schedule. A retired template writes no more lines: removing one of its lines retires it, and so does stopping it. Retirement is permanent (ADR 0008).
 _Avoid_: habit, default, recurring goal (as a noun)
 
 **Entry**:
 A goal line on a specific period's section, either materialized from a template or written one-off. Its place is its stored `sortOrder`; nothing ranks a line ahead of it.
 _Avoid_: goal instance, task, item, starred or key goal (the margin star is retired)
+
+**Stop repeating**:
+Retiring a template from one of its lines without crossing that line off, by turning Repeats off in the line's edit form. The line stays where it was written, with its checks and its `templateId`; lines already written on other periods stay too, and no later period gets one. A stopped template never starts again: the goal is written anew with Repeats on.
+_Avoid_: pause, disable, archive
 
 **Materialize**:
 Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
@@ -87,5 +91,5 @@ The record a removed item leaves behind: its key and when it was removed, kept b
 _Avoid_: soft delete, deleted flag
 
 **Merge**:
-Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned.
+Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned. A template retired on either copy stays retired, from its first retirement (ADR 0008).
 _Avoid_: sync (for the rule itself), overwrite, replace
