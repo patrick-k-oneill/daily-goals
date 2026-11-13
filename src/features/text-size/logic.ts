@@ -30,6 +30,14 @@ export function formatTextScale(scale: number): string {
   return `${Math.round(scale * 100)}%`;
 }
 
+/** A set of point lengths at `scale`; at 100% it is the very same object, so rendering is untouched. */
+export function scaleLengths<T extends Record<string, number>>(lengths: T, scale: number): T {
+  if (scale === DEFAULT_TEXT_SCALE) return lengths;
+  return Object.fromEntries(
+    Object.entries(lengths).map(([name, length]) => [name, length * scale]),
+  ) as T;
+}
+
 /** The metrics a text style scales together: type size, line box, and any trailing glyph overhang. */
 export interface TextMetrics {
   fontSize: number;

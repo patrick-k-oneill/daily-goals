@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { TextSizeControl } from '@/features/text-size/components/text-size-control';
+import { useTextScale } from '@/features/text-size/store';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -12,6 +13,9 @@ import { dayKeyOf, formatPadDate } from '@/lib/dates';
 import { describePad, padFileName, parsePad, serializePad, type PadFileContents } from '../logic';
 import { readPad, writePad } from '../pad';
 import { exportPadFile, pickPadFile } from '../pad-file';
+
+/** An action's height at 100%: a full tap target. It grows with the text size. */
+const ACTION_HEIGHT = 44;
 
 interface Notice {
   tone: 'ok' | 'error';
@@ -93,12 +97,13 @@ function FooterAction({
   label: string;
   onPress: () => void;
 }) {
+  const scale = useTextScale();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={styles.action}>
+      style={[styles.action, { minHeight: ACTION_HEIGHT * scale }]}>
       <ThemedText type="small" themeColor="textSecondary">
         {icon}
       </ThemedText>
@@ -121,15 +126,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     columnGap: Spacing.four,
   },
+  // Side by side, one under the other once a larger text size outgrows the page.
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: Spacing.four,
+    columnGap: Spacing.four,
   },
   action: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
-    minHeight: 44,
   },
 });

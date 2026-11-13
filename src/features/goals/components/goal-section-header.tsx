@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Easing, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { SectionHeader, type SectionHeaderProps } from '@/components/ui/section-header';
+import { useTextScale } from '@/features/text-size/store';
 import { announce } from '@/lib/announce';
 import { nowStamp } from '@/lib/clock';
 import type { DayKey } from '@/lib/dates';
@@ -12,11 +13,11 @@ import { useRewardsStore } from '../rewards-store';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
 
-import { AchievedFlourish } from './achieved-flourish';
+import { AchievedFlourish, achievedFlourishInset } from './achieved-flourish';
 
 const REWARD_MOMENT_MS = 1100;
 
-type GoalSectionHeaderProps = Omit<SectionHeaderProps, 'title' | 'titleFlourish'> & {
+type GoalSectionHeaderProps = Omit<SectionHeaderProps, 'title' | 'titleFlourish' | 'titleInset'> & {
   cadence: Cadence;
   day: DayKey;
 };
@@ -33,6 +34,7 @@ export function GoalSectionHeader({ cadence, day, ...header }: GoalSectionHeader
   const settling = useRewardsStore((s) => s.settling);
   const settleSection = useRewardsStore((s) => s.settleSection);
   const isMotionReduced = useReducedMotion();
+  const scale = useTextScale();
   // 0 → 1 as the reward moment plays; at 1 the flourish sits as drawn.
   const moment = useSharedValue(1);
 
@@ -70,6 +72,7 @@ export function GoalSectionHeader({ cadence, day, ...header }: GoalSectionHeader
     <SectionHeader
       title={sectionTitle(cadence, status)}
       titleFlourish={status === 'achieved' ? <AchievedFlourish moment={moment} /> : null}
+      titleInset={status === 'achieved' ? achievedFlourishInset(scale) : 0}
       {...header}
     />
   );

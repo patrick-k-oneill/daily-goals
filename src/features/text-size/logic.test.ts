@@ -5,6 +5,7 @@ import {
   formatTextScale,
   isDefaultTextScale,
   largerTextScale,
+  scaleLengths,
   scaleTextStyle,
   smallerTextScale,
   TEXT_SCALE_STEPS,
@@ -69,5 +70,18 @@ describe('scaleTextStyle', () => {
       fontSize: 22,
       textAlign: 'center',
     });
+  });
+});
+
+describe('scaleLengths', () => {
+  const underline = { left: -4, bottom: -1, height: 3 };
+
+  it('returns the very same lengths at 100%', () => {
+    expect(scaleLengths(underline, 1)).toBe(underline);
+  });
+
+  it('scales every length, offsets included', () => {
+    expect(scaleLengths(underline, 2)).toEqual({ left: -8, bottom: -2, height: 6 });
+    expect(scaleLengths({ width: 24 }, 1.5)).toEqual({ width: 36 });
   });
 });

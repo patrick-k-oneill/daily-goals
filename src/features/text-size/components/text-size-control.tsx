@@ -6,6 +6,9 @@ import { Spacing } from '@/constants/theme';
 import { canEnlargeText, canShrinkText, formatTextScale, isDefaultTextScale } from '../logic';
 import { useTextSizeStore } from '../store';
 
+/** Room for "100%" in small bold type at 100%. */
+const PERCENT_WIDTH = 40;
+
 /** The footer's Text size row: A−, the percent, A+, and Reset once it is off 100%. */
 export function TextSizeControl() {
   const scale = useTextSizeStore((s) => s.scale);
@@ -29,7 +32,7 @@ export function TextSizeControl() {
         type="smallBold"
         accessibilityLabel="Text size"
         accessibilityValue={{ text: percent }}
-        style={styles.percent}>
+        style={[styles.percent, { minWidth: PERCENT_WIDTH * scale }]}>
         {percent}
       </ThemedText>
       <StepButton
@@ -80,10 +83,12 @@ function StepButton({
 }
 
 const styles = StyleSheet.create({
+  // Wraps once a larger text size outgrows the page.
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: Spacing.three,
+    columnGap: Spacing.three,
   },
   button: {
     paddingVertical: Spacing.two,
@@ -92,7 +97,6 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   percent: {
-    minWidth: 40,
     textAlign: 'center',
   },
 });

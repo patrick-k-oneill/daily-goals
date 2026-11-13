@@ -12,6 +12,9 @@ import { formatDayLong, type DayKey } from '@/lib/dates';
 import { currentStreak, hasEntry, reflectionDateFor } from '../logic';
 import { useGratitudeStore } from '../store';
 
+/** Room for five lines of the entry at 100%; it grows with the text size. */
+const INPUT_MIN_HEIGHT = 140;
+
 /**
  * The morning ritual card: written today, about yesterday — exactly like
  * writing on the previous day's pad page. Fully controlled by the store;
@@ -56,7 +59,10 @@ export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) 
         multiline
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
-        style={[scaleTextStyle(styles.input, scale), { color: theme.text }]}
+        style={[
+          scaleTextStyle(styles.input, scale),
+          { minHeight: INPUT_MIN_HEIGHT * scale, color: theme.text },
+        ]}
         accessibilityLabel="Gratitude journal entry"
       />
 
@@ -89,7 +95,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.five,
   },
   input: {
-    minHeight: 140,
     fontSize: 17,
     lineHeight: 26,
     textAlignVertical: 'top',

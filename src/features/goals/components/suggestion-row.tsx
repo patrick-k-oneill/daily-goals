@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing, type ThemeColor } from '@/constants/theme';
+import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
@@ -17,6 +18,10 @@ const SUGGESTING_CADENCES: readonly Cadence[] = ['daily'];
 /** Ink at this opacity reads as pencil beside a written line, and stays legible on both papers. */
 const SUGGESTION_OPACITY = 0.65;
 
+/** The room a suggestion's title needs beside + and × at 100%; with less, they move under it. */
+const MIN_TITLE_WIDTH = 120;
+
+/** The side of + and × at 100%: a full tap target. It grows with the glyph. */
 const ACTION_SIZE = 44;
 
 /**
@@ -58,31 +63,34 @@ function SuggestionRow({
   const theme = useTheme();
   const acceptSuggestion = useGoalsStore((s) => s.acceptSuggestion);
   const declineSuggestion = useGoalsStore((s) => s.declineSuggestion);
+  const scale = useTextScale();
 
   return (
     <View style={[styles.row, { borderBottomColor: theme.rule }]}>
       <View
         accessible
         accessibilityLabel={`Suggested goal: ${suggestion.title}, ${note}`}
-        style={styles.pencilled}>
+        style={[styles.pencilled, { flexBasis: MIN_TITLE_WIDTH * scale }]}>
         <ThemedText>{suggestion.title}</ThemedText>
         <ThemedText type="small">{note}</ThemedText>
       </View>
-      <SuggestionAction
-        glyph="+"
-        themeColor="text"
-        accessibilityLabel="Add this goal to today"
-        onPress={() => {
-          selectionTap();
-          acceptSuggestion(suggestion, periodKey);
-        }}
-      />
-      <SuggestionAction
-        glyph="×"
-        themeColor="textSecondary"
-        accessibilityLabel="Decline this suggestion"
-        onPress={() => declineSuggestion(suggestion.sourceEntryId)}
-      />
+      <View style={styles.actions}>
+        <SuggestionAction
+          glyph="+"
+          themeColor="text"
+          accessibilityLabel="Add this goal to today"
+          onPress={() => {
+            selectionTap();
+            acceptSuggestion(suggestion, periodKey);
+          }}
+        />
+        <SuggestionAction
+          glyph="×"
+          themeColor="textSecondary"
+          accessibilityLabel="Decline this suggestion"
+          onPress={() => declineSuggestion(suggestion.sourceEntryId)}
+        />
+      </View>
     </View>
   );
 }
@@ -100,6 +108,7 @@ function SuggestionAction({
 }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
+  const side = ACTION_SIZE * useTextScale();
 
   return (
     <Pressable
@@ -109,6 +118,7 @@ function SuggestionAction({
       onPress={onPress}
       style={({ pressed }) => [
         styles.action,
+        { width: side, height: side },
         hovered && { backgroundColor: theme.backgroundElement },
         pressed && styles.pressed,
       ]}>
@@ -120,20 +130,26 @@ function SuggestionAction({
 }
 
 const styles = StyleSheet.create({
+  // + and × sit at the right of the title, or together under it once it needs the whole line.
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: Spacing.two,
     paddingVertical: Spacing.two,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   pencilled: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
     opacity: SUGGESTION_OPACITY,
   },
+  actions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
   action: {
-    width: ACTION_SIZE,
-    height: ACTION_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Spacing.two,

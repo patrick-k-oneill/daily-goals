@@ -20,6 +20,9 @@ import {
 
 const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
+/** A day cell's height at 100%: a full tap target. It grows with the text size. */
+const DAY_CELL_HEIGHT = 44;
+
 interface DatePickerProps {
   selected: DayKey;
   /** The last day that can be picked. */
@@ -47,7 +50,7 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
         </Pressable>
         <ThemedText type="handSmall">{formatMonth(month)}</ThemedText>
         {isLatestMonth ? (
-          <View style={styles.chevronSpacer} />
+          <View style={{ width: Spacing.three * scale }} />
         ) : (
           <Pressable
             accessibilityRole="button"
@@ -90,7 +93,7 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
             ) : (
               // Blank grid cell — position is the identity.
               // react-doctor-disable-next-line react-doctor/no-array-index-as-key
-              <View key={i} style={styles.dayCell} />
+              <View key={i} style={[styles.dayCell, { minHeight: DAY_CELL_HEIGHT * scale }]} />
             ),
           )}
         </View>
@@ -122,6 +125,7 @@ function DayCell({
 }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
+  const scale = useTextScale();
 
   return (
     <Pressable
@@ -133,6 +137,7 @@ function DayCell({
       onPress={onPress}
       style={[
         styles.dayCell,
+        { minHeight: DAY_CELL_HEIGHT * scale },
         hovered && { backgroundColor: theme.backgroundElement },
         isSelected && { backgroundColor: theme.backgroundSelected },
       ]}>
@@ -157,9 +162,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     paddingBottom: Spacing.one,
   },
-  chevronSpacer: {
-    width: Spacing.three,
-  },
   weekRow: {
     flexDirection: 'row',
   },
@@ -173,6 +175,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Spacing.two,
-    minHeight: 44,
   },
 });
