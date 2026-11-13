@@ -1,6 +1,7 @@
 /**
  * Design tokens for the legal-pad aesthetic: warm paper, blue rule lines,
- * red margin, ink text. Every color exists in both schemes under the same key.
+ * red margin, ink text, yellow controls. Every color exists in both schemes
+ * under the same key.
  */
 
 import { Platform } from 'react-native';
@@ -14,8 +15,14 @@ export const Colors = {
     backgroundSelected: '#EAE1C0',
     rule: '#B9D8E2',
     margin: '#D95D53',
+    // Marginalia (stars, asides, the not-today date); never a control.
     accent: '#D95D53',
-    onAccent: '#FFFFFF',
+    // Controls. The yellow fill carries ink at 4.5:1; primaryEdge, not the fill,
+    // holds 3:1 against the page as the pill and selected-chip outline (theme.test.ts).
+    primary: '#FFD23F',
+    primaryPressed: '#F5C518',
+    primaryEdge: '#A67C00',
+    onPrimary: '#26221B',
     missed: '#B04A42',
     border: '#DCD3B4',
   },
@@ -28,7 +35,10 @@ export const Colors = {
     rule: '#3D5A69',
     margin: '#C96158',
     accent: '#E07B72',
-    onAccent: '#FFFFFF',
+    primary: '#F2C230',
+    primaryPressed: '#D9AA20',
+    primaryEdge: '#F2C230',
+    onPrimary: '#26221B',
     missed: '#D98078',
     border: '#3A3426',
   },
