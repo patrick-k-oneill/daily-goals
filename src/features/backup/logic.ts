@@ -16,15 +16,16 @@ import type { Tombstones } from '@/lib/merge';
 import type { LegacyPadData, PadData, PadFile } from './types';
 
 /** Bump when the file shape changes; an older app refuses a newer file. */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 /** The last schema whose entries carry a star; 2 and 3 differ only by a template's optional weekdays. */
 const LAST_STARRED_SCHEMA_VERSION = 3;
 /**
  * Every shape this app still reads. A file up to schema 4 also holds upcoming
  * events, which are left unread; 5 adds an entry's optional `carriedFrom` and
- * the goals' optional `declinedSuggestions`.
+ * the goals' optional `declinedSuggestions`; 6 adds an entry's optional
+ * `reminderId`.
  */
-const READABLE_SCHEMA_VERSIONS = [1, 2, LAST_STARRED_SCHEMA_VERSION, 4, SCHEMA_VERSION];
+const READABLE_SCHEMA_VERSIONS = [1, 2, LAST_STARRED_SCHEMA_VERSION, 4, 5, SCHEMA_VERSION];
 
 /** What a readable pad file holds. */
 export interface PadFileContents {
@@ -217,6 +218,7 @@ function isGoalEntry(value: unknown): value is GoalEntry {
     isRecord(value) &&
     hasEntryFields(value) &&
     isOptionalString(value.carriedFrom) &&
+    isOptionalString(value.reminderId) &&
     isTimestamp(value.updatedAt)
   );
 }

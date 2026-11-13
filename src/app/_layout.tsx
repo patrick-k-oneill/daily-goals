@@ -3,6 +3,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
+import { useRemindersRefresh, useRemindersStore } from '@/features/goals/reminders-store';
 import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -11,7 +12,7 @@ import { useHydrated } from '@/lib/persisted-store';
 
 SplashScreen.preventAutoHideAsync();
 
-const persistedStores = [useGoalsStore, useGratitudeStore];
+const persistedStores = [useGoalsStore, useGratitudeStore, useRemindersStore];
 
 export default function RootLayout() {
   const dark = useColorScheme() === 'dark';
@@ -19,6 +20,7 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({ Caveat_700Bold });
   const storesHydrated = useHydrated(persistedStores);
   useMaterializeToday();
+  useRemindersRefresh();
   const ready = (fontsLoaded || Boolean(fontError)) && storesHydrated;
 
   useEffect(() => {

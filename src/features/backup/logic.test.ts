@@ -160,7 +160,7 @@ describe('serializePad', () => {
   });
 
   it('is readable as a text file', () => {
-    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 5,\n');
+    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 6,\n');
   });
 });
 
@@ -200,6 +200,29 @@ describe('parsePad', () => {
     });
     pad.goals.declinedSuggestions = ['e5', 'e6'];
     expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('round-trips a line linked to a reminder', () => {
+    const pad = samplePad();
+    pad.goals.entries.push({
+      id: 'r1>2026-08-27',
+      cadence: 'daily',
+      periodKey: '2026-08-27',
+      title: 'Buy stamps',
+      checks: ['empty'],
+      sortOrder: 3,
+      reminderId: 'r1',
+      updatedAt: STAMP,
+    });
+    expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('reads a schema 5 file, whose lines are linked to no reminder, as it is', () => {
+    expect(parsePad(fileWith({ schemaVersion: 5 }))).toEqual({
+      ok: true,
+      exportedAt: NOW,
+      pad: samplePad(),
+    });
   });
 
   it('reads a schema 4 file, which holds no suggestions, as it is', () => {
@@ -315,6 +338,8 @@ describe('parsePad', () => {
     expect(reasonOf(fileWith({ goals: badCarry }))).toMatch(/damaged: its goals/);
     const badDeclined = { ...pad.goals, declinedSuggestions: [7] };
     expect(reasonOf(fileWith({ goals: badDeclined }))).toMatch(/damaged: its goals/);
+    const badLink = { ...pad.goals, entries: [{ ...pad.goals.entries[0], reminderId: 7 }] };
+    expect(reasonOf(fileWith({ goals: badLink }))).toMatch(/damaged: its goals/);
 
     const weekdayOutOfRange = {
       ...pad.goals,

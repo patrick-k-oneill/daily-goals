@@ -10,6 +10,7 @@ import {
   entriesForPeriod,
   EVERY_WEEKDAY,
   hasCheckLabels,
+  isTodayList,
   materializedEntryId,
   materializeToday,
   MAX_CHECK_LABEL_LENGTH,
@@ -21,6 +22,7 @@ import {
   seedGoals,
   stopRepeating,
   suggestionNote,
+  suggestionSourceId,
   suggestionsFor,
   updateGoal,
   upgradeLegacyGoals,
@@ -31,8 +33,10 @@ import type {
   Goals,
   LegacyGoals,
   StarredGoalEntry,
+  CarryoverSuggestion,
+  Reminder,
+  ReminderSuggestion,
   StarredGoals,
-  Suggestion,
 } from './types';
 
 // The legal-pad date: Fri 8/21/26, ISO week 2026-W34 (Mon 8/17 – Sun 8/23).
@@ -619,7 +623,7 @@ describe('suggestions', () => {
     return entry({ periodKey: YESTERDAY, ...overrides });
   }
 
-  function carryover(overrides: Partial<Suggestion> = {}): Suggestion {
+  function carryover(overrides: Partial<CarryoverSuggestion> = {}): CarryoverSuggestion {
     return {
       kind: 'carryover',
       sourceEntryId: 'e1',
@@ -633,7 +637,7 @@ describe('suggestions', () => {
   }
 
   function sourcesFor(state: Goals, day = TODAY) {
-    return suggestionsFor(state, 'daily', day, day).map((s) => s.sourceEntryId);
+    return suggestionsFor(state, 'daily', day, day).map(suggestionSourceId);
   }
 
   describe('suggestionsFor', () => {
@@ -841,6 +845,143 @@ describe('suggestions', () => {
       const declined = declineSuggestion(goals({ entries: [left({ id: 'a' }), entry()] }), 'a');
       expect(removeGoal(declined, 'e1', NOW).declinedSuggestions).toEqual(['a']);
       expect(cycleCheck(declined, 'e1', 0, NOW).declinedSuggestions).toEqual(['a']);
+    });
+  });
+
+  describe('the Today list as a source', () => {
+    function reminder(overrides: Partial<Reminder> = {}): Reminder {
+      return { id: 'r1', title: 'Buy stamps', completed: false, ...overrides };
+    }
+
+    function fromReminders(overrides: Partial<ReminderSuggestion> = {}): ReminderSuggestion {
+      return {
+        kind: 'reminder',
+        sourceReminderId: 'r1',
+        cadence: 'daily',
+        title: 'Buy stamps',
+        targetCount: 1,
+        ...overrides,
+      };
+    }
+
+    function offered(state: Goals, reminders: Reminder[], day = TODAY) {
+      return suggestionsFor(state, 'daily', day, day, reminders);
+    }
+
+    it('reads a Reminders list named Today, whatever its case', () => {
+      expect(isTodayList('Today')).toBe(true);
+      expect(isTodayList(' today ')).toBe(true);
+      expect(isTodayList('Today’s errands')).toBe(false);
+      expect(isTodayList('')).toBe(false);
+    });
+
+    it("offers the list's unfinished reminders on today's daily section, after the carryovers", () => {
+      const state = goals({ entries: [left()] });
+      const list = [reminder(), reminder({ id: 'r2', title: ' Renew passport ' })];
+      expect(offered(state, list)).toEqual([
+        carryover(),
+        fromReminders(),
+        fromReminders({ sourceReminderId: 'r2', title: 'Renew passport' }),
+      ]);
+      expect(suggestionNote(fromReminders(), TODAY)).toBe('from Reminders');
+      expect(offered(goals(), list).map(suggestionSourceId)).toEqual(['r1', 'r2']);
+    });
+
+    it('never offers a finished or untitled reminder, or one whose title is on the page', () => {
+      const state = goals({ entries: [entry({ title: 'buy Stamps' })] });
+      const list = [
+        reminder(),
+        reminder({ id: 'r2', title: 'Finished', completed: true }),
+        reminder({ id: 'r3', title: '  ' }),
+        reminder({ id: 'r4', title: 'Renew passport' }),
+      ];
+      expect(offered(state, list).map(suggestionSourceId)).toEqual(['r4']);
+    });
+
+    it('offers reminders on no other section and no other page', () => {
+      const list = [reminder()];
+      expect(suggestionsFor(goals(), 'weekly', '2026-W34', TODAY, list)).toEqual([]);
+      expect(suggestionsFor(goals(), 'annual', '2026', TODAY, list)).toEqual([]);
+      expect(suggestionsFor(goals(), 'daily', YESTERDAY, TODAY, list)).toEqual([]);
+    });
+
+    it('writes an accepted reminder as a linked one-off line and stops offering it', () => {
+      const start = materializeToday(goals({ templates: [template()] }), TODAY);
+      const [suggestion] = offered(start, [reminder()]);
+      const state = acceptSuggestion(start, suggestion, TODAY, NOW);
+
+      expect(entriesForPeriod(state.entries, TODAY)[1]).toEqual({
+        id: 'r1>2026-08-21',
+        cadence: 'daily',
+        periodKey: TODAY,
+        title: 'Buy stamps',
+        checks: ['empty'],
+        reminderId: 'r1',
+        sortOrder: 2,
+        updatedAt: NOW,
+      });
+      expect(offered(state, [reminder()])).toEqual([]);
+      expect(acceptSuggestion(state, suggestion, TODAY, LATER)).toBe(state);
+    });
+
+    it('stops offering a reminder for good once any line is linked to it, finished or not', () => {
+      const [suggestion] = offered(goals(), [reminder()]);
+      const linked = acceptSuggestion(goals(), suggestion, TODAY, NOW);
+      const finished = cycleCheck(linked, 'r1>2026-08-21', 0, LATER);
+      // The reminder is still unfinished in Reminders the next morning; the pad already has it.
+      expect(sourcesFor(finished, '2026-08-22')).toEqual([]);
+      expect(offered(finished, [reminder()], '2026-08-22')).toEqual([]);
+    });
+
+    it('offers a line linked yesterday and left unfinished once, as a carryover that stays linked', () => {
+      const [suggestion] = offered(goals(), [reminder()]);
+      const linked = acceptSuggestion(goals(), suggestion, TODAY, NOW);
+
+      const [again, ...rest] = offered(linked, [reminder()], '2026-08-22');
+      expect(rest).toEqual([]);
+      expect(again).toEqual(
+        carryover({
+          sourceEntryId: 'r1>2026-08-21',
+          sourcePeriodKey: TODAY,
+          title: 'Buy stamps',
+          reminderId: 'r1',
+        }),
+      );
+
+      const carried = acceptSuggestion(linked, again, '2026-08-22', LATER);
+      expect(byId(carried, 'r1>2026-08-22')).toMatchObject({
+        carriedFrom: 'r1>2026-08-21',
+        reminderId: 'r1',
+        checks: ['empty'],
+      });
+      expect(offered(carried, [reminder()], '2026-08-22')).toEqual([]);
+    });
+
+    it('offers a goal both sources hold under one title once, as the carryover', () => {
+      const state = goals({ entries: [left({ id: 'a', title: 'Buy Stamps' })] });
+      expect(offered(state, [reminder()])).toEqual([
+        carryover({ sourceEntryId: 'a', title: 'Buy Stamps' }),
+      ]);
+    });
+
+    it('never offers a declined reminder again', () => {
+      const state = declineSuggestion(goals(), 'r1');
+      expect(state.declinedSuggestions).toEqual(['r1']);
+      expect(offered(state, [reminder(), reminder({ id: 'r2', title: 'Other' })])).toEqual([
+        fromReminders({ sourceReminderId: 'r2', title: 'Other' }),
+      ]);
+    });
+
+    it('keeps a reminder off the page it was crossed off, and offers it again the next day', () => {
+      const [suggestion] = offered(goals(), [reminder()]);
+      const crossedOff = removeGoal(
+        acceptSuggestion(goals(), suggestion, TODAY, NOW),
+        'r1>2026-08-21',
+        LATER,
+      );
+      expect(offered(crossedOff, [reminder()])).toEqual([]);
+      expect(acceptSuggestion(crossedOff, suggestion, TODAY, LATER)).toBe(crossedOff);
+      expect(offered(crossedOff, [reminder()], '2026-08-22')).toEqual([fromReminders()]);
     });
   });
 });

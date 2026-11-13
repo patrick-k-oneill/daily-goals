@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { RemindersToggle } from '@/features/goals/components/reminders-toggle';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -68,6 +69,7 @@ export function PadFooter() {
           <FooterAction icon="↑" label="Export data" onPress={exportPad} />
           <FooterAction icon="↓" label="Import data" onPress={importPad} />
         </View>
+        <RemindersToggle />
       </View>
       {notice && (
         <ThemedText

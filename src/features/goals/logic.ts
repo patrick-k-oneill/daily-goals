@@ -18,7 +18,10 @@ import {
   type GoalTemplate,
   type Goals,
   type LegacyGoals,
+  type Reminder,
   type StarredGoalEntry,
+  type CarryoverSuggestion,
+  type ReminderSuggestion,
   type StarredGoals,
   type Suggestion,
 } from './types';
@@ -54,13 +57,22 @@ export function materializedEntryId(templateId: string, periodKey: string): stri
 const CARRY_MARK = '>';
 
 /**
- * The id every device gives the line that carries an entry over onto a period,
- * so two copies of it are one line. It is rooted at the first entry of the
- * chain: a carried line carried over again gets an id of the same length.
+ * The id every device gives the line that a suggestion writes onto a period,
+ * so two copies of it are one line. It is rooted at the first source of the
+ * chain, an entry or a reminder: a carried line carried over again gets an id
+ * of the same length.
  */
-export function carriedEntryId(sourceEntryId: string, periodKey: string): string {
-  const [root] = sourceEntryId.split(CARRY_MARK);
+export function carriedEntryId(sourceId: string, periodKey: string): string {
+  const [root] = sourceId.split(CARRY_MARK);
   return `${root}${CARRY_MARK}${periodKey}`;
+}
+
+/** The Reminders list whose unfinished reminders are suggested for today. */
+export const TODAY_LIST_TITLE = 'Today';
+
+/** Whether a Reminders list is the Today list, whatever its case or surrounding space. */
+export function isTodayList(title: string): boolean {
+  return titleKey(title) === titleKey(TODAY_LIST_TITLE);
 }
 
 function seedTemplateId(cadence: Cadence, sortOrder: number): string {
@@ -311,30 +323,51 @@ export function stopRepeating(goals: Goals, entryId: string, now: Stamp): Goals 
   };
 }
 
+type SuggestionSource = Pick<Goals, 'entries' | 'tombstones' | 'declinedSuggestions'>;
+
 /**
- * What the pad offers to write on a period's section: the unfinished one-off
- * lines of the most recent earlier period with any lines, in their stored
- * order. Only the period containing `today` gets suggestions. A line stops
- * being offered once it is carried over or declined, and while its title is
- * written on this period.
+ * What the pad offers to write on a period's section, carryovers first: the
+ * unfinished one-off lines of the most recent earlier period with any lines,
+ * in their stored order, then, on the daily section, the unfinished reminders
+ * of the Today list. Only the period containing `today` gets suggestions.
+ * Nothing is offered while its title is written on this period, and a goal
+ * that both sources hold is offered once, as a carryover.
  */
 export function suggestionsFor(
-  goals: Pick<Goals, 'entries' | 'tombstones' | 'declinedSuggestions'>,
+  goals: SuggestionSource,
   cadence: Cadence,
   periodKey: string,
   today: DayKey,
+  reminders: readonly Reminder[] = [],
 ): Suggestion[] {
   if (periodKeyFor(cadence, today) !== periodKey) return [];
 
+  const taken = new Set<string>();
+  for (const e of goals.entries) {
+    if (e.periodKey === periodKey) taken.add(titleKey(e.title));
+  }
+
+  const carryovers = carryoverSuggestions(goals, cadence, periodKey, taken);
+  if (cadence !== 'daily') return carryovers;
+
+  for (const carryover of carryovers) taken.add(titleKey(carryover.title));
+  return [...carryovers, ...reminderSuggestions(goals, reminders, periodKey, taken)];
+}
+
+/**
+ * Carryovers: a line stops being offered once it is carried over or declined.
+ * A linked line's suggestion names its reminder, so the carried line stays linked.
+ */
+function carryoverSuggestions(
+  goals: SuggestionSource,
+  cadence: Cadence,
+  periodKey: string,
+  taken: ReadonlySet<string>,
+): CarryoverSuggestion[] {
   const sourcePeriodKey = latestPeriodBefore(goals.entries, cadence, periodKey);
   if (sourcePeriodKey === undefined) return [];
 
   const declined = new Set(goals.declinedSuggestions);
-  const written = new Set<string>();
-  for (const e of goals.entries) {
-    if (e.periodKey === periodKey) written.add(titleKey(e.title));
-  }
-
   return entriesForPeriod(goals.entries, sourcePeriodKey)
     .filter(
       (e) =>
@@ -342,7 +375,7 @@ export function suggestionsFor(
         e.checks.some((check) => check !== 'done') &&
         !declined.has(e.id) &&
         !isCarriedOver(goals, e.id, periodKey) &&
-        !written.has(titleKey(e.title)),
+        !taken.has(titleKey(e.title)),
     )
     .map((e) => ({
       kind: 'carryover',
@@ -352,11 +385,52 @@ export function suggestionsFor(
       title: e.title,
       targetCount: e.checks.length,
       checkLabels: e.checkLabels,
+      ...(e.reminderId ? { reminderId: e.reminderId } : {}),
     }));
 }
 
-/** The note under a suggestion's title: "from yesterday", or the earlier period it comes from. */
+/**
+ * Reminders: unfinished, titled, and in the order the list gives them. A
+ * reminder stops being offered once any entry is linked to it or it is
+ * declined, and for the day once the line written from it is crossed off.
+ */
+function reminderSuggestions(
+  goals: SuggestionSource,
+  reminders: readonly Reminder[],
+  periodKey: string,
+  taken: ReadonlySet<string>,
+): ReminderSuggestion[] {
+  const declined = new Set(goals.declinedSuggestions);
+  return reminders
+    .filter(
+      (r) =>
+        !r.completed &&
+        titleKey(r.title) !== '' &&
+        !declined.has(r.id) &&
+        !isLinked(goals, r.id, periodKey) &&
+        !taken.has(titleKey(r.title)),
+    )
+    .map((r) => ({
+      kind: 'reminder',
+      sourceReminderId: r.id,
+      cadence: 'daily',
+      title: r.title.trim(),
+      targetCount: 1,
+    }));
+}
+
+/** What a suggestion comes from, by id: the entry it carries over, or the reminder. */
+export function suggestionSourceId(suggestion: Suggestion): string {
+  return suggestion.kind === 'carryover' ? suggestion.sourceEntryId : suggestion.sourceReminderId;
+}
+
+/**
+ * The note under a suggestion's title: "from Reminders", "from yesterday", or
+ * the earlier period a carryover comes from.
+ */
 export function suggestionNote(suggestion: Suggestion, today: DayKey): string {
+  if (suggestion.kind === 'reminder') return 'from Reminders';
+
   const { cadence, sourcePeriodKey } = suggestion;
   switch (cadence) {
     case 'daily':
@@ -376,9 +450,10 @@ export function suggestionNote(suggestion: Suggestion, today: DayKey): string {
 
 /**
  * Accept a suggestion: a fresh one-off line at the bottom of the period's
- * section with the source's title, check count and labels, its checks empty,
- * marked as carrying the source over. The source line is untouched. A
- * suggestion already carried over writes nothing.
+ * section with the source's title, check count and labels, its checks empty.
+ * A carryover's line is marked as carrying its source over and keeps the
+ * source's reminder; a reminder's line is linked to it. The source is
+ * untouched. A suggestion already accepted writes nothing.
  */
 export function acceptSuggestion(
   goals: Goals,
@@ -386,8 +461,12 @@ export function acceptSuggestion(
   periodKey: string,
   now: Stamp,
 ): Goals {
-  const { sourceEntryId, cadence, title, targetCount, checkLabels } = suggestion;
-  if (isCarriedOver(goals, sourceEntryId, periodKey)) return goals;
+  const { cadence, title, targetCount, checkLabels } = suggestion;
+  const isAccepted =
+    suggestion.kind === 'carryover'
+      ? isCarriedOver(goals, suggestion.sourceEntryId, periodKey)
+      : isLinked(goals, suggestion.sourceReminderId, periodKey);
+  if (isAccepted) return goals;
 
   const written = addGoal(
     goals,
@@ -395,19 +474,26 @@ export function acceptSuggestion(
     now,
   );
   if (written === goals) return goals;
-  const line = {
+
+  const reminderId =
+    suggestion.kind === 'carryover' ? suggestion.reminderId : suggestion.sourceReminderId;
+  const line: GoalEntry = {
     ...written.entries[written.entries.length - 1],
-    id: carriedEntryId(sourceEntryId, periodKey),
-    carriedFrom: sourceEntryId,
+    id: carriedEntryId(suggestionSourceId(suggestion), periodKey),
+    ...(suggestion.kind === 'carryover' ? { carriedFrom: suggestion.sourceEntryId } : {}),
+    ...(reminderId ? { reminderId } : {}),
   };
   return { ...written, entries: [...goals.entries, line] };
 }
 
-/** Decline a suggestion: its source line is never offered again, and is itself untouched. */
-export function declineSuggestion(goals: Goals, sourceEntryId: string): Goals {
+/**
+ * Decline a suggestion: its source, an entry or a reminder, is never offered
+ * again, and is itself untouched.
+ */
+export function declineSuggestion(goals: Goals, sourceId: string): Goals {
   const declined = goals.declinedSuggestions ?? [];
-  if (declined.includes(sourceEntryId)) return goals;
-  return { ...goals, declinedSuggestions: [...declined, sourceEntryId].sort() };
+  if (declined.includes(sourceId)) return goals;
+  return { ...goals, declinedSuggestions: [...declined, sourceId].sort() };
 }
 
 const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => x.updatedAt };
@@ -545,6 +631,21 @@ function isCarriedOver(
   return (
     carriedId in goals.tombstones ||
     goals.entries.some((e) => e.id === carriedId || e.carriedFrom === sourceEntryId)
+  );
+}
+
+/**
+ * Whether a reminder is already on the pad: some entry is linked to it, or
+ * the line written from it on this period was crossed off.
+ */
+function isLinked(
+  goals: Pick<Goals, 'entries' | 'tombstones'>,
+  reminderId: string,
+  periodKey: string,
+): boolean {
+  return (
+    carriedEntryId(reminderId, periodKey) in goals.tombstones ||
+    goals.entries.some((e) => e.reminderId === reminderId)
   );
 }
 

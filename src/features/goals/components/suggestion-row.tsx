@@ -7,7 +7,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { selectionTap } from '@/lib/haptics';
 
-import { suggestionNote, suggestionsFor } from '../logic';
+import { suggestionNote, suggestionSourceId, suggestionsFor } from '../logic';
+import { useRemindersStore } from '../reminders-store';
 import { useGoalsStore } from '../store';
 import type { Cadence, Suggestion } from '../types';
 
@@ -28,13 +29,14 @@ export function SuggestionRows({ cadence, periodKey }: { cadence: Cadence; perio
   const entries = useGoalsStore((s) => s.entries);
   const tombstones = useGoalsStore((s) => s.tombstones);
   const declinedSuggestions = useGoalsStore((s) => s.declinedSuggestions);
+  const reminders = useRemindersStore((s) => s.reminders);
   if (!SUGGESTING_CADENCES.includes(cadence)) return null;
 
   const pad = { entries, tombstones, declinedSuggestions };
-  const suggestions = suggestionsFor(pad, cadence, periodKey, today);
+  const suggestions = suggestionsFor(pad, cadence, periodKey, today, reminders);
   return suggestions.map((suggestion) => (
     <SuggestionRow
-      key={suggestion.sourceEntryId}
+      key={suggestionSourceId(suggestion)}
       suggestion={suggestion}
       periodKey={periodKey}
       note={suggestionNote(suggestion, today)}
@@ -81,7 +83,7 @@ function SuggestionRow({
         glyph="×"
         themeColor="textSecondary"
         accessibilityLabel="Decline this suggestion"
-        onPress={() => declineSuggestion(suggestion.sourceEntryId)}
+        onPress={() => declineSuggestion(suggestionSourceId(suggestion))}
       />
     </View>
   );
