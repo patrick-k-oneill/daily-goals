@@ -1,21 +1,24 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-interface SectionHeaderProps {
+export interface SectionHeaderProps {
   title: string;
-  /** Date, week range, or year — sits small at the top-left like the corner of the page. */
+  /** The page's date — sits small at the top-left like the corner of the page. */
   detail?: string;
   /** Flip to the previous page. Renders a ‹ chevron beside the detail. */
   onPrev?: () => void;
   /** Flip to the next page. Renders a › chevron beside the detail. */
   onNext?: () => void;
-  /** Tap the detail itself (e.g. jump back to today). */
+  /** Tap the detail itself (e.g. open a date picker). */
   onDetailPress?: () => void;
   /** Render the detail in the accent color — signals "not today's page". */
   detailHighlight?: boolean;
+  /** Marks drawn over the title, in a box the size of its text. */
+  titleFlourish?: ReactNode;
 }
 
 /**
@@ -29,6 +32,7 @@ export function SectionHeader({
   onNext,
   onDetailPress,
   detailHighlight,
+  titleFlourish,
 }: SectionHeaderProps) {
   const theme = useTheme();
 
@@ -50,7 +54,7 @@ export function SectionHeader({
           <Pressable
             disabled={!onDetailPress}
             accessibilityRole={onDetailPress ? 'button' : 'text'}
-            accessibilityLabel={onDetailPress ? `${detail} — back to today` : detail}
+            accessibilityLabel={onDetailPress ? `${detail} — choose a day` : detail}
             hitSlop={6}
             onPress={onDetailPress}>
             <ThemedText type="handSmall" themeColor={detailHighlight ? 'accent' : 'textSecondary'}>
@@ -70,9 +74,12 @@ export function SectionHeader({
           )}
         </View>
       ) : null}
-      <ThemedText type="hand" style={styles.title}>
-        {title}
-      </ThemedText>
+      <View style={styles.titleBox}>
+        <ThemedText type="hand" style={styles.title} aria-live="polite">
+          {title}
+        </ThemedText>
+        {titleFlourish}
+      </View>
     </View>
   );
 }
@@ -87,6 +94,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
     alignSelf: 'flex-start',
+  },
+  titleBox: {
+    alignSelf: 'center',
+    maxWidth: '100%',
   },
   title: {
     textAlign: 'center',

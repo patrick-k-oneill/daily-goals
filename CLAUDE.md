@@ -2,7 +2,7 @@
 
 # daily-goals
 
-Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and Android. A digital version of Patrick's legal-pad ritual: Daily/Weekly/Annual goals with multi-check goals, a morning Gratitude Journal written about the previous day, and jotted upcoming events.
+Expo (SDK 57) React Native + TypeScript app — one codebase for web, iOS, and Android. A digital version of Patrick's legal-pad ritual: Daily/Weekly/Annual goals with multi-check goals, and a morning Gratitude Journal written about the previous day.
 
 ## Commands
 
@@ -29,7 +29,7 @@ The domain language lives in `CONTEXT.md` (page, section, period, cadence, templ
 
 - Write self-explanatory code: clear names and small focused functions over explanatory comments.
 - Comment only what the code can't say — intent, non-obvious constraints, deliberate deviations. Keep comments to one or two short lines; no restating what the code does.
-- Platform-specific behavior goes in `.web.tsx`/`.web.ts` sibling files (see `app-tabs`), or `Platform.select` for small forks.
+- Platform-specific behavior goes in `.web.tsx`/`.web.ts` sibling files (see `pad-file`), or `Platform.select` for small forks.
 - React Compiler is enabled — don't add `useMemo`/`useCallback`/`React.memo` for performance.
 
 ## Commit points
@@ -63,6 +63,10 @@ Default vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-f
 ### Manual testing
 
 A PR that changes a native module, app config, a native dependency or sync is judged on device: `/p-test` records verdicts on the PR, and `/p-ready` refuses to merge without a PASS. See `docs/agents/manual-testing.md`.
+
+### PR review
+
+`bug-reviewer` before the push, Greptile (`greptile-apps[bot]`) after it; config in `.greptile/config.json`. See `docs/agents/pr-review.md`.
 
 ### Domain docs
 

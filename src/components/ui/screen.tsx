@@ -1,26 +1,19 @@
-import { type ReactNode, type Ref } from 'react';
+import { type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Layout, Spacing } from '@/constants/theme';
+import { Layout, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
  * A legal-pad page: paper background, red margin line down the left, the
- * page column capped at pad width and centered on wider paper. Native gets
- * bottom-tab clearance;
- * web's tab bar is in-flow above the page. `scrollRef` exposes the page's
- * ScrollView for routes that need to scroll programmatically.
+ * page column capped at pad width and centered on wider paper. The page
+ * scrolls under the bottom safe area and its last row ends clear of it.
  */
-export function Screen({
-  children,
-  scrollRef,
-}: {
-  children: ReactNode;
-  scrollRef?: Ref<ScrollView>;
-}) {
+export function Screen({ children }: { children: ReactNode }) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <ThemedView style={styles.root}>
@@ -29,9 +22,11 @@ export function Screen({
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
-            ref={scrollRef}
             style={styles.flex}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: insets.bottom + Spacing.five },
+            ]}
             keyboardShouldPersistTaps="handled">
             <ThemedView style={[styles.page, { borderLeftColor: theme.margin }]}>
               {children}
@@ -56,7 +51,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingBottom: BottomTabInset + Spacing.five,
   },
   page: {
     width: '100%',

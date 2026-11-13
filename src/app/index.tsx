@@ -1,52 +1,64 @@
 import { useState } from 'react';
 
-import { SectionHeader } from '@/components/ui/section-header';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Screen } from '@/components/ui/screen';
-import { UpcomingEvents } from '@/features/events/components/upcoming-events';
+import { PadFooter } from '@/features/backup/components/pad-footer';
 import { GoalList } from '@/features/goals/components/goal-list';
-import { periodLabel } from '@/features/goals/logic';
+import { GoalSectionHeader } from '@/features/goals/components/goal-section-header';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
 import { reflectionDateFor } from '@/features/gratitude/logic';
 import { useToday } from '@/lib/clock';
-import { addDays, type DayKey } from '@/lib/dates';
+import { addDays, formatPadDate, type DayKey } from '@/lib/dates';
 
 /**
  * The whole pad page, top to bottom, the way it's written every morning.
- * The ‹ chevron flips back to earlier pages; forward is capped at today.
+ * The ‹ chevron flips back to earlier pages and the date opens a date picker;
+ * neither goes past today.
  */
 export default function TodayScreen() {
   const today = useToday();
   // null means today's page, so the page turns with the clock at midnight.
   const [pinnedDay, setPinnedDay] = useState<DayKey | null>(null);
+  const [isPickingDay, setIsPickingDay] = useState(false);
   const day = pinnedDay ?? today;
   const isToday = day === today;
 
-  const flipForward = () => {
-    const next = addDays(day, 1);
-    setPinnedDay(next === today ? null : next);
-  };
+  const showDay = (next: DayKey) => setPinnedDay(next === today ? null : next);
 
   return (
     <Screen>
-      <SectionHeader
-        title="Daily Goals"
-        detail={periodLabel('daily', day)}
+      <GoalSectionHeader
+        cadence="daily"
+        day={day}
+        detail={formatPadDate(day)}
         detailHighlight={!isToday}
-        onPrev={() => setPinnedDay(addDays(day, -1))}
-        onNext={isToday ? undefined : flipForward}
-        onDetailPress={isToday ? undefined : () => setPinnedDay(null)}
+        onPrev={() => showDay(addDays(day, -1))}
+        onNext={isToday ? undefined : () => showDay(addDays(day, 1))}
+        onDetailPress={() => setIsPickingDay((isOpen) => !isOpen)}
       />
+      {isPickingDay && (
+        <DatePicker
+          // Remounts on the shown day's month when the page flips under an open picker.
+          key={day}
+          selected={day}
+          today={today}
+          onSelect={(picked) => {
+            showDay(picked);
+            setIsPickingDay(false);
+          }}
+        />
+      )}
       <GoalList cadence="daily" day={day} />
 
-      <SectionHeader title="Weekly Goals" detail={periodLabel('weekly', day)} />
+      <GoalSectionHeader cadence="weekly" day={day} />
       <GoalList cadence="weekly" day={day} />
 
-      <SectionHeader title="Annual Goals" detail={periodLabel('annual', day)} />
+      <GoalSectionHeader cadence="annual" day={day} />
       <GoalList cadence="annual" day={day} />
 
-      {isToday && <UpcomingEvents />}
-
       <GratitudeEditor reflectionDate={isToday ? reflectionDateFor(today) : day} />
+
+      <PadFooter />
     </Screen>
   );
 }

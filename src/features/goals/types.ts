@@ -33,7 +33,10 @@ export interface GoalTemplate {
 
 /** A goal line on a specific period's page — recurring instance or one-off. */
 export interface GoalEntry {
-  /** A materialized line is `<templateId>:<periodKey>`, so every device writes the same id. */
+  /**
+   * A materialized line is `<templateId>:<periodKey>` and a carried-over line
+   * `<first entry's id>><periodKey>`, so every device writes the same id.
+   */
   id: string;
   /** Present when this entry was materialized from a recurring template. */
   templateId?: string;
@@ -46,6 +49,8 @@ export interface GoalEntry {
   checkLabels?: string[];
   /** The line's place in its period's section, ascending; a new line takes the highest. */
   sortOrder: number;
+  /** The entry this line carries over, when it was written by accepting a suggestion. */
+  carriedFrom?: string;
   /** The epoch until someone writes on the line. */
   updatedAt: Stamp;
 }
@@ -56,7 +61,44 @@ export interface Goals {
   entries: GoalEntry[];
   /** Entries crossed off the page, by id. */
   tombstones: Tombstones;
+  /** The entries whose carryover suggestion was declined, by id, sorted; absent when none was. */
+  declinedSuggestions?: string[];
 }
+
+/**
+ * A goal the pad offers to write on the current period's section. It is on no
+ * page until it is accepted.
+ */
+export interface Suggestion {
+  /** Carryover: an unfinished one-off line from the most recent earlier period. */
+  kind: 'carryover';
+  /** The entry it would carry over. */
+  sourceEntryId: string;
+  /** The period the source entry is written on. */
+  sourcePeriodKey: string;
+  cadence: Cadence;
+  title: string;
+  targetCount: number;
+  checkLabels?: string[];
+}
+
+/** How a section reads: open, settling after the check tap that completed it, or achieved. */
+export type SectionStatus = 'open' | 'settling' | 'achieved';
+
+/** What this device remembers of its reward moments. It is in no pad file and is never merged. */
+export interface Rewards {
+  /** Sections a check tap has just completed, by period key, each with the moment of that tap. */
+  settling: Record<string, Stamp>;
+  /** The last period each cadence's reward moment played on. */
+  played: Partial<Record<Cadence, string>>;
+}
+
+/**
+ * What settling a section came to: `waiting` when its tap has not rested yet,
+ * `lapsed` when it is no longer complete, `achieved` when it settled without a
+ * reward moment, `rewarded` when the reward moment plays.
+ */
+export type SettleOutcome = 'waiting' | 'lapsed' | 'achieved' | 'rewarded';
 
 /** An entry as stored while the star was drawn (store v3, pad file 2–3): `starred` ranked it first in its section. */
 export type StarredGoalEntry = GoalEntry & { starred?: boolean };

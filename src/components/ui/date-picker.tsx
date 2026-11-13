@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { AddLine, InlineForm } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
-import { useToday } from '@/lib/clock';
 import {
   addMonths,
   formatDayLong,
@@ -18,30 +18,23 @@ import {
   type DayKey,
 } from '@/lib/dates';
 
-import { hasEntry } from '../logic';
-import { useGratitudeStore } from '../store';
+const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-interface JournalCalendarProps {
-  selected: DayKey | null;
-  onSelectDay: (day: DayKey | null) => void;
+interface DatePickerProps {
+  selected: DayKey;
+  /** The last day that can be picked. */
+  today: DayKey;
+  onSelect: (day: DayKey) => void;
 }
 
-/**
- * A month of mornings: a ✓ marks each day whose gratitude was written.
- * Tap any finished day to read or catch up on its entry.
- */
-export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps) {
-  const entries = useGratitudeStore((s) => s.entries);
+/** A month grid for picking a day up to today, opening on the selected day's month. */
+export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
   const scale = useTextScale();
-
-  const today = useToday();
-  const currentMonth = monthStart(today);
-  const [month, setMonth] = useState(currentMonth);
-
-  const atCurrentMonth = month === currentMonth;
+  const [month, setMonth] = useState(() => monthStart(selected));
+  const isLatestMonth = month >= monthStart(today);
 
   return (
-    <View style={styles.container}>
+    <InlineForm style={styles.picker}>
       <View style={styles.monthRow}>
         <Pressable
           accessibilityRole="button"
@@ -53,7 +46,7 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
           </ThemedText>
         </Pressable>
         <ThemedText type="handSmall">{formatMonth(month)}</ThemedText>
-        {atCurrentMonth ? (
+        {isLatestMonth ? (
           <View style={styles.chevronSpacer} />
         ) : (
           <Pressable
@@ -69,7 +62,7 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
       </View>
 
       <View style={styles.weekRow}>
-        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
+        {WEEKDAY_INITIALS.map((initial, i) => (
           <ThemedText
             // Fixed weekday header — position is the identity.
             // react-doctor-disable-next-line react-doctor/no-array-index-as-key
@@ -77,67 +70,66 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
             type="small"
             themeColor="textSecondary"
             style={scaleTextStyle(styles.weekdayLabel, scale)}>
-            {label}
+            {initial}
           </ThemedText>
         ))}
       </View>
 
       {monthGrid(month).map((week) => (
         <View key={week.find(Boolean) ?? 'lead'} style={styles.weekRow}>
-          {week.map((day, i) => {
-            if (!day) {
-              // Blank grid cell — position is the identity.
-              // react-doctor-disable-next-line react-doctor/no-array-index-as-key
-              return <View key={i} style={styles.dayCell} />;
-            }
-
-            const isSelected = day === selected;
-            return (
+          {week.map((day, i) =>
+            day ? (
               <DayCell
                 key={day}
                 day={day}
-                written={hasEntry(entries, day)}
-                finished={day < today}
                 isToday={day === today}
-                isSelected={isSelected}
-                onPress={() => onSelectDay(isSelected ? null : day)}
+                isSelected={day === selected}
+                isPickable={day <= today}
+                onPress={() => onSelect(day)}
               />
-            );
-          })}
+            ) : (
+              // Blank grid cell — position is the identity.
+              // react-doctor-disable-next-line react-doctor/no-array-index-as-key
+              <View key={i} style={styles.dayCell} />
+            ),
+          )}
         </View>
       ))}
-    </View>
+
+      {selected !== today && (
+        <AddLine
+          label="Back to today"
+          accessibilityLabel="Back to today’s page"
+          onPress={() => onSelect(today)}
+        />
+      )}
+    </InlineForm>
   );
 }
 
 function DayCell({
   day,
-  written,
-  finished,
   isToday,
   isSelected,
+  isPickable,
   onPress,
 }: {
   day: DayKey;
-  written: boolean;
-  finished: boolean;
   isToday: boolean;
   isSelected: boolean;
+  isPickable: boolean;
   onPress: () => void;
 }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
-  const scale = useTextScale();
 
   return (
     <Pressable
       {...hoverProps}
-      disabled={!finished}
+      disabled={!isPickable}
       accessibilityRole="button"
-      accessibilityLabel={`${formatDayLong(day)}${isToday ? ', today' : ''}${
-        written ? ', written' : ''
-      }`}
-      accessibilityState={{ selected: isSelected }}
+      accessibilityLabel={`${formatDayLong(day)}${isToday ? ', today' : ''}`}
+      accessibilityState={{ selected: isSelected, disabled: !isPickable }}
       onPress={onPress}
       style={[
         styles.dayCell,
@@ -146,23 +138,16 @@ function DayCell({
       ]}>
       <ThemedText
         type="small"
-        // Today gets the accent so it stands apart from future days.
-        themeColor={isToday ? 'accent' : finished ? 'text' : 'border'}
-        style={scaleTextStyle(styles.dayNumber, scale)}>
+        // Today gets the accent so it stands apart from the days after it.
+        themeColor={isToday ? 'accent' : isPickable ? 'text' : 'border'}>
         {parseDayKey(day).getDate()}
       </ThemedText>
-      {/* Blank means blank: only written mornings get a mark. */}
-      {written && (
-        <ThemedText type="small" themeColor="accent">
-          ✓
-        </ThemedText>
-      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  picker: {
     gap: Spacing.one,
   },
   monthRow: {
@@ -186,12 +171,8 @@ const styles = StyleSheet.create({
   dayCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.one,
+    justifyContent: 'center',
     borderRadius: Spacing.two,
     minHeight: 44,
-  },
-  dayNumber: {
-    fontSize: 13,
-    lineHeight: 16,
   },
 });

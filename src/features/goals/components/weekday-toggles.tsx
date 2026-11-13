@@ -86,11 +86,11 @@ function WeekdayToggle({
           styles.toggle,
           toggleSize,
           checked
-            ? { backgroundColor: theme.accent, borderColor: theme.accent }
+            ? { backgroundColor: theme.primary, borderColor: theme.primaryEdge }
             : { borderColor: hovered ? theme.textSecondary : theme.border },
           !checked && hovered && { backgroundColor: theme.backgroundElement },
         ]}>
-        <ThemedText type="smallBold" themeColor={checked ? 'onAccent' : 'textSecondary'}>
+        <ThemedText type="smallBold" themeColor={checked ? 'onPrimary' : 'textSecondary'}>
           {letter}
         </ThemedText>
       </View>
