@@ -69,6 +69,7 @@ describe('useGoalsStore', () => {
     expect(titlesOn('2026-08-20')).toEqual(['Deep Work', 'Read']);
     const { entries } = useGoalsStore.getState();
     expect(entries.map((e) => e.sortOrder)).toEqual([2, 1]);
+    expect(entries.map((e) => e.updatedAt)).toEqual([NOW, NOW]);
     expect(entries.some((e) => 'starred' in e)).toBe(false);
   });
 

@@ -200,6 +200,7 @@ describe('parsePad', () => {
       ['e3', 1],
     ]);
     expect(parsed.pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
+    expect(parsed.pad.goals.entries.map((e) => e.updatedAt)).toEqual([STAMP, EPOCH, STAMP]);
     expect(parsed.pad.goals.templates).toEqual(samplePad().goals.templates);
   });
 
@@ -214,6 +215,7 @@ describe('parsePad', () => {
       ['e3', 1],
     ]);
     expect(parsed.pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
+    expect(parsed.pad.goals.entries.map((e) => e.updatedAt)).toEqual([STAMP, EPOCH, STAMP]);
     expect(parsed.pad.goals.templates).toEqual(goals.templates);
   });
 
