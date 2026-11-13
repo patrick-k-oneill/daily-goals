@@ -65,20 +65,6 @@ function samplePad(): PadData {
       },
       tombstones: { '2026-08-24': STAMP },
     },
-    events: {
-      events: [
-        {
-          id: 'ev1',
-          date: '2026-08-30',
-          title: 'IRC',
-          timeLabel: '4pm–5:30pm',
-          note: 'omg lol',
-          updatedAt: STAMP,
-        },
-        { id: 'ev2', date: '2026-09-01', title: 'Cutover', updatedAt: STAMP },
-      ],
-      tombstones: {},
-    },
   };
 }
 
@@ -124,7 +110,6 @@ function legacyPad(): LegacyPadData {
         text: 'Good coffee',
       },
     },
-    events: [{ id: 'ev1', date: '2026-08-30', title: 'IRC', timeLabel: '4pm–5:30pm' }],
   };
 }
 
@@ -169,24 +154,18 @@ function reasonOf(text: string): string {
 describe('serializePad', () => {
   it('writes the versioned envelope, stamped with the export time', () => {
     const file = JSON.parse(serializePad(samplePad(), NOW));
-    expect(Object.keys(file)).toEqual([
-      'schemaVersion',
-      'exportedAt',
-      'goals',
-      'gratitude',
-      'events',
-    ]);
+    expect(Object.keys(file)).toEqual(['schemaVersion', 'exportedAt', 'goals', 'gratitude']);
     expect(file.schemaVersion).toBe(SCHEMA_VERSION);
     expect(file.exportedAt).toBe(NOW);
   });
 
   it('is readable as a text file', () => {
-    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 4,\n');
+    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 5,\n');
   });
 });
 
 describe('parsePad', () => {
-  it('round-trips every template, its weekdays, entry, check, tombstone, gratitude entry and event', () => {
+  it('round-trips every template, its weekdays, entry, check, tombstone and gratitude entry', () => {
     const pad = samplePad();
     expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
   });
@@ -235,8 +214,20 @@ describe('parsePad', () => {
     expect('starred' in parsed.pad.goals.entries[0]).toBe(false);
     expect(parsed.pad.goals.tombstones).toEqual({});
     expect(parsed.pad.gratitude).toEqual({ entries: legacyPad().gratitude, tombstones: {} });
-    expect(parsed.pad.events.events[0]).toMatchObject({ id: 'ev1', updatedAt: LEGACY });
-    expect(parsed.pad.events.tombstones).toEqual({});
+  });
+
+  it('reads a file that holds upcoming events, leaving them out of the pad', () => {
+    const event = { id: 'ev1', date: '2026-08-30', title: 'Dentist', timeLabel: '4pm' };
+    const stamped = { events: [{ ...event, updatedAt: STAMP }], tombstones: { ev0: STAMP } };
+    expect(parsePad(fileWith({ schemaVersion: 4, events: stamped }))).toEqual({
+      ok: true,
+      exportedAt: NOW,
+      pad: samplePad(),
+    });
+
+    const legacy = parsePad(legacyFileWith({ events: [event] }));
+    if (!legacy.ok) throw new Error(legacy.reason);
+    expect(Object.keys(legacy.pad)).toEqual(['goals', 'gratitude']);
   });
 
   it('refuses text that is not a pad file', () => {
@@ -321,20 +312,6 @@ describe('parsePad', () => {
     );
     expect(reasonOf(fileWith({ gratitude: [] }))).toMatch(/damaged: its gratitude entries/);
   });
-
-  it('refuses events in the wrong shape', () => {
-    const events = (list: unknown) => fileWith({ events: { events: list, tombstones: {} } });
-    expect(reasonOf(events([{ id: 'ev1', date: '2026-08-30' }]))).toMatch(
-      /damaged: its upcoming events/,
-    );
-    expect(
-      reasonOf(events([{ id: 'ev1', date: '2026-08-30', title: 'IRC', note: 3, updatedAt: NOW }])),
-    ).toMatch(/damaged: its upcoming events/);
-    expect(reasonOf(events([{ id: 'ev1', date: '2026-08-30', title: 'IRC' }]))).toMatch(
-      /damaged: its upcoming events/,
-    );
-    expect(reasonOf(fileWith({ events: [] }))).toMatch(/damaged: its upcoming events/);
-  });
 });
 
 describe('padFileName', () => {
@@ -345,16 +322,13 @@ describe('padFileName', () => {
 
 describe('describePad', () => {
   it('counts what an import would bring, pluralized', () => {
-    expect(describePad(samplePad())).toBe(
-      '2 templates, 2 entries, 2 gratitude entries and 2 upcoming events',
-    );
+    expect(describePad(samplePad())).toBe('2 templates, 2 entries and 2 gratitude entries');
     expect(
       describePad({
         goals: { templates: [], entries: [], tombstones: {} },
         gratitude: { entries: {}, tombstones: {} },
-        events: { events: [], tombstones: {} },
       }),
-    ).toBe('0 templates, 0 entries, 0 gratitude entries and 0 upcoming events');
+    ).toBe('0 templates, 0 entries and 0 gratitude entries');
     const one = samplePad();
     expect(
       describePad({
@@ -367,8 +341,7 @@ describe('describePad', () => {
           entries: { '2026-08-25': one.gratitude.entries['2026-08-25'] },
           tombstones: {},
         },
-        events: { events: one.events.events.slice(0, 1), tombstones: {} },
       }),
-    ).toBe('1 template, 1 entry, 1 gratitude entry and 1 upcoming event');
+    ).toBe('1 template, 1 entry and 1 gratitude entry');
   });
 });

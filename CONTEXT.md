@@ -1,13 +1,13 @@
 # Daily Goals
 
-A digital legal pad: each morning's page of goals, the events jotted at the bottom of it, and the gratitude entry written about the day before.
+A digital legal pad: each morning's page of goals and the gratitude entry written about the day before.
 
 ## Language
 
 ### The page
 
 **Page**:
-Everything written for one day — its three goal sections, the upcoming events, and the gratitude entry. Today's page is the one being written; a past page reads exactly as it was left.
+Everything written for one day — its three goal sections and the gratitude entry. Today's page is the one being written; a past page reads exactly as it was left.
 _Avoid_: screen, view
 
 **Section**:
@@ -60,20 +60,14 @@ _Avoid_: journal post, note
 **Streak**:
 Consecutive reflection dates with a gratitude entry, counted back from the current reflection date. This morning being unwritten does not break it.
 
-### Events
-
-**Upcoming event**:
-A dated jotting at the bottom of today's page — a title, an optional time label, an optional aside — shown from its date onward.
-_Avoid_: appointment, reminder, calendar item
-
 ### Backup
 
 **Pad file**:
-The whole pad — templates, entries, gratitude entries, upcoming events and their tombstones — written to one JSON file under a schema version. Importing one replaces the pad wholesale; merging belongs to sync.
+The whole pad — templates, entries, gratitude entries and their tombstones — written to one JSON file under a schema version. Importing one replaces the pad wholesale; merging belongs to sync.
 _Avoid_: backup file, snapshot, dump
 
 **Footprint**:
-The pad's size on this device — the bytes of each store's persisted JSON, and their total — shown in the Pad footer and projected for future years in ADR 0004.
+The pad's size on this device — the bytes of each store's persisted JSON, and their total — projected for future years in ADR 0004.
 _Avoid_: storage usage, disk size, quota
 
 ### Sync

@@ -1,12 +1,4 @@
-import {
-  dayKeyOf,
-  formatPadDate,
-  formatWeekRange,
-  weekdayOf,
-  weekKeyOf,
-  yearKeyOf,
-  type DayKey,
-} from '@/lib/dates';
+import { dayKeyOf, weekdayOf, weekKeyOf, yearKeyOf, type DayKey } from '@/lib/dates';
 import { newId } from '@/lib/id';
 import { EPOCH, LEGACY, mergeKeyed, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
@@ -35,18 +27,6 @@ export function periodKeyFor(cadence: Cadence, day: DayKey): string {
       return day;
     case 'weekly':
       return weekKeyOf(day);
-    case 'annual':
-      return yearKeyOf(day);
-  }
-}
-
-/** What the section's corner says for the period containing `day`. */
-export function periodLabel(cadence: Cadence, day: DayKey): string {
-  switch (cadence) {
-    case 'daily':
-      return formatPadDate(day);
-    case 'weekly':
-      return formatWeekRange(day);
     case 'annual':
       return yearKeyOf(day);
   }
