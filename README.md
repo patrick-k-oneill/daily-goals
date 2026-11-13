@@ -56,6 +56,7 @@ src/
   features/
     goals/             # templates, per-period entries, check transitions, row geometry
     gratitude/         # journal entries, streaks
+    feedback/          # a note from the pad footer, filed as a GitHub issue
   hooks/               # color scheme / theme
   lib/                 # dates & period keys, live clock (useToday), persistence config, platform shims
 ```

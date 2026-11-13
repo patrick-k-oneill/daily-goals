@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { FeedbackForm } from '@/features/feedback/components/feedback-form';
+import type { SendOutcome } from '@/features/feedback/types';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -19,12 +21,15 @@ interface Notice {
 
 /**
  * The pad's back cover: carry the whole pad off this device as one file, or
- * replace it from one. Import is replace-all; merging belongs to sync.
+ * replace it from one. Import is replace-all; merging belongs to sync. A
+ * third action opens the feedback note, whose draft is kept here until sent.
  */
 export function PadFooter() {
   const theme = useTheme();
   const today = useToday();
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [feedbackDraft, setFeedbackDraft] = useState('');
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   const exportPad = async () => {
     setNotice(null);
@@ -61,14 +66,35 @@ export function PadFooter() {
     }
   };
 
+  const toggleFeedback = () => {
+    setNotice(null);
+    setIsFeedbackOpen((isOpen) => !isOpen);
+  };
+
+  const settleFeedback = (outcome: SendOutcome) => {
+    setNotice({ tone: outcome.ok ? 'ok' : 'error', text: outcome.message });
+    if (!outcome.ok) return;
+    setFeedbackDraft('');
+    setIsFeedbackOpen(false);
+  };
+
   return (
     <View style={[styles.footer, { borderTopColor: theme.rule }]}>
       <View style={styles.row}>
         <View style={styles.actions}>
           <FooterAction icon="↑" label="Export data" onPress={exportPad} />
           <FooterAction icon="↓" label="Import data" onPress={importPad} />
+          <FooterAction icon="✎" label="Send feedback" onPress={toggleFeedback} />
         </View>
       </View>
+      {isFeedbackOpen && (
+        <FeedbackForm
+          draft={feedbackDraft}
+          onChangeDraft={setFeedbackDraft}
+          onSettled={settleFeedback}
+          onCancel={() => setIsFeedbackOpen(false)}
+        />
+      )}
       {notice && (
         <ThemedText
           type="small"
@@ -109,6 +135,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     paddingTop: Spacing.one,
     borderTopWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
   },
   // The actions sit at the left of a row that wraps on a narrow page.
   row: {
@@ -120,8 +147,10 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexShrink: 1,
     alignItems: 'center',
-    gap: Spacing.four,
+    columnGap: Spacing.three,
   },
   action: {
     flexDirection: 'row',
