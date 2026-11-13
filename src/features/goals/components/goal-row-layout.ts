@@ -31,7 +31,7 @@ function checksGroupWidth({ checks, checkLabels }: RowChecks): number {
 }
 
 /**
- * Inline keeps star · checks · title on one ruled line; stacked puts the
+ * Inline keeps checks · title on one ruled line; stacked puts the
  * title on line 1 and the checks group on line 2. An unmeasured row
  * (width ≤ 0) stays inline — the desktop default — until onLayout reports.
  */

@@ -5,7 +5,7 @@ import { EPOCH } from '@/lib/merge';
 
 import { entriesForPeriod, seedGoals } from './logic';
 import { useGoalsStore } from './store';
-import type { GoalEntry, GoalTemplate, LegacyGoals } from './types';
+import type { GoalEntry, GoalTemplate, LegacyGoals, StarredGoalEntry } from './types';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -42,8 +42,34 @@ describe('useGoalsStore', () => {
   });
 
   it("writes today's page onto a rehydrated pad saved on an earlier day", async () => {
-    await rehydrateFrom({ templates: [imported], entries: [], tombstones: {} }, 3);
+    await rehydrateFrom({ templates: [imported], entries: [], tombstones: {} }, 4);
     expect(titlesOn(todayKey())).toEqual(['Imported']);
+  });
+
+  it('keeps the starred-first order of a pad saved while the star was drawn', async () => {
+    const line = (title: string, sortOrder: number, starred: boolean): StarredGoalEntry => ({
+      id: title,
+      cadence: 'daily',
+      periodKey: '2026-08-20',
+      title,
+      checks: ['empty'],
+      starred,
+      sortOrder,
+      updatedAt: NOW,
+    });
+    await rehydrateFrom(
+      {
+        templates: [],
+        entries: [line('Read', 1, false), line('Deep Work', 2, true)],
+        tombstones: {},
+      },
+      3,
+    );
+
+    expect(titlesOn('2026-08-20')).toEqual(['Deep Work', 'Read']);
+    const { entries } = useGoalsStore.getState();
+    expect(entries.map((e) => e.sortOrder)).toEqual([2, 1]);
+    expect(entries.some((e) => 'starred' in e)).toBe(false);
   });
 
   it('brings a pad saved before stamps into shape on rehydration', async () => {
@@ -74,7 +100,6 @@ describe('useGoalsStore', () => {
           periodKey: '2026-08-20',
           title: 'Recurring Dailies',
           checks: ['done'],
-          starred: false,
           sortOrder: 1,
         },
       ],
@@ -104,7 +129,6 @@ describe('useGoalsStore', () => {
       periodKey: yesterday,
       title: 'Imported',
       checks: ['done'],
-      starred: false,
       sortOrder: 7,
       updatedAt: NOW,
     };

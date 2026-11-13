@@ -87,6 +87,11 @@ function weekdayIndex(key: DayKey): number {
   return (parseDayKey(key).getDay() + 6) % 7;
 }
 
+/** ISO weekday of `key`: Mon = 1 … Sun = 7. */
+export function weekdayOf(key: DayKey): number {
+  return weekdayIndex(key) + 1;
+}
+
 /** The Monday of the ISO week containing `key`. */
 export function weekStart(key: DayKey): DayKey {
   return addDays(key, -weekdayIndex(key));

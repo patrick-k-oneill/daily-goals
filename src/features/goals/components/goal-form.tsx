@@ -16,6 +16,8 @@ import { useTextScale } from '@/features/text-size/store';
 
 import { hasCheckLabels, MAX_CHECK_LABEL_LENGTH, MAX_CHECKS } from '../logic';
 
+import { WeekdayToggles } from './weekday-toggles';
+
 /** Room for six characters of small type at 100%. */
 const LABEL_INPUT_WIDTH = 56;
 
@@ -24,6 +26,8 @@ interface GoalDraft {
   targetCount: number;
   /** One per check by position; the core trims, caps and fits them on save. */
   checkLabels: string[];
+  /** The ISO weekdays a repeating daily goal is written on; the core ignores them elsewhere. */
+  weekdays: number[];
 }
 
 interface GoalFormProps {
@@ -34,15 +38,18 @@ interface GoalFormProps {
   onCancel: () => void;
   /** Sits beside the check stepper; when present, the actions drop to their own row. */
   accessory?: ReactNode;
+  /** Shows the weekday row under the options: only a repeating daily goal has one. */
+  showWeekdays?: boolean;
   /** Rendered under the actions, e.g. the remove link. */
   footer?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
 /**
- * A goal line as a form: its title, how many checks it gets and, at two or
- * more, a label over each. Shared by "+ Add goal" and tap-to-edit, which
- * differ only in what sits around it.
+ * A goal line as a form: its title, how many checks it gets, at two or more a
+ * label over each and, for a repeating daily goal, the weekdays it is written
+ * on. Shared by "+ Add goal" and tap-to-edit, which differ only in what sits
+ * around it.
  */
 export function GoalForm({
   initial,
@@ -51,6 +58,7 @@ export function GoalForm({
   onSubmit,
   onCancel,
   accessory,
+  showWeekdays = false,
   footer,
   style,
 }: GoalFormProps) {
@@ -78,7 +86,7 @@ export function GoalForm({
     />
   );
   // Under the label inputs, the actions end the Return flow: title → labels → save.
-  const actionsBelow = Boolean(accessory) || labelsShown;
+  const actionsBelow = Boolean(accessory) || showWeekdays || labelsShown;
 
   return (
     <InlineForm style={style}>
@@ -101,6 +109,13 @@ export function GoalForm({
         />
         {accessory ?? (actionsBelow ? null : actions)}
       </View>
+
+      {showWeekdays && (
+        <WeekdayToggles
+          value={draft.weekdays}
+          onChange={(weekdays) => setDraft((d) => ({ ...d, weekdays }))}
+        />
+      )}
 
       {canLabel && !labelsOpen && (
         <Pressable

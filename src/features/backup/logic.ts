@@ -1,6 +1,6 @@
 import { upgradeLegacyEvents } from '@/features/events/logic';
 import type { LegacyUpcomingEvent, UpcomingEvent, UpcomingEvents } from '@/features/events/types';
-import { upgradeLegacyGoals } from '@/features/goals/logic';
+import { retireStars, upgradeLegacyGoals } from '@/features/goals/logic';
 import {
   CADENCES,
   CHECK_STATES,
@@ -18,7 +18,11 @@ import type { Stamp, Tombstones } from '@/lib/merge';
 import type { LegacyPadData, PadData, PadFile } from './types';
 
 /** Bump when the file shape changes; an older app refuses a newer file. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 4;
+/** The last schema whose entries carry a star; 2 and 3 differ only by a template's optional weekdays. */
+const LAST_STARRED_SCHEMA_VERSION = 3;
+/** Every shape this app still reads. */
+const READABLE_SCHEMA_VERSIONS = [1, 2, LAST_STARRED_SCHEMA_VERSION, SCHEMA_VERSION];
 
 /** What a readable pad file holds. */
 export interface PadFileContents {
@@ -54,12 +58,11 @@ export function parsePad(text: string, now: Stamp): ParsedPad {
   const file = parseJson(text);
   if (!isRecord(file) || !isNumber(file.schemaVersion)) return refuse(NOT_A_PAD_FILE);
   if (file.schemaVersion > SCHEMA_VERSION) return refuse(NEWER_PAD_FILE);
-  if (file.schemaVersion !== 1 && file.schemaVersion !== SCHEMA_VERSION) {
-    return refuse(NOT_A_PAD_FILE);
-  }
+  if (!READABLE_SCHEMA_VERSIONS.includes(file.schemaVersion)) return refuse(NOT_A_PAD_FILE);
   if (!isTimestamp(file.exportedAt)) return refuse(damaged('export date'));
 
-  const pad = file.schemaVersion === 1 ? readLegacyPad(file, now) : readPad(file);
+  const pad =
+    file.schemaVersion === 1 ? readLegacyPad(file, now) : readPad(file, file.schemaVersion);
   if (typeof pad === 'string') return refuse(pad);
   return { ok: true, exportedAt: file.exportedAt, pad };
 }
@@ -81,11 +84,12 @@ export function describePad(pad: PadData): string {
 }
 
 /** The pad's three parts, or the reason the first damaged one is refused. */
-function readPad(file: Record<string, unknown>): PadData | string {
+function readPad(file: Record<string, unknown>, schemaVersion: number): PadData | string {
   if (!isGoals(file.goals)) return damaged('goals');
   if (!isGratitude(file.gratitude)) return damaged('gratitude entries');
   if (!isUpcomingEvents(file.events)) return damaged('upcoming events');
-  return { goals: file.goals, gratitude: file.gratitude, events: file.events };
+  const goals = schemaVersion <= LAST_STARRED_SCHEMA_VERSION ? retireStars(file.goals) : file.goals;
+  return { goals, gratitude: file.gratitude, events: file.events };
 }
 
 function readLegacyPad(file: Record<string, unknown>, now: Stamp): PadData | string {
@@ -162,7 +166,14 @@ const isCadence = isOneOf(CADENCES);
 const isCheckState = isOneOf(CHECK_STATES);
 const isOptionalString = isOptional(isString);
 const isOptionalStrings = isOptional(isArrayOf(isString));
+const isOptionalBoolean = isOptional(isBoolean);
 const isOptionalTimestamp = isOptional(isTimestamp);
+
+function isWeekday(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 7;
+}
+
+const isOptionalWeekdays = isOptional(isArrayOf(isWeekday));
 
 function isTombstones(value: unknown): value is Tombstones {
   return isRecord(value) && Object.values(value).every(isTimestamp);
@@ -184,6 +195,7 @@ function isGoalTemplate(value: unknown): value is GoalTemplate {
   return (
     isRecord(value) &&
     hasTemplateFields(value) &&
+    isOptionalWeekdays(value.weekdays) &&
     isOptionalTimestamp(value.retiredAt) &&
     isTimestamp(value.updatedAt)
   );
@@ -193,7 +205,7 @@ function isLegacyGoalTemplate(value: unknown): value is LegacyGoalTemplate {
   return isRecord(value) && hasTemplateFields(value) && isBoolean(value.active);
 }
 
-/** The fields an entry has had in every schema. */
+/** The fields an entry has had in every schema, and the star a file up to schema 3 draws on it. */
 function hasEntryFields(value: Record<string, unknown>): boolean {
   return (
     isString(value.id) &&
@@ -203,7 +215,7 @@ function hasEntryFields(value: Record<string, unknown>): boolean {
     isString(value.title) &&
     isArrayOf(isCheckState)(value.checks) &&
     isOptionalStrings(value.checkLabels) &&
-    isBoolean(value.starred) &&
+    isOptionalBoolean(value.starred) &&
     isNumber(value.sortOrder)
   );
 }

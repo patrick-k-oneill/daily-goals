@@ -6,12 +6,11 @@ import { AddLine } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+import { EVERY_WEEKDAY } from '../logic';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
 
 import { GoalForm } from './goal-form';
-
-const EVERY: Record<Cadence, string> = { daily: 'day', weekly: 'week', annual: 'year' };
 
 /** The blank next line on the pad — tap to write a new goal on this page. */
 export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey: string }) {
@@ -33,10 +32,11 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
 
   return (
     <GoalForm
-      initial={{ title: '', targetCount: 1, checkLabels: [] }}
+      initial={{ title: '', targetCount: 1, checkLabels: [], weekdays: [...EVERY_WEEKDAY] }}
       placeholder="Write a goal…"
       submitLabel="Add"
       style={styles.form}
+      showWeekdays={cadence === 'daily' && repeats}
       onSubmit={(draft) => {
         addGoal({ cadence, periodKey, ...draft, repeats });
         close();
@@ -45,7 +45,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
       accessory={
         <View style={styles.repeatToggle}>
           <ThemedText type="small" themeColor="textSecondary">
-            Repeats every {EVERY[cadence]}
+            Repeats
           </ThemedText>
           <Switch
             value={repeats}
@@ -53,7 +53,7 @@ export function AddGoalRow({ cadence, periodKey }: { cadence: Cadence; periodKey
             trackColor={{ false: theme.border, true: theme.accent }}
             // Web renders no platform track, so the knob needs its own contrast.
             thumbColor={Platform.OS === 'web' ? theme.text : undefined}
-            accessibilityLabel="Repeats every period"
+            accessibilityLabel="Repeats"
           />
         </View>
       }
