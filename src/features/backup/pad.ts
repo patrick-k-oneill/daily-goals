@@ -11,7 +11,12 @@ export function readPad(): PadData {
   const gratitude = useGratitudeStore.getState();
   const events = useEventsStore.getState();
   return {
-    goals: { templates: goals.templates, entries: goals.entries, tombstones: goals.tombstones },
+    goals: {
+      templates: goals.templates,
+      entries: goals.entries,
+      tombstones: goals.tombstones,
+      declinedSuggestions: goals.declinedSuggestions,
+    },
     gratitude: { entries: gratitude.entries, tombstones: gratitude.tombstones },
     events: { events: events.events, tombstones: events.tombstones },
   };
@@ -29,12 +34,13 @@ export function useStorageFootprint(): StorageFootprint {
   const templates = useGoalsStore((s) => s.templates);
   const entries = useGoalsStore((s) => s.entries);
   const goalTombstones = useGoalsStore((s) => s.tombstones);
+  const declinedSuggestions = useGoalsStore((s) => s.declinedSuggestions);
   const mornings = useGratitudeStore((s) => s.entries);
   const morningTombstones = useGratitudeStore((s) => s.tombstones);
   const events = useEventsStore((s) => s.events);
   const eventTombstones = useEventsStore((s) => s.tombstones);
   return storageFootprint({
-    goals: { templates, entries, tombstones: goalTombstones },
+    goals: { templates, entries, tombstones: goalTombstones, declinedSuggestions },
     gratitude: { entries: mornings, tombstones: morningTombstones },
     events: { events, tombstones: eventTombstones },
   });

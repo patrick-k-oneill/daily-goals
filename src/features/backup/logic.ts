@@ -18,11 +18,14 @@ import type { Stamp, Tombstones } from '@/lib/merge';
 import type { LegacyPadData, PadData, PadFile } from './types';
 
 /** Bump when the file shape changes; an older app refuses a newer file. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 /** The last schema whose entries carry a star; 2 and 3 differ only by a template's optional weekdays. */
 const LAST_STARRED_SCHEMA_VERSION = 3;
-/** Every shape this app still reads. */
-const READABLE_SCHEMA_VERSIONS = [1, 2, LAST_STARRED_SCHEMA_VERSION, SCHEMA_VERSION];
+/**
+ * Every shape this app still reads; 4 and 5 differ only by an entry's optional
+ * `carriedFrom` and the goals' optional `declinedSuggestions`.
+ */
+const READABLE_SCHEMA_VERSIONS = [1, 2, LAST_STARRED_SCHEMA_VERSION, 4, SCHEMA_VERSION];
 
 /** What a readable pad file holds. */
 export interface PadFileContents {
@@ -221,7 +224,12 @@ function hasEntryFields(value: Record<string, unknown>): boolean {
 }
 
 function isGoalEntry(value: unknown): value is GoalEntry {
-  return isRecord(value) && hasEntryFields(value) && isTimestamp(value.updatedAt);
+  return (
+    isRecord(value) &&
+    hasEntryFields(value) &&
+    isOptionalString(value.carriedFrom) &&
+    isTimestamp(value.updatedAt)
+  );
 }
 
 function isLegacyGoalEntry(value: unknown): value is LegacyGoalEntry {
@@ -233,7 +241,8 @@ function isGoals(value: unknown): value is Goals {
     isRecord(value) &&
     isArrayOf(isGoalTemplate)(value.templates) &&
     isArrayOf(isGoalEntry)(value.entries) &&
-    isTombstones(value.tombstones)
+    isTombstones(value.tombstones) &&
+    isOptionalStrings(value.declinedSuggestions)
   );
 }
 

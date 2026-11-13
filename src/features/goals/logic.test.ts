@@ -1,8 +1,11 @@
 import { EPOCH } from '@/lib/merge';
 
 import {
+  acceptSuggestion,
   addGoal,
+  carriedEntryId,
   cycleCheck,
+  declineSuggestion,
   ensurePeriod,
   entriesForPeriod,
   EVERY_WEEKDAY,
@@ -18,6 +21,8 @@ import {
   retireStars,
   seedGoals,
   stopRepeating,
+  suggestionNote,
+  suggestionsFor,
   updateGoal,
   upgradeLegacyGoals,
 } from './logic';
@@ -28,6 +33,7 @@ import type {
   LegacyGoals,
   StarredGoalEntry,
   StarredGoals,
+  Suggestion,
 } from './types';
 
 // The legal-pad date: Fri 8/21/26, ISO week 2026-W34 (Mon 8/17 – Sun 8/23).
@@ -610,7 +616,246 @@ describe('stopRepeating', () => {
   });
 });
 
+describe('suggestions', () => {
+  const YESTERDAY = '2026-08-20';
+
+  /** A one-off line on yesterday's page, its one check still empty. */
+  function left(overrides: Partial<GoalEntry> = {}): GoalEntry {
+    return entry({ periodKey: YESTERDAY, ...overrides });
+  }
+
+  function carryover(overrides: Partial<Suggestion> = {}): Suggestion {
+    return {
+      kind: 'carryover',
+      sourceEntryId: 'e1',
+      sourcePeriodKey: YESTERDAY,
+      cadence: 'daily',
+      title: 'One-off',
+      targetCount: 1,
+      checkLabels: undefined,
+      ...overrides,
+    };
+  }
+
+  function sourcesFor(state: Goals, day = TODAY) {
+    return suggestionsFor(state, 'daily', day, day).map((s) => s.sourceEntryId);
+  }
+
+  describe('suggestionsFor', () => {
+    it("offers yesterday's unfinished one-off lines for today, in their stored order", () => {
+      const state = goals({
+        entries: [
+          left({
+            id: 'b',
+            title: 'Call the bank',
+            checks: ['done', 'missed'],
+            checkLabels: ['AM', 'PM'],
+            sortOrder: 2,
+          }),
+          left({ id: 'a', title: 'Mow the lawn', sortOrder: 1 }),
+        ],
+      });
+      expect(suggestionsFor(state, 'daily', TODAY, TODAY)).toEqual([
+        carryover({ sourceEntryId: 'a', title: 'Mow the lawn' }),
+        carryover({
+          sourceEntryId: 'b',
+          title: 'Call the bank',
+          targetCount: 2,
+          checkLabels: ['AM', 'PM'],
+        }),
+      ]);
+    });
+
+    it('never offers a recurring line or a line with every check done', () => {
+      const state = goals({
+        templates: [template()],
+        entries: [
+          left({ id: 't1:2026-08-20', templateId: 't1', title: 'Daily Prod' }),
+          left({ id: 'done', title: 'Finished', checks: ['done', 'done'] }),
+          left({ id: 'missed', title: 'Skipped', checks: ['missed'] }),
+        ],
+      });
+      expect(sourcesFor(state)).toEqual(['missed']);
+    });
+
+    it('offers nothing on a past page', () => {
+      const state = goals({ entries: [left({ id: 'old', periodKey: '2026-08-19' }), left()] });
+      expect(suggestionsFor(state, 'daily', YESTERDAY, TODAY)).toEqual([]);
+      expect(suggestionsFor(state, 'daily', '2026-08-22', TODAY)).toEqual([]);
+    });
+
+    it('reaches back to the most recent earlier page with any line, and no further', () => {
+      const friday = goals({ entries: [left({ periodKey: '2026-08-14' })] });
+      expect(suggestionsFor(friday, 'daily', TODAY, TODAY)).toEqual([
+        carryover({ sourcePeriodKey: '2026-08-14' }),
+      ]);
+
+      const openedSince = goals({
+        entries: [
+          ...friday.entries,
+          left({ id: 'later', title: 'Finished', periodKey: '2026-08-19', checks: ['done'] }),
+        ],
+      });
+      expect(sourcesFor(openedSince)).toEqual([]);
+      expect(sourcesFor(goals())).toEqual([]);
+    });
+
+    it("drops a line whose title is already written on today's page, whatever its case", () => {
+      const state = goals({
+        entries: [
+          left({ id: 'a', title: 'Call the bank' }),
+          left({ id: 'b', title: 'Mow the lawn' }),
+          entry({ id: 'today', title: ' call the Bank ' }),
+        ],
+      });
+      expect(sourcesFor(state)).toEqual(['b']);
+    });
+
+    it('carries each cadence over from its own earlier period', () => {
+      const state = goals({
+        entries: [
+          left({ id: 'd' }),
+          left({ id: 'w', cadence: 'weekly', periodKey: '2026-W33' }),
+          left({ id: 'y', cadence: 'annual', periodKey: '2025' }),
+        ],
+      });
+      expect(sourcesFor(state)).toEqual(['d']);
+      expect(suggestionsFor(state, 'weekly', '2026-W34', TODAY)).toEqual([
+        carryover({ sourceEntryId: 'w', sourcePeriodKey: '2026-W33', cadence: 'weekly' }),
+      ]);
+      expect(suggestionsFor(state, 'annual', '2026', TODAY)).toEqual([
+        carryover({ sourceEntryId: 'y', sourcePeriodKey: '2025', cadence: 'annual' }),
+      ]);
+    });
+  });
+
+  describe('suggestionNote', () => {
+    it('names the period a suggestion comes from, the one just before today by its everyday name', () => {
+      expect(suggestionNote(carryover(), TODAY)).toBe('from yesterday');
+      expect(suggestionNote(carryover({ sourcePeriodKey: '2026-08-14' }), TODAY)).toBe(
+        'from Fri 8/14',
+      );
+
+      const weekly = (sourcePeriodKey: string) => carryover({ cadence: 'weekly', sourcePeriodKey });
+      expect(suggestionNote(weekly('2026-W33'), TODAY)).toBe('from last week');
+      expect(suggestionNote(weekly('2026-W31'), TODAY)).toBe('from an earlier week');
+      // Mon 1/4/27 is in ISO week 2027-W01; the week before it is 2026-W53.
+      expect(suggestionNote(weekly('2026-W53'), '2027-01-04')).toBe('from last week');
+
+      const annual = (sourcePeriodKey: string) => carryover({ cadence: 'annual', sourcePeriodKey });
+      expect(suggestionNote(annual('2025'), TODAY)).toBe('from last year');
+      expect(suggestionNote(annual('2023'), TODAY)).toBe('from 2023');
+    });
+  });
+
+  describe('acceptSuggestion', () => {
+    /** Today's page with its recurring line written, and an unfinished labelled one-off yesterday. */
+    function withUnfinished(): Goals {
+      const source = left({
+        id: 'a',
+        title: 'Call the bank',
+        checks: ['done', 'missed'],
+        checkLabels: ['AM', 'PM'],
+        updatedAt: '2026-08-20T09:00:00.000Z',
+      });
+      return materializeToday(goals({ templates: [template()], entries: [source] }), TODAY);
+    }
+
+    it("writes a fresh one-off line at the bottom of today's page, its checks empty", () => {
+      const start = withUnfinished();
+      const [suggestion] = suggestionsFor(start, 'daily', TODAY, TODAY);
+      const state = acceptSuggestion(start, suggestion, TODAY, NOW);
+
+      const [recurring, carried] = entriesForPeriod(state.entries, TODAY);
+      expect(recurring.id).toBe('t1:2026-08-21');
+      expect(carried).toEqual({
+        id: 'a>2026-08-21',
+        cadence: 'daily',
+        periodKey: TODAY,
+        title: 'Call the bank',
+        checks: ['empty', 'empty'],
+        checkLabels: ['AM', 'PM'],
+        carriedFrom: 'a',
+        sortOrder: 2,
+        updatedAt: NOW,
+      });
+      expect(state.templates).toBe(start.templates);
+    });
+
+    it("leaves yesterday's line as written and stops offering it", () => {
+      const start = withUnfinished();
+      const [suggestion] = suggestionsFor(start, 'daily', TODAY, TODAY);
+      const state = acceptSuggestion(start, suggestion, TODAY, NOW);
+
+      expect(byId(state, 'a')).toBe(byId(start, 'a'));
+      expect(sourcesFor(state)).toEqual([]);
+      expect(acceptSuggestion(state, suggestion, TODAY, LATER)).toBe(state);
+    });
+
+    it('offers the carried line again on the next page while it stays unfinished', () => {
+      const start = withUnfinished();
+      const [suggestion] = suggestionsFor(start, 'daily', TODAY, TODAY);
+      const state = acceptSuggestion(start, suggestion, TODAY, NOW);
+
+      const tomorrow = materializeToday(state, '2026-08-22');
+      const [again] = suggestionsFor(tomorrow, 'daily', '2026-08-22', '2026-08-22');
+      expect(again).toEqual(
+        carryover({
+          sourceEntryId: 'a>2026-08-21',
+          sourcePeriodKey: TODAY,
+          title: 'Call the bank',
+          targetCount: 2,
+          checkLabels: ['AM', 'PM'],
+        }),
+      );
+
+      // Carried over a second time, the line keeps the first entry's id as its root.
+      const carriedTwice = acceptSuggestion(tomorrow, again, '2026-08-22', LATER);
+      expect(byId(carriedTwice, 'a>2026-08-22')).toMatchObject({ carriedFrom: 'a>2026-08-21' });
+    });
+
+    it('keeps a carried line that was crossed off from being offered or written again', () => {
+      const start = withUnfinished();
+      const [suggestion] = suggestionsFor(start, 'daily', TODAY, TODAY);
+      const crossedOff = removeGoal(
+        acceptSuggestion(start, suggestion, TODAY, NOW),
+        'a>2026-08-21',
+        LATER,
+      );
+      expect(sourcesFor(crossedOff)).toEqual([]);
+      expect(acceptSuggestion(crossedOff, suggestion, TODAY, LATER)).toBe(crossedOff);
+    });
+  });
+
+  describe('declineSuggestion', () => {
+    it('stops offering the line and leaves it as written', () => {
+      const start = goals({ entries: [left({ id: 'a' }), left({ id: 'b', title: 'Other' })] });
+      const state = declineSuggestion(start, 'a');
+      expect(state.declinedSuggestions).toEqual(['a']);
+      expect(state.entries).toBe(start.entries);
+      expect(sourcesFor(state)).toEqual(['b']);
+    });
+
+    it('keeps the declined ids sorted and ignores a repeat', () => {
+      const state = declineSuggestion(declineSuggestion(goals(), 'b'), 'a');
+      expect(state.declinedSuggestions).toEqual(['a', 'b']);
+      expect(declineSuggestion(state, 'b')).toBe(state);
+    });
+
+    it('stays declined through a later write elsewhere on the pad', () => {
+      const declined = declineSuggestion(goals({ entries: [left({ id: 'a' }), entry()] }), 'a');
+      expect(removeGoal(declined, 'e1', NOW).declinedSuggestions).toEqual(['a']);
+      expect(cycleCheck(declined, 'e1', 0, NOW).declinedSuggestions).toEqual(['a']);
+    });
+  });
+});
+
 describe('identity across devices', () => {
+  it('gives a carried-over line the same id on every device: its first entry and period', () => {
+    expect(carriedEntryId('a', TODAY)).toBe('a>2026-08-21');
+    expect(carriedEntryId('a>2026-08-21', '2026-08-22')).toBe('a>2026-08-22');
+  });
+
   it('gives a materialized line the same id on every device: its template and period', () => {
     const state = materializeToday(goals({ templates: [template()] }), TODAY);
     expect(state.entries[0].id).toBe(materializedEntryId('t1', TODAY));
@@ -819,6 +1064,44 @@ describe('mergeGoals', () => {
     const removedLater = removeGoal(ipad, 't1:2026-08-21', LATER);
     expect(mergeGoals(stoppedFirst, removedLater).templates[0].retiredAt).toBe(NOW);
     expect(mergeGoals(removedLater, stoppedFirst).templates[0].retiredAt).toBe(NOW);
+  });
+
+  it('keeps a suggestion declined on either device declined, in one canonical order', () => {
+    const [phone, ipad] = twoDevices();
+    const onPhone = declineSuggestion(phone, 'b');
+    const onIpad = declineSuggestion(ipad, 'a');
+
+    const merged = mergeGoals(onPhone, onIpad);
+    expect(merged.declinedSuggestions).toEqual(['a', 'b']);
+    expect(merged).toEqual(mergeGoals(onIpad, onPhone));
+    expect(mergeGoals(merged, onPhone)).toEqual(merged);
+    expect('declinedSuggestions' in mergeGoals(phone, ipad)).toBe(false);
+  });
+
+  it('carries a line accepted on one device to the other, where it is no longer offered', () => {
+    const [phone, ipad] = twoDevices().map((device) => ({
+      ...device,
+      entries: [...device.entries, entry({ id: 'a', periodKey: '2026-08-20' })],
+    }));
+    const [suggestion] = suggestionsFor(phone, 'daily', TODAY, TODAY);
+    const merged = mergeGoals(ipad, acceptSuggestion(phone, suggestion, TODAY, NOW));
+
+    expect(titlesOn(merged, TODAY)).toEqual(['Daily Prod', 'One-off']);
+    expect(suggestionsFor(merged, 'daily', TODAY, TODAY)).toEqual([]);
+  });
+
+  it('sees one line where both devices accepted the same suggestion', () => {
+    const [phone, ipad] = twoDevices().map((device) => ({
+      ...device,
+      entries: [...device.entries, entry({ id: 'a', periodKey: '2026-08-20' })],
+    }));
+    const [suggestion] = suggestionsFor(phone, 'daily', TODAY, TODAY);
+    const onPhone = acceptSuggestion(phone, suggestion, TODAY, NOW);
+    const onIpad = acceptSuggestion(ipad, suggestion, TODAY, LATER);
+
+    const merged = mergeGoals(onPhone, onIpad);
+    expect(titlesOn(merged, TODAY)).toEqual(['Daily Prod', 'One-off']);
+    expect(merged).toEqual(mergeGoals(onIpad, onPhone));
   });
 
   it('is idempotent and canonical, so a device with nothing new pushes nothing', () => {

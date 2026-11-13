@@ -140,6 +140,14 @@ describe('useGoalsStore', () => {
     expect(useGoalsStore.getState().entries).toHaveLength(2);
   });
 
+  it('drops the declined suggestions an imported pad does not hold', () => {
+    useGoalsStore.getState().declineSuggestion('e1');
+    expect(useGoalsStore.getState().declinedSuggestions).toEqual(['e1']);
+
+    useGoalsStore.getState().replaceGoals({ templates: [], entries: [], tombstones: {} });
+    expect(useGoalsStore.getState().declinedSuggestions).toBeUndefined();
+  });
+
   it('applies each action as a stamped transition on the persisted state', () => {
     const { addGoal, cycleCheck, removeGoal } = useGoalsStore.getState();
     addGoal({

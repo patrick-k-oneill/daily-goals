@@ -181,7 +181,7 @@ describe('serializePad', () => {
   });
 
   it('is readable as a text file', () => {
-    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 4,\n');
+    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 5,\n');
   });
 });
 
@@ -205,6 +205,30 @@ describe('parsePad', () => {
       updatedAt: STAMP,
     });
     expect(parsePad(serializePad(pad, NOW), NOW)).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('round-trips a carried-over line and the declined suggestions', () => {
+    const pad = samplePad();
+    pad.goals.entries.push({
+      id: 'e4',
+      cadence: 'daily',
+      periodKey: '2026-08-27',
+      title: 'Call the bank',
+      checks: ['empty'],
+      sortOrder: 3,
+      carriedFrom: 'e3',
+      updatedAt: STAMP,
+    });
+    pad.goals.declinedSuggestions = ['e5', 'e6'];
+    expect(parsePad(serializePad(pad, NOW), NOW)).toEqual({ ok: true, exportedAt: NOW, pad });
+  });
+
+  it('reads a schema 4 file, which holds no suggestions, as it is', () => {
+    expect(parsePad(fileWith({ schemaVersion: 4 }), NOW)).toEqual({
+      ok: true,
+      exportedAt: NOW,
+      pad: samplePad(),
+    });
   });
 
   it('reads a schema 3 file, keeping its starred line first by sortOrder and dropping the star', () => {
@@ -293,6 +317,11 @@ describe('parsePad', () => {
 
     const badStar = { ...pad.goals, entries: [{ ...pad.goals.entries[0], starred: 'yes' }] };
     expect(reasonOf(fileWith({ schemaVersion: 3, goals: badStar }))).toMatch(/damaged: its goals/);
+
+    const badCarry = { ...pad.goals, entries: [{ ...pad.goals.entries[0], carriedFrom: 7 }] };
+    expect(reasonOf(fileWith({ goals: badCarry }))).toMatch(/damaged: its goals/);
+    const badDeclined = { ...pad.goals, declinedSuggestions: [7] };
+    expect(reasonOf(fileWith({ goals: badDeclined }))).toMatch(/damaged: its goals/);
 
     const weekdayOutOfRange = {
       ...pad.goals,

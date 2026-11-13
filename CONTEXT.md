@@ -36,6 +36,14 @@ _Avoid_: goal instance, task, item, starred or key goal (the margin star is reti
 Retiring a template from one of its lines without crossing that line off, by turning Repeats off in the line's edit form. The line stays where it was written, with its checks and its `templateId`; lines already written on other periods stay too, and no later period gets one. A stopped template never starts again: the goal is written anew with Repeats on.
 _Avoid_: pause, disable, archive
 
+**Suggestion**:
+A goal the pad offers to write on the current period's section: a faded row at the foot of the section with Add and Decline. It is on no page until it is accepted, and a past page shows none. Only the Daily section offers suggestions.
+_Avoid_: recommendation, prompt, reminder
+
+**Carry over**:
+The first kind of suggestion: an unfinished one-off entry (some check not done) from the most recent earlier period with any entries. Accepting it writes a fresh one-off entry with empty checks that records the entry it was carried from; declining it records the entry so it is never offered again. Either way the earlier entry stays as written. Every device gives the carried entry the same id (the first entry of its chain and the period), so accepting on two devices writes one line, and a carried entry that is crossed off is not offered again on that period. Nothing carries over by itself, and a recurring entry is never offered.
+_Avoid_: roll over, auto-carry, migrate
+
 **Materialize**:
 Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
 _Avoid_: instantiate, generate
@@ -73,7 +81,7 @@ _Avoid_: appointment, reminder, calendar item
 ### Backup
 
 **Pad file**:
-The whole pad — templates, entries, gratitude entries, upcoming events and their tombstones — written to one JSON file under a schema version. Importing one replaces the pad wholesale; merging belongs to sync.
+The whole pad — templates, entries, declined suggestions, gratitude entries, upcoming events and their tombstones — written to one JSON file under a schema version. Importing one replaces the pad wholesale; merging belongs to sync.
 _Avoid_: backup file, snapshot, dump
 
 **Footprint**:
@@ -91,5 +99,5 @@ The record a removed item leaves behind: its key and when it was removed, kept b
 _Avoid_: soft delete, deleted flag
 
 **Merge**:
-Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned. A template retired on either copy stays retired, from its first retirement (ADR 0008).
+Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned. A template retired on either copy stays retired, from its first retirement (ADR 0008). Declined suggestions merge as a union: declined on one device is declined on all.
 _Avoid_: sync (for the rule itself), overwrite, replace
