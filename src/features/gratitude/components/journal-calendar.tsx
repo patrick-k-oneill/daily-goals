@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { scaleTextStyle } from '@/features/text-size/logic';
+import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
@@ -30,6 +32,7 @@ interface JournalCalendarProps {
  */
 export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps) {
   const entries = useGratitudeStore((s) => s.entries);
+  const scale = useTextScale();
 
   const today = useToday();
   const currentMonth = monthStart(today);
@@ -73,7 +76,7 @@ export function JournalCalendar({ selected, onSelectDay }: JournalCalendarProps)
             key={i}
             type="small"
             themeColor="textSecondary"
-            style={styles.weekdayLabel}>
+            style={scaleTextStyle(styles.weekdayLabel, scale)}>
             {label}
           </ThemedText>
         ))}
@@ -124,6 +127,7 @@ function DayCell({
 }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
+  const scale = useTextScale();
 
   return (
     <Pressable
@@ -144,7 +148,7 @@ function DayCell({
         type="small"
         // Today gets the accent so it stands apart from future days.
         themeColor={isToday ? 'accent' : finished ? 'text' : 'border'}
-        style={styles.dayNumber}>
+        style={scaleTextStyle(styles.dayNumber, scale)}>
         {parseDayKey(day).getDate()}
       </ThemedText>
       {/* Blank means blank: only written mornings get a mark. */}

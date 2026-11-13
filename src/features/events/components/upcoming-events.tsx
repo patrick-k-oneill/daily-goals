@@ -4,6 +4,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { AddLine, FormActions, FormInput, InlineForm } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
+import { scaleTextStyle } from '@/features/text-size/logic';
+import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAction } from '@/lib/confirm';
@@ -47,6 +49,7 @@ function EventRow({ event }: { event: UpcomingEvent }) {
   const [editing, setEditing] = useState(false);
   const body = useHover();
   const remove = useHover();
+  const scale = useTextScale();
 
   const confirmRemove = () =>
     confirmAction('Remove event', `Remove “${event.title}”?`, () => removeEvent(event.id));
@@ -90,7 +93,10 @@ function EventRow({ event }: { event: UpcomingEvent }) {
           </ThemedText>
         ) : null}
         {event.note ? (
-          <ThemedText type="handSmall" themeColor="accent" style={styles.eventNote}>
+          <ThemedText
+            type="handSmall"
+            themeColor="accent"
+            style={scaleTextStyle(styles.eventNote, scale)}>
             {event.note}
           </ThemedText>
         ) : null}
@@ -104,7 +110,7 @@ function EventRow({ event }: { event: UpcomingEvent }) {
         {({ pressed }) => (
           <ThemedText
             themeColor={pressed || remove.hovered ? 'missed' : 'textSecondary'}
-            style={styles.removeGlyph}>
+            style={scaleTextStyle(styles.removeGlyph, scale)}>
             ×
           </ThemedText>
         )}

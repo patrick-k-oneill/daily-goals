@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { selectionTap } from '@/lib/haptics';
@@ -17,7 +18,10 @@ const WEEKDAYS = [
   { day: 7, letter: 'S', name: 'Sunday' },
 ] as const;
 
+/** The toggle's diameter at 100%; it grows with the text size. */
 const TOGGLE_SIZE = 30;
+/** A cell's width at 100%: narrow enough for seven to sit on one line of a phone-width form. */
+const CELL_WIDTH = 40;
 
 interface WeekdayTogglesProps {
   /** The ISO weekdays currently on. */
@@ -60,6 +64,10 @@ function WeekdayToggle({
 }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
+  const scale = useTextScale();
+  // The circle grows with its letter so the glyph never spills past the border.
+  const diameter = TOGGLE_SIZE * scale;
+  const toggleSize = { width: diameter, height: diameter, borderRadius: diameter / 2 };
 
   return (
     <Pressable
@@ -68,10 +76,15 @@ function WeekdayToggle({
       accessibilityState={{ checked }}
       accessibilityLabel={name}
       onPress={onPress}
-      style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
+      style={({ pressed }) => [
+        styles.cell,
+        { width: CELL_WIDTH * scale },
+        pressed && styles.pressed,
+      ]}>
       <View
         style={[
           styles.toggle,
+          toggleSize,
           checked
             ? { backgroundColor: theme.accent, borderColor: theme.accent }
             : { borderColor: hovered ? theme.textSecondary : theme.border },
@@ -86,23 +99,20 @@ function WeekdayToggle({
 }
 
 const styles = StyleSheet.create({
+  // Wraps once the cells outgrow the form's width at a larger text size.
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.half,
     alignSelf: 'flex-start',
   },
-  // A real 44pt-tall tap target (hitSlop doesn't extend DOM hit areas on web),
-  // narrow enough for seven to sit on one line of a phone-width form.
+  // A real 44pt-tall tap target (hitSlop doesn't extend DOM hit areas on web).
   cell: {
-    width: 40,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggle: {
-    width: TOGGLE_SIZE,
-    height: TOGGLE_SIZE,
-    borderRadius: TOGGLE_SIZE / 2,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
