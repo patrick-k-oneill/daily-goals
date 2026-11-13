@@ -32,6 +32,18 @@ _Avoid_: habit, default, recurring goal (as a noun)
 A goal line on a specific period's section, either materialized from a template or written one-off. Its place is its stored `sortOrder`; nothing ranks a line ahead of it.
 _Avoid_: goal instance, task, item, starred or key goal (the margin star is retired)
 
+**Place**:
+An entry's position in its section, counted from the top and stored as `sortOrder`. A template has a place too: the one its entry is materialized at.
+_Avoid_: rank, priority, position
+
+**Move**:
+Giving an entry a new place in its section: long-press its title and drag, or use the title's Move up and Move down actions. The section is renumbered 1… and only the entries whose place changed are written.
+_Avoid_: reorder (as a noun), sort, rearrange
+
+**Carry forward**:
+What a move on the current period does beyond its own page: every recurring entry's template takes its entry's place, so the next period materializes in the same order. A move on a past page stays on that page.
+_Avoid_: propagate, sync (for this)
+
 **Materialize**:
 Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
 _Avoid_: instantiate, generate
