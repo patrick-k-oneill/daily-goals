@@ -8,7 +8,7 @@ Built with Expo (React Native + TypeScript), one codebase for **web, iOS, and An
 
 - **The pad page** — Today mirrors the paper layout top to bottom: date at the top-left, centered underlined headings, Daily → Weekly → Annual goal categories, and the gratitude journal at the bottom. Recurring goals materialize onto each new page automatically; one-offs are written per page.
 - **Edit in place** — tap any goal title to rename it, resize its checks, or remove it. Edits to a recurring goal carry into future pages.
-- **Pad-style checks** — a goal can have multiple checkboxes (e.g. `Daily Prod` ×8). Taps cycle blank → ✓ done → ✕ missed, like pen marks. Star the day's key goal and it floats to the top.
+- **Pad-style checks** — a goal can have multiple checkboxes (e.g. `Daily Prod` ×8). Taps cycle blank → ✓ done → ✕ missed, like pen marks. Long-press a goal's title and drag it to reorder its section.
 - **Gratitude Journal** — written each morning _about yesterday_, exactly like writing on the previous day's page. Autosaves, tracks the streak, keeps history.
 - **Legal-pad look** — warm paper, blue rule lines, red margin, handwriting headers. Light and dark.
 

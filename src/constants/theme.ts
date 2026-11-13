@@ -23,6 +23,7 @@ export const Colors = {
     onPrimary: '#26221B',
     missed: '#B04A42',
     border: '#DCD3B4',
+    shadow: '#26221B40',
   },
   dark: {
     text: '#EDE5D0',
@@ -39,6 +40,7 @@ export const Colors = {
     onPrimary: '#26221B',
     missed: '#D98078',
     border: '#3A3426',
+    shadow: '#00000099',
   },
 } as const;
 

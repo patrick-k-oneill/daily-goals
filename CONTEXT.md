@@ -44,6 +44,18 @@ _Avoid_: recommendation, prompt, reminder
 The first kind of suggestion: an unfinished one-off entry (some check not done) from the most recent earlier period with any entries. Accepting it writes a fresh one-off entry with empty checks that records the entry it was carried from; declining it records the entry so it is never offered again. Either way the earlier entry stays as written. Every device gives the carried entry the same id (the first entry of its chain and the period), so accepting on two devices writes one line, and a carried entry that is crossed off is not offered again on that period. Nothing carries over by itself, and a recurring entry is never offered.
 _Avoid_: roll over, auto-carry, migrate
 
+**Place**:
+An entry's position in its section, stored as `sortOrder`: a section reads in ascending order, and the numbers need be neither whole nor consecutive. A template has a place too: the one its entry is materialized at.
+_Avoid_: rank, priority, position
+
+**Move**:
+Giving an entry a new place in its section: long-press its title and drag, or use the title's Move up and Move down actions. Only the moved entry is written: its place becomes a number between its new neighbors'.
+_Avoid_: reorder (as a noun), sort, rearrange
+
+**Carry forward**:
+What a move on the current period does beyond its own page: the moved entry's template takes a place between the templates of the recurring entries now around it, so the next period materializes in the same order. A move on a past page stays on that page.
+_Avoid_: propagate, sync (for this)
+
 **Materialize**:
 Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
 _Avoid_: instantiate, generate
