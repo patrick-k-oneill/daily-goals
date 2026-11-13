@@ -70,6 +70,25 @@ describe('saveEntry', () => {
     expect(entries['2026-08-21'].text).toBe(' ');
     expect(hasEntry(entries, '2026-08-21')).toBe(false);
   });
+
+  it('keeps a lone-bullet draft on the page without counting it as written', () => {
+    const { entries } = saveEntry(journal(), '2026-08-21', '● ', WRITTEN_AT);
+    expect(entries['2026-08-21'].text).toBe('● ');
+    expect(hasEntry(entries, '2026-08-21')).toBe(false);
+    expect(
+      hasEntry(saveEntry(journal(), '2026-08-21', '● \n● ', WRITTEN_AT).entries, '2026-08-21'),
+    ).toBe(false);
+  });
+
+  it('counts a bulleted entry as written', () => {
+    const { entries } = saveEntry(
+      journal(),
+      '2026-08-21',
+      '● Good coffee\n● A long walk',
+      WRITTEN_AT,
+    );
+    expect(hasEntry(entries, '2026-08-21')).toBe(true);
+  });
 });
 
 describe('mergeGratitude', () => {
@@ -115,11 +134,20 @@ describe('currentStreak', () => {
     const entries = byDate('2026-08-17', '2026-08-18', '2026-08-20', '2026-08-21');
     expect(currentStreak(entries, '2026-08-21')).toBe(2);
   });
+
+  it('breaks on a morning left as a lone bullet', () => {
+    const entries = {
+      ...byDate('2026-08-19', '2026-08-21'),
+      '2026-08-20': entry('2026-08-20', '● '),
+    };
+    expect(currentStreak(entries, '2026-08-21')).toBe(1);
+  });
 });
 
 describe('sortedEntries', () => {
-  it('sorts newest first and drops blank entries', () => {
+  it('sorts newest first and drops blank and lone-bullet entries', () => {
     const entries = {
+      '2026-08-18': entry('2026-08-18', '● '),
       '2026-08-19': entry('2026-08-19'),
       '2026-08-21': entry('2026-08-21'),
       '2026-08-20': entry('2026-08-20', '   '),
