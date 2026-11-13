@@ -52,7 +52,7 @@ export const useGoalsStore = create<GoalsState>()(
         // v2 had no stamps, tombstones or shared ids (ADR 0005); v3 ranked a starred line first.
         const goals =
           version < 3
-            ? logic.upgradeLegacyGoals(legacy, nowStamp())
+            ? logic.upgradeLegacyGoals(legacy)
             : logic.retireStars(persisted as StarredGoals);
         return goals as GoalsState;
       },
