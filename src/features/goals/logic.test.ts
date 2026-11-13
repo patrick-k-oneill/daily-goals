@@ -13,7 +13,6 @@ import {
   MAX_CHECKS,
   mergeGoals,
   periodKeyFor,
-  periodLabel,
   removeGoal,
   retireStars,
   seedGoals,
@@ -78,14 +77,10 @@ function titlesOn(state: Goals, periodKey: string) {
 }
 
 describe('periods', () => {
-  it('maps a day to each cadence period and labels it the way the pad does', () => {
+  it('maps a day to each cadence period', () => {
     expect(periodKeyFor('daily', TODAY)).toBe('2026-08-21');
     expect(periodKeyFor('weekly', TODAY)).toBe('2026-W34');
     expect(periodKeyFor('annual', TODAY)).toBe('2026');
-
-    expect(periodLabel('daily', TODAY)).toBe('Fri 8/21/26');
-    expect(periodLabel('weekly', TODAY)).toBe('Aug 17 – 23');
-    expect(periodLabel('annual', TODAY)).toBe('2026');
   });
 });
 

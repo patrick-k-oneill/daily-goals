@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 interface SectionHeaderProps {
   title: string;
-  /** Date, week range, or year — sits small at the top-left like the corner of the page. */
+  /** The page's date — sits small at the top-left like the corner of the page. */
   detail?: string;
   /** Flip to the previous page. Renders a ‹ chevron beside the detail. */
   onPrev?: () => void;

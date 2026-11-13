@@ -3,11 +3,10 @@ import { useState } from 'react';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Screen } from '@/components/ui/screen';
 import { GoalList } from '@/features/goals/components/goal-list';
-import { periodLabel } from '@/features/goals/logic';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
 import { reflectionDateFor } from '@/features/gratitude/logic';
 import { useToday } from '@/lib/clock';
-import { addDays, type DayKey } from '@/lib/dates';
+import { addDays, formatPadDate, type DayKey } from '@/lib/dates';
 
 /**
  * The whole pad page, top to bottom, the way it's written every morning.
@@ -29,7 +28,7 @@ export default function TodayScreen() {
     <Screen>
       <SectionHeader
         title="Daily Goals"
-        detail={periodLabel('daily', day)}
+        detail={formatPadDate(day)}
         detailHighlight={!isToday}
         onPrev={() => setPinnedDay(addDays(day, -1))}
         onNext={isToday ? undefined : flipForward}
@@ -37,10 +36,10 @@ export default function TodayScreen() {
       />
       <GoalList cadence="daily" day={day} />
 
-      <SectionHeader title="Weekly Goals" detail={periodLabel('weekly', day)} />
+      <SectionHeader title="Weekly Goals" />
       <GoalList cadence="weekly" day={day} />
 
-      <SectionHeader title="Annual Goals" detail={periodLabel('annual', day)} />
+      <SectionHeader title="Annual Goals" />
       <GoalList cadence="annual" day={day} />
 
       <GratitudeEditor reflectionDate={isToday ? reflectionDateFor(today) : day} />
