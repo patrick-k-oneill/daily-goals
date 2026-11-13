@@ -5,7 +5,7 @@ import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 import { useTheme } from '@/hooks/use-theme';
 
-/** One line of body text at 100%; rows anchor marginalia to it, times the text scale. */
+/** One line of body text at 100%. */
 export const BODY_LINE_HEIGHT = 24;
 
 /**
