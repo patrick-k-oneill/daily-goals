@@ -1,3 +1,4 @@
+import { stripBullets } from '@/components/ui/list-text';
 import { addDays, type DayKey } from '@/lib/dates';
 import { mergeKeyed, withoutTombstone, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
 
@@ -13,8 +14,8 @@ export function reflectionDateFor(today: DayKey): DayKey {
 /**
  * Write (or rewrite) a morning's entry; emptying the text tears the page out,
  * leaving a tombstone. Only the empty string counts as emptied: a leading
- * space or newline is a draft in progress, and the written queries already
- * ignore whitespace-only text.
+ * space, newline or lone bullet is a draft in progress, and the written
+ * queries already ignore text that is only whitespace and bullets.
  */
 export function saveEntry(
   gratitude: Gratitude,
@@ -75,5 +76,5 @@ export function currentStreak(entries: GratitudeEntries, reflectionDate: DayKey)
 }
 
 function isWritten(entry: GratitudeEntry | undefined): entry is GratitudeEntry {
-  return Boolean(entry?.text.trim());
+  return Boolean(entry && stripBullets(entry.text).trim());
 }

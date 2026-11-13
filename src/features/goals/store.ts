@@ -20,6 +20,7 @@ interface GoalsState extends Goals {
   stopRepeating: (entryId: string) => void;
   acceptSuggestion: (suggestion: Suggestion, periodKey: string) => void;
   declineSuggestion: (sourceId: string) => void;
+  moveEntry: (entryId: string, toIndex: number) => void;
   /** Replace every template and entry with an imported pad's; it lands with today written. */
   replaceGoals: (goals: Goals) => void;
   /** Reconcile with another device's copy; it lands with today written. */
@@ -51,6 +52,8 @@ export const useGoalsStore = create<GoalsState>()(
       acceptSuggestion: (suggestion, periodKey) =>
         set((goals) => logic.acceptSuggestion(goals, suggestion, periodKey, nowStamp())),
       declineSuggestion: (sourceId) => set((goals) => logic.declineSuggestion(goals, sourceId)),
+      moveEntry: (entryId, toIndex) =>
+        set((goals) => logic.moveEntry(goals, entryId, toIndex, todayKey(), nowStamp())),
       // `set` merges, so a pad without declined suggestions has to clear the ones held.
       replaceGoals: (goals) =>
         set({ declinedSuggestions: undefined, ...logic.materializeToday(goals, todayKey()) }),

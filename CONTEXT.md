@@ -52,6 +52,18 @@ _Avoid_: Reminders sync, inbox, import
 The reminder an entry was written from, kept on the entry as `reminderId`. A reminder with a linked entry on any page is never offered again, whether or not that entry was finished. Reminder ids belong to one device: a link that arrived by merge or pad file points at nothing on another. The pad is the source of truth and Reminders a mirror (ADR 0011): nothing done on the pad changes a reminder.
 _Avoid_: synced reminder, attached reminder
 
+**Place**:
+An entry's position in its section, stored as `sortOrder`: a section reads in ascending order, and the numbers need be neither whole nor consecutive. A template has a place too: the one its entry is materialized at.
+_Avoid_: rank, priority, position
+
+**Move**:
+Giving an entry a new place in its section: long-press its title and drag, or use the title's Move up and Move down actions. Only the moved entry is written: its place becomes a number between its new neighbors'.
+_Avoid_: reorder (as a noun), sort, rearrange
+
+**Carry forward**:
+What a move on the current period does beyond its own page: the moved entry's template takes a place between the templates of the recurring entries now around it, so the next period materializes in the same order. A move on a past page stays on that page.
+_Avoid_: propagate, sync (for this)
+
 **Materialize**:
 Writing a template's entry onto the current period's section. Only the current period is ever materialized into; past pages are never backfilled. Today's page is always written: the goals core materializes it when the pad rehydrates, when the day turns, when a pad is imported and after a merge. Every device writes the same line: a materialized entry's id is its template and period.
 _Avoid_: instantiate, generate
@@ -82,7 +94,7 @@ The day a gratitude entry is about — the day before it is written. Entries are
 _Avoid_: entry date, journal date
 
 **Gratitude entry**:
-The morning's free text about one reflection date. Emptying the text removes the entry.
+The morning's text about one reflection date, stored as plain text. Lines may be bullets: `● ` at the top tier, or `○ ` indented two spaces for the one tier below. Only text beyond bullets and whitespace counts as written; emptying the text removes the entry.
 _Avoid_: journal post, note
 
 **Streak**:

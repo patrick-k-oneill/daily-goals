@@ -1,7 +1,8 @@
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ListTextInput } from '@/components/ui/list-text-input';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
@@ -47,10 +48,9 @@ export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) 
         Reflecting on {formatDayLong(reflectionDate)}
       </ThemedText>
 
-      <TextInput
+      <ListTextInput
         value={text}
         onChangeText={(next) => saveEntry(reflectionDate, next)}
-        multiline
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         style={[styles.input, { color: theme.text }]}
