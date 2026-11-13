@@ -6,3 +6,9 @@ export function selectionTap() {
     Haptics.selectionAsync().catch(() => {});
   }
 }
+
+export function successBuzz() {
+  if (Platform.OS !== 'web') {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }
+}

@@ -18,6 +18,9 @@ import {
   type GoalTemplate,
   type Goals,
   type LegacyGoals,
+  type Rewards,
+  type SectionStatus,
+  type SettleOutcome,
   type StarredGoalEntry,
   type StarredGoals,
 } from './types';
@@ -216,6 +219,101 @@ export function cycleCheck(goals: Goals, entryId: string, checkIndex: number, no
   }));
 }
 
+/** A section a check tap completes reads as achieved only once that tap has rested this long. */
+export const SETTLE_MS = 1500;
+/** A reward moment plays only when its section settles within this long of being due. */
+export const REWARD_GRACE_MS = 1000;
+
+const SECTION_NAMES: Record<Cadence, string> = {
+  daily: 'Daily Goals',
+  weekly: 'Weekly Goals',
+  annual: 'Annual Goals',
+};
+
+/** Whether every check on every line of a period's section is done. A section with no lines never is. */
+export function isSectionComplete(entries: GoalEntry[], periodKey: string): boolean {
+  const lines = entries.filter((e) => e.periodKey === periodKey);
+  return lines.length > 0 && lines.every((e) => e.checks.every((c) => c === 'done'));
+}
+
+/** How a period's section reads: a complete one is settling until its completing tap has rested. */
+export function sectionStatus(
+  settling: Rewards['settling'],
+  entries: GoalEntry[],
+  periodKey: string,
+): SectionStatus {
+  if (!isSectionComplete(entries, periodKey)) return 'open';
+  return periodKey in settling ? 'settling' : 'achieved';
+}
+
+/** A section's header: its name, with "Achieved!" once it is. */
+export function sectionTitle(cadence: Cadence, status: SectionStatus): string {
+  const name = SECTION_NAMES[cadence];
+  return status === 'achieved' ? `${name} Achieved!` : name;
+}
+
+/**
+ * What a check tap does to its section's settling, given the lines as the tap
+ * left them: a tap that completes the section starts it settling from `now`,
+ * any other tap stops it. Nothing but a tap starts a section settling, so a
+ * section completed by a rehydrate, an import or a merge is achieved at once
+ * and plays no reward moment.
+ */
+export function settleAfterTap(
+  rewards: Rewards,
+  entries: GoalEntry[],
+  entryId: string,
+  now: Stamp,
+): Rewards {
+  const periodKey = entries.find((e) => e.id === entryId)?.periodKey;
+  if (periodKey === undefined) return rewards;
+  if (isSectionComplete(entries, periodKey)) {
+    return { ...rewards, settling: { ...rewards.settling, [periodKey]: now } };
+  }
+  if (!(periodKey in rewards.settling)) return rewards;
+  return { ...rewards, settling: withoutSettling(rewards.settling, periodKey) };
+}
+
+/** Milliseconds from `now` until a section that began settling at `since` has settled. */
+export function msUntilSettled(since: Stamp, now: Stamp): number {
+  return Math.max(0, SETTLE_MS - (Date.parse(now) - Date.parse(since)));
+}
+
+/**
+ * Settle a section once the tap that completed it has rested SETTLE_MS; before
+ * then nothing changes. A settled section stops settling, and if it is still
+ * complete it is achieved. Its reward moment plays only on the period
+ * containing `today`, once per period (playing it records the period), and
+ * only when the section settles on time: one left settling while its page was
+ * turned away or the app was in the background is achieved without it.
+ */
+export function settleSection(
+  rewards: Rewards,
+  entries: GoalEntry[],
+  periodKey: string,
+  today: DayKey,
+  now: Stamp,
+): { rewards: Rewards; outcome: SettleOutcome } {
+  const since = rewards.settling[periodKey];
+  if (since === undefined) return { rewards, outcome: 'lapsed' };
+  if (msUntilSettled(since, now) > 0) return { rewards, outcome: 'waiting' };
+
+  const settled = { ...rewards, settling: withoutSettling(rewards.settling, periodKey) };
+  if (!isSectionComplete(entries, periodKey)) return { rewards: settled, outcome: 'lapsed' };
+
+  const cadence = entries.find((e) => e.periodKey === periodKey)?.cadence;
+  const isRewardDue =
+    cadence !== undefined &&
+    periodKeyFor(cadence, today) === periodKey &&
+    rewards.played[cadence] !== periodKey &&
+    Date.parse(now) - Date.parse(since) <= SETTLE_MS + REWARD_GRACE_MS;
+  if (!isRewardDue) return { rewards: settled, outcome: 'achieved' };
+  return {
+    rewards: { ...settled, played: { ...settled.played, [cadence]: periodKey } },
+    outcome: 'rewarded',
+  };
+}
+
 export interface GoalEditPatch {
   title?: string;
   targetCount?: number;
@@ -386,6 +484,11 @@ function mapEntry(goals: Goals, entryId: string, update: (e: GoalEntry) => GoalE
     ...goals,
     entries: goals.entries.map((e) => (e.id === entryId ? update(e) : e)),
   };
+}
+
+function withoutSettling(settling: Rewards['settling'], periodKey: string): Rewards['settling'] {
+  const { [periodKey]: _settled, ...rest } = settling;
+  return rest;
 }
 
 function clampChecks(targetCount: number): number {

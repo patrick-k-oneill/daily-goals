@@ -7,15 +7,23 @@ import {
   entriesForPeriod,
   EVERY_WEEKDAY,
   hasCheckLabels,
+  isSectionComplete,
   materializedEntryId,
   materializeToday,
   MAX_CHECK_LABEL_LENGTH,
   MAX_CHECKS,
   mergeGoals,
+  msUntilSettled,
   periodKeyFor,
   periodLabel,
   removeGoal,
   retireStars,
+  REWARD_GRACE_MS,
+  sectionStatus,
+  sectionTitle,
+  SETTLE_MS,
+  settleAfterTap,
+  settleSection,
   seedGoals,
   updateGoal,
   upgradeLegacyGoals,
@@ -25,6 +33,7 @@ import type {
   GoalTemplate,
   Goals,
   LegacyGoals,
+  Rewards,
   StarredGoalEntry,
   StarredGoals,
 } from './types';
@@ -384,6 +393,271 @@ describe('check marks', () => {
   it('ignores unknown entries', () => {
     const start = goals({ entries: [entry()] });
     expect(cycleCheck(start, 'missing', 0, NOW)).toBe(start);
+  });
+});
+
+describe('achieved sections', () => {
+  const WEEK = '2026-W34';
+  const YESTERDAY = '2026-08-20';
+  const NO_REWARDS: Rewards = { settling: {}, played: {} };
+
+  const after = (ms: number, since = NOW) => new Date(Date.parse(since) + ms).toISOString();
+
+  /** One pen tap as the stores apply it: the check cycles, then the section's settling follows. */
+  function tap(
+    pad: { goals: Goals; rewards: Rewards },
+    entryId: string,
+    at: string,
+    checkIndex = 0,
+  ) {
+    const next = cycleCheck(pad.goals, entryId, checkIndex, at);
+    return { goals: next, rewards: settleAfterTap(pad.rewards, next.entries, entryId, at) };
+  }
+
+  /** Today's section with one line done and the last one still empty. */
+  const lastGoalOpen = () => ({
+    goals: goals({
+      entries: [entry({ id: 'a', checks: ['done'] }), entry({ id: 'b', checks: ['empty'] })],
+    }),
+    rewards: NO_REWARDS,
+  });
+
+  it('is complete only when every check on every line of the period is done', () => {
+    const lines = [
+      entry({ id: 'a', checks: ['done', 'done'] }),
+      entry({ id: 'b', checks: ['done'] }),
+      entry({ id: 'y', periodKey: YESTERDAY, checks: ['empty'] }),
+    ];
+    expect(isSectionComplete(lines, TODAY)).toBe(true);
+    expect(isSectionComplete(lines, YESTERDAY)).toBe(false);
+    expect(isSectionComplete([entry({ checks: ['done', 'missed'] })], TODAY)).toBe(false);
+  });
+
+  it('never counts a section with no lines as complete', () => {
+    expect(isSectionComplete([], TODAY)).toBe(false);
+    expect(sectionStatus({}, [], TODAY)).toBe('open');
+  });
+
+  it('heads a section with its name, and with "Achieved!" only once it is achieved', () => {
+    expect(sectionTitle('daily', 'open')).toBe('Daily Goals');
+    expect(sectionTitle('weekly', 'settling')).toBe('Weekly Goals');
+    expect(sectionTitle('daily', 'achieved')).toBe('Daily Goals Achieved!');
+    expect(sectionTitle('weekly', 'achieved')).toBe('Weekly Goals Achieved!');
+    expect(sectionTitle('annual', 'achieved')).toBe('Annual Goals Achieved!');
+  });
+
+  it('holds a section the last tap completed as settling, then achieves it and plays the reward moment', () => {
+    const tapped = tap(lastGoalOpen(), 'b', NOW);
+    expect(sectionStatus(tapped.rewards.settling, tapped.goals.entries, TODAY)).toBe('settling');
+
+    const early = settleSection(
+      tapped.rewards,
+      tapped.goals.entries,
+      TODAY,
+      TODAY,
+      after(SETTLE_MS - 1),
+    );
+    expect(early).toEqual({ rewards: tapped.rewards, outcome: 'waiting' });
+
+    const settled = settleSection(
+      tapped.rewards,
+      tapped.goals.entries,
+      TODAY,
+      TODAY,
+      after(SETTLE_MS),
+    );
+    expect(settled.outcome).toBe('rewarded');
+    expect(settled.rewards).toEqual({ settling: {}, played: { daily: TODAY } });
+    expect(sectionStatus(settled.rewards.settling, tapped.goals.entries, TODAY)).toBe('achieved');
+  });
+
+  it('never achieves a section whose last check is cycled past done to missed', () => {
+    const passingDone = tap(lastGoalOpen(), 'b', NOW);
+    const missed = tap(passingDone, 'b', after(400));
+    expect(byId(missed.goals, 'b')?.checks).toEqual(['missed']);
+    expect(missed.rewards).toEqual(NO_REWARDS);
+    expect(sectionStatus(missed.rewards.settling, missed.goals.entries, TODAY)).toBe('open');
+
+    const settled = settleSection(
+      missed.rewards,
+      missed.goals.entries,
+      TODAY,
+      TODAY,
+      after(SETTLE_MS),
+    );
+    expect(settled).toEqual({ rewards: NO_REWARDS, outcome: 'lapsed' });
+  });
+
+  it('settles from the tap that completed the section, not from an earlier pass', () => {
+    let pad = tap(lastGoalOpen(), 'b', NOW);
+    pad = tap(pad, 'b', after(300));
+    pad = tap(pad, 'b', after(600));
+    pad = tap(pad, 'b', after(900));
+    expect(byId(pad.goals, 'b')?.checks).toEqual(['done']);
+    expect(msUntilSettled(pad.rewards.settling[TODAY], after(SETTLE_MS))).toBe(900);
+    expect(
+      settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(SETTLE_MS)).outcome,
+    ).toBe('waiting');
+    expect(
+      settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(900 + SETTLE_MS)).outcome,
+    ).toBe('rewarded');
+  });
+
+  it('leaves settling alone when a tap does not complete the section', () => {
+    const start = {
+      goals: goals({ entries: [entry({ id: 'a' }), entry({ id: 'b' })] }),
+      rewards: NO_REWARDS,
+    };
+    expect(tap(start, 'a', NOW).rewards).toBe(NO_REWARDS);
+    expect(settleAfterTap(NO_REWARDS, start.goals.entries, 'missing', NOW)).toBe(NO_REWARDS);
+  });
+
+  it('plays the reward moment once per period, and again on the next one', () => {
+    let pad = tap(lastGoalOpen(), 'b', NOW);
+    pad = {
+      ...pad,
+      rewards: settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(SETTLE_MS))
+        .rewards,
+    };
+
+    pad = tap(pad, 'b', LATER);
+    pad = tap(pad, 'b', LATER);
+    pad = tap(pad, 'b', LATER);
+    expect(sectionStatus(pad.rewards.settling, pad.goals.entries, TODAY)).toBe('settling');
+    const again = settleSection(
+      pad.rewards,
+      pad.goals.entries,
+      TODAY,
+      TODAY,
+      after(SETTLE_MS, LATER),
+    );
+    expect(again.outcome).toBe('achieved');
+    expect(again.rewards).toEqual({ settling: {}, played: { daily: TODAY } });
+
+    const TOMORROW = '2026-08-22';
+    const nextDay = tap(
+      {
+        goals: goals({ entries: [entry({ id: 'c', periodKey: TOMORROW })] }),
+        rewards: again.rewards,
+      },
+      'c',
+      '2026-08-22T09:00:00.000Z',
+    );
+    const settled = settleSection(
+      nextDay.rewards,
+      nextDay.goals.entries,
+      TOMORROW,
+      TOMORROW,
+      '2026-08-22T09:00:02.000Z',
+    );
+    expect(settled.outcome).toBe('rewarded');
+    expect(settled.rewards.played).toEqual({ daily: TOMORROW });
+  });
+
+  it('achieves a section that settles late without its reward moment, which is still owed', () => {
+    const tapped = tap(lastGoalOpen(), 'b', NOW);
+    const { entries } = tapped.goals;
+    const onTime = after(SETTLE_MS + REWARD_GRACE_MS);
+    expect(settleSection(tapped.rewards, entries, TODAY, TODAY, onTime).outcome).toBe('rewarded');
+
+    const late = settleSection(tapped.rewards, entries, TODAY, TODAY, LATER);
+    expect(late).toEqual({ rewards: NO_REWARDS, outcome: 'achieved' });
+    expect(sectionStatus(late.rewards.settling, entries, TODAY)).toBe('achieved');
+
+    let pad = { goals: tapped.goals, rewards: late.rewards };
+    pad = tap(pad, 'b', LATER);
+    pad = tap(pad, 'b', LATER);
+    pad = tap(pad, 'b', LATER);
+    expect(
+      settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(SETTLE_MS, LATER)).outcome,
+    ).toBe('rewarded');
+  });
+
+  it('achieves a past period without a reward moment', () => {
+    const tapped = tap(
+      {
+        goals: goals({ entries: [entry({ id: 'y', periodKey: YESTERDAY })] }),
+        rewards: NO_REWARDS,
+      },
+      'y',
+      NOW,
+    );
+    expect(sectionStatus(tapped.rewards.settling, tapped.goals.entries, YESTERDAY)).toBe(
+      'settling',
+    );
+    const settled = settleSection(tapped.rewards, tapped.goals.entries, YESTERDAY, TODAY, LATER);
+    expect(settled).toEqual({ rewards: NO_REWARDS, outcome: 'achieved' });
+  });
+
+  it('settles and rewards each section on its own', () => {
+    let pad = {
+      goals: goals({
+        entries: [
+          entry({ id: 'd' }),
+          entry({ id: 'w', cadence: 'weekly', periodKey: WEEK }),
+          entry({ id: 'y', cadence: 'annual', periodKey: '2026' }),
+        ],
+      }),
+      rewards: NO_REWARDS,
+    };
+    pad = tap(pad, 'd', NOW);
+    expect(sectionStatus(pad.rewards.settling, pad.goals.entries, TODAY)).toBe('settling');
+    expect(sectionStatus(pad.rewards.settling, pad.goals.entries, WEEK)).toBe('open');
+
+    pad = {
+      ...pad,
+      rewards: settleSection(pad.rewards, pad.goals.entries, TODAY, TODAY, after(SETTLE_MS))
+        .rewards,
+    };
+    pad = tap(pad, 'w', LATER);
+    pad = tap(pad, 'y', LATER);
+    const { entries } = pad.goals;
+    const weekly = settleSection(pad.rewards, entries, WEEK, TODAY, after(SETTLE_MS, LATER));
+    expect(weekly.outcome).toBe('rewarded');
+    const annual = settleSection(weekly.rewards, entries, '2026', TODAY, after(SETTLE_MS, LATER));
+    expect(annual.outcome).toBe('rewarded');
+    expect(annual.rewards).toEqual({
+      settling: {},
+      played: { daily: TODAY, weekly: WEEK, annual: '2026' },
+    });
+  });
+
+  it('lapses when the section is no longer complete by the time it settles', () => {
+    const tapped = tap(lastGoalOpen(), 'b', NOW);
+    const withNewLine = addGoal(
+      tapped.goals,
+      { cadence: 'daily', periodKey: TODAY, title: 'One more', targetCount: 1, repeats: false },
+      after(500),
+    );
+    expect(sectionStatus(tapped.rewards.settling, withNewLine.entries, TODAY)).toBe('open');
+    const settled = settleSection(tapped.rewards, withNewLine.entries, TODAY, TODAY, LATER);
+    expect(settled).toEqual({ rewards: NO_REWARDS, outcome: 'lapsed' });
+  });
+
+  it('keeps settling through an edit that leaves the section complete', () => {
+    const tapped = tap(lastGoalOpen(), 'b', NOW);
+    const renamed = updateGoal(tapped.goals, 'a', { title: 'Renamed' }, after(500));
+    expect(msUntilSettled(tapped.rewards.settling[TODAY], after(500))).toBe(SETTLE_MS - 500);
+    expect(
+      settleSection(tapped.rewards, renamed.entries, TODAY, TODAY, after(SETTLE_MS)).outcome,
+    ).toBe('rewarded');
+  });
+
+  it('achieves at once, with no reward moment, a section no tap completed', () => {
+    const local = goals({ entries: [entry({ id: 'a', checks: ['empty'], updatedAt: NOW })] });
+    const remote = goals({ entries: [entry({ id: 'a', checks: ['done'], updatedAt: LATER })] });
+    const merged = mergeGoals(local, remote);
+    expect(sectionStatus(NO_REWARDS.settling, merged.entries, TODAY)).toBe('achieved');
+    expect(settleSection(NO_REWARDS, merged.entries, TODAY, TODAY, LATER)).toEqual({
+      rewards: NO_REWARDS,
+      outcome: 'lapsed',
+    });
+  });
+
+  it('counts down to the moment a tap has rested', () => {
+    expect(msUntilSettled(NOW, NOW)).toBe(SETTLE_MS);
+    expect(msUntilSettled(NOW, after(SETTLE_MS - 200))).toBe(200);
+    expect(msUntilSettled(NOW, LATER)).toBe(0);
   });
 });
 

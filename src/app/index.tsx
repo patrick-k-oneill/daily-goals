@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
-import { SectionHeader } from '@/components/ui/section-header';
 import { Screen } from '@/components/ui/screen';
 import { UpcomingEvents } from '@/features/events/components/upcoming-events';
 import { GoalList } from '@/features/goals/components/goal-list';
+import { GoalSectionHeader } from '@/features/goals/components/goal-section-header';
 import { periodLabel } from '@/features/goals/logic';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
 import { reflectionDateFor } from '@/features/gratitude/logic';
@@ -28,8 +28,9 @@ export default function TodayScreen() {
 
   return (
     <Screen>
-      <SectionHeader
-        title="Daily Goals"
+      <GoalSectionHeader
+        cadence="daily"
+        day={day}
         detail={periodLabel('daily', day)}
         detailHighlight={!isToday}
         onPrev={() => setPinnedDay(addDays(day, -1))}
@@ -38,10 +39,10 @@ export default function TodayScreen() {
       />
       <GoalList cadence="daily" day={day} />
 
-      <SectionHeader title="Weekly Goals" detail={periodLabel('weekly', day)} />
+      <GoalSectionHeader cadence="weekly" day={day} detail={periodLabel('weekly', day)} />
       <GoalList cadence="weekly" day={day} />
 
-      <SectionHeader title="Annual Goals" detail={periodLabel('annual', day)} />
+      <GoalSectionHeader cadence="annual" day={day} detail={periodLabel('annual', day)} />
       <GoalList cadence="annual" day={day} />
 
       {isToday && <UpcomingEvents />}

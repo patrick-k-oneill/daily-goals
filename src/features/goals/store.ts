@@ -6,6 +6,7 @@ import { nowStamp, useToday } from '@/lib/clock';
 import { todayKey, type DayKey } from '@/lib/dates';
 import { persistOptions } from '@/lib/persisted-store';
 
+import { useRewardsStore } from './rewards-store';
 import * as logic from './logic';
 import type { Goals, LegacyGoals, StarredGoals } from './types';
 
@@ -26,17 +27,20 @@ interface GoalsState extends Goals {
  * The goals feature's React binding: every action is one pure transition from
  * ./logic applied to the persisted state, stamped with the moment it happens.
  * Today's page is always written — on first run, on rehydration, on import and
- * after a merge — so a section only reads.
+ * after a merge — so a section only reads. A check tap is also handed to the
+ * rewards store: nothing else starts a section settling.
  */
 export const useGoalsStore = create<GoalsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...logic.materializeToday(logic.seedGoals(), todayKey()),
 
       materializeToday: (today) => set((goals) => logic.materializeToday(goals, today)),
       addGoal: (input) => set((goals) => logic.addGoal(goals, input, nowStamp())),
-      cycleCheck: (entryId, checkIndex) =>
-        set((goals) => logic.cycleCheck(goals, entryId, checkIndex, nowStamp())),
+      cycleCheck: (entryId, checkIndex) => {
+        set((goals) => logic.cycleCheck(goals, entryId, checkIndex, nowStamp()));
+        useRewardsStore.getState().settleAfterTap(get().entries, entryId);
+      },
       updateGoal: (entryId, patch) =>
         set((goals) => logic.updateGoal(goals, entryId, patch, nowStamp())),
       removeGoal: (entryId) => set((goals) => logic.removeGoal(goals, entryId, nowStamp())),
