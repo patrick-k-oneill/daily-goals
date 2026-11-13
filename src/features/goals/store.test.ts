@@ -167,8 +167,9 @@ describe('useGoalsStore', () => {
     useGoalsStore.getState().moveEntry(second.id, 0);
 
     expect(titlesOn(todayKey())).toEqual([second.title, first.title]);
-    const { templates } = useGoalsStore.getState();
-    expect(templates.find((t) => t.id === second.templateId)?.sortOrder).toBe(1);
+    const place = (templateId?: string) =>
+      useGoalsStore.getState().templates.find((t) => t.id === templateId)?.sortOrder ?? NaN;
+    expect(place(second.templateId)).toBeLessThan(place(first.templateId));
   });
 
   it("merges another device's copy and lands with today's page written", () => {

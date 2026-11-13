@@ -363,7 +363,7 @@ function liftAndDrag({ reorder, id, token }: Row, owns: SharedValue<boolean>): P
     })
     .onUpdate((event) => {
       'worklet';
-      if (!owns.get()) return;
+      if (!owns.get() || active.get() !== token) return;
       const range = bounds.get();
       if (!range) {
         translateY.set(event.translationY);
@@ -380,6 +380,8 @@ function liftAndDrag({ reorder, id, token }: Row, owns: SharedValue<boolean>): P
       'worklet';
       if (!owns.get()) return;
       owns.set(false);
+      // A lift that never took (its rows were unmeasured) has no drag of its own to drop.
+      if (active.get() !== token) return;
       scheduleOnRN(drop, success);
     });
 }

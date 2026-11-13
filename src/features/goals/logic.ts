@@ -289,11 +289,13 @@ export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
 }
 
 /**
- * Move a line to `toIndex` in its period's section. The section is renumbered
- * 1… in the new order, and each line whose place changed is a write. On the
- * period containing `today` the order carries forward (ADR 0007): every
- * recurring line's template takes its line's place, so the next period
- * materializes in the same order. A past page's order stays its own.
+ * Move a line to `toIndex` in its period's section. Only the moved line is
+ * written: its place becomes a number between its new neighbors', so every
+ * other line keeps its stamp through a merge. On the period containing
+ * `today` the move carries forward (ADR 0007): the line's template takes a
+ * place between the templates of the recurring lines now around it, so the
+ * next period materializes in the same order. A past page's order stays its
+ * own. Neighbors whose places leave no room between them are renumbered 1….
  */
 export function moveEntry(
   goals: Goals,
@@ -311,20 +313,18 @@ export function moveEntry(
 
   const reordered = lines.filter((e) => e !== moved);
   reordered.splice(to, 0, moved);
-  const places = new Map(reordered.map((e, i) => [e.id, i + 1]));
-  const entries = goals.entries.map((e) => placedAt(e, places.get(e.id), now));
+  const entries = rewritten(goals.entries, placedAmong(reordered, to, now));
   if (periodKeyFor(moved.cadence, today) !== moved.periodKey) return { ...goals, entries };
 
-  const templatePlaces = new Map(
-    reordered.flatMap((e, i) => (e.templateId ? [[e.templateId, i + 1] as const] : [])),
-  );
+  // A retired template writes no more lines, so it neither takes a place nor marks one.
+  const live = new Map(goals.templates.flatMap((t) => (t.retiredAt ? [] : [[t.id, t] as const])));
+  const recurring = reordered.flatMap((e) => live.get(e.templateId ?? '') ?? []);
+  const at = recurring.findIndex((t) => t.id === moved.templateId);
+  if (at < 0) return { ...goals, entries };
   return {
     ...goals,
     entries,
-    // A retired template writes no more lines, so its place is never read again.
-    templates: goals.templates.map((t) =>
-      t.retiredAt ? t : placedAt(t, templatePlaces.get(t.id), now),
-    ),
+    templates: rewritten(goals.templates, placedAmong(recurring, at, now)),
   };
 }
 
@@ -495,14 +495,44 @@ function byStarredOrder(a: StarredGoalEntry, b: StarredGoalEntry): number {
   return bySortOrder(a, b);
 }
 
-/** The item at a new place, stamped; the same item when it has no new place. */
-function placedAt<T extends { sortOrder: number; updatedAt: Stamp }>(
-  item: T,
-  place: number | undefined,
-  now: Stamp,
-): T {
-  if (place === undefined || place === item.sortOrder) return item;
-  return { ...item, sortOrder: place, updatedAt: now };
+type Placed = { id: string; sortOrder: number; updatedAt: Stamp };
+
+/**
+ * The writes that make `ordered` read in the order given, `ordered[at]` being
+ * the one out of place: its place alone, set between its neighbors', or every
+ * place renumbered 1… when the neighbors' leave no room. Keyed by id.
+ */
+function placedAmong<T extends Placed>(ordered: T[], at: number, now: Stamp): Map<string, T> {
+  const place = placeBetween(
+    ordered[at - 1]?.sortOrder,
+    ordered[at].sortOrder,
+    ordered[at + 1]?.sortOrder,
+  );
+  const writes = new Map<string, T>();
+  ordered.forEach((item, i) => {
+    const sortOrder = place === undefined ? i + 1 : i === at ? place : item.sortOrder;
+    if (sortOrder !== item.sortOrder) writes.set(item.id, { ...item, sortOrder, updatedAt: now });
+  });
+  return writes;
+}
+
+/** A place strictly between two neighbors': `current` when it already is one, undefined when there is none. */
+function placeBetween(
+  before: number | undefined,
+  current: number,
+  after: number | undefined,
+): number | undefined {
+  const fits = (place: number) =>
+    (before === undefined || before < place) && (after === undefined || place < after);
+  if (fits(current)) return current;
+  if (before === undefined) return (after ?? 1) - 1;
+  const place = after === undefined ? before + 1 : (before + after) / 2;
+  return fits(place) ? place : undefined;
+}
+
+/** `items` with each written item in place of the one it replaces; the same array when nothing was written. */
+function rewritten<T extends { id: string }>(items: T[], writes: Map<string, T>): T[] {
+  return writes.size === 0 ? items : items.map((item) => writes.get(item.id) ?? item);
 }
 
 function nextSortOrder(items: { sortOrder: number }[]): number {

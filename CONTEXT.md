@@ -33,15 +33,15 @@ A goal line on a specific period's section, either materialized from a template 
 _Avoid_: goal instance, task, item, starred or key goal (the margin star is retired)
 
 **Place**:
-An entry's position in its section, counted from the top and stored as `sortOrder`. A template has a place too: the one its entry is materialized at.
+An entry's position in its section, stored as `sortOrder`: a section reads in ascending order, and the numbers need be neither whole nor consecutive. A template has a place too: the one its entry is materialized at.
 _Avoid_: rank, priority, position
 
 **Move**:
-Giving an entry a new place in its section: long-press its title and drag, or use the title's Move up and Move down actions. The section is renumbered 1… and only the entries whose place changed are written.
+Giving an entry a new place in its section: long-press its title and drag, or use the title's Move up and Move down actions. Only the moved entry is written: its place becomes a number between its new neighbors'.
 _Avoid_: reorder (as a noun), sort, rearrange
 
 **Carry forward**:
-What a move on the current period does beyond its own page: every recurring entry's template takes its entry's place, so the next period materializes in the same order. A move on a past page stays on that page.
+What a move on the current period does beyond its own page: the moved entry's template takes a place between the templates of the recurring entries now around it, so the next period materializes in the same order. A move on a past page stays on that page.
 _Avoid_: propagate, sync (for this)
 
 **Materialize**:
