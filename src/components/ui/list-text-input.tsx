@@ -1,7 +1,10 @@
-import { useLayoutEffect, useReducer, useRef } from 'react';
+import { useId, useLayoutEffect, useReducer, useRef } from 'react';
 import {
+  InputAccessoryView,
   Platform,
+  StyleSheet,
   TextInput,
+  View,
   type TextInputKeyPressEventData,
   type TextInputProps,
   type TextInputSelectionChangeEventData,
@@ -41,6 +44,7 @@ export function ListTextInput({
   ...props
 }: ListTextInputProps) {
   const input = useRef<TextInput>(null);
+  const accessoryID = useId();
   // React Native sizes a native input from the text it last reported, so a
   // line a rewrite adds is measured one commit late; a commit that changes any
   // prop measures it, and `nativeID` is the prop with no other effect.
@@ -80,48 +84,68 @@ export function ListTextInput({
   };
 
   return (
-    <TextInput
-      ref={input}
-      multiline
-      submitBehavior="submit"
-      nativeID={Platform.OS === 'web' ? undefined : `list-text-input-${remeasures}`}
-      value={value}
-      onChangeText={(next) => {
-        const { text, held, repeat } = latest.current;
-        // iOS can report one keystroke's change twice; the second report
-        // must not undo what the first was rewritten to.
-        if (next === repeat && next !== text) return;
-        const edit = applyListEdit(text, rebaseEdit(held, text, next));
-        commit(edit, next);
-        const isBehind = edit.text !== next;
-        latest.current.held = isBehind ? [next] : [];
-        latest.current.repeat = isBehind ? next : undefined;
-      }}
-      onSubmitEditing={() => commit(breakLine(latest.current.text, latest.current.caret))}
-      onSelectionChange={(e) => {
-        // iOS reports its text with the caret: in the current text the
-        // input has caught up, in any other the caret is stale.
-        const { selection, text } = e.nativeEvent as SelectionEvent;
-        if (text === latest.current.text) {
-          latest.current = { text, held: [], caret: selection };
-        } else if (text === undefined) {
-          latest.current.caret = selection;
-        }
-        onSelectionChange?.(e);
-      }}
-      onKeyPress={(e) => {
-        const selection = input.current ? getTextSelection(input.current) : undefined;
-        const edit = selection && keyEdit(e.nativeEvent, latest.current.text, selection);
-        if (edit) {
-          e.preventDefault();
-          commit(edit);
-        }
-        onKeyPress?.(e);
-      }}
-      {...props}
-    />
+    <>
+      {Platform.OS === 'ios' && (
+        // iOS reloads the keyboard of a focused input that has an accessory
+        // whenever its props change, and the page then brings the caret above
+        // the keyboard. This empty accessory makes the re-measuring commit do
+        // that for a break the platform did not type.
+        <InputAccessoryView nativeID={accessoryID}>
+          <View pointerEvents="none" style={styles.accessory} />
+        </InputAccessoryView>
+      )}
+      <TextInput
+        ref={input}
+        multiline
+        // The page scrolls to the caret; an input that scrolls itself hides it.
+        scrollEnabled={false}
+        inputAccessoryViewID={Platform.OS === 'ios' ? accessoryID : undefined}
+        submitBehavior="submit"
+        nativeID={Platform.OS === 'web' ? undefined : `list-text-input-${remeasures}`}
+        value={value}
+        onChangeText={(next) => {
+          const { text, held, repeat } = latest.current;
+          // iOS can report one keystroke's change twice; the second report
+          // must not undo what the first was rewritten to.
+          if (next === repeat && next !== text) return;
+          const edit = applyListEdit(text, rebaseEdit(held, text, next));
+          commit(edit, next);
+          const isBehind = edit.text !== next;
+          latest.current.held = isBehind ? [next] : [];
+          latest.current.repeat = isBehind ? next : undefined;
+        }}
+        onSubmitEditing={() => commit(breakLine(latest.current.text, latest.current.caret))}
+        onSelectionChange={(e) => {
+          // iOS reports its text with the caret: in the current text the
+          // input has caught up, in any other the caret is stale.
+          const { selection, text } = e.nativeEvent as SelectionEvent;
+          if (text === latest.current.text) {
+            latest.current = { text, held: [], caret: selection };
+          } else if (text === undefined) {
+            latest.current.caret = selection;
+          }
+          onSelectionChange?.(e);
+        }}
+        onKeyPress={(e) => {
+          const selection = input.current ? getTextSelection(input.current) : undefined;
+          const edit = selection && keyEdit(e.nativeEvent, latest.current.text, selection);
+          if (edit) {
+            e.preventDefault();
+            commit(edit);
+          }
+          onKeyPress?.(e);
+        }}
+        {...props}
+      />
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  accessory: {
+    height: 1,
+  },
+});
 
 interface Latest {
   text: string;
