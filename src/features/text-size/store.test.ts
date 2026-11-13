@@ -27,4 +27,14 @@ describe('useTextSizeStore', () => {
     await useTextSizeStore.persist.rehydrate();
     expect(useTextSizeStore.getState().scale).toBe(1.5);
   });
+
+  it('reads a saved size that is no size as 100%', async () => {
+    await AsyncStorage.setItem(
+      'daily-goals/text-size',
+      JSON.stringify({ state: { scale: 0 }, version: 1 }),
+    );
+    await useTextSizeStore.persist.rehydrate();
+    expect(useTextSizeStore.getState().scale).toBe(1);
+    expect(typeof useTextSizeStore.getState().enlargeText).toBe('function');
+  });
 });

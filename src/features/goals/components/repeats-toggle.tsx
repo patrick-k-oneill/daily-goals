@@ -24,15 +24,19 @@ export function RepeatsToggle({ value, onValueChange }: RepeatsToggleProps) {
         ? known
         : { width: layout.width, height: layout.height },
     );
+  const isMeasured = switchSize.width > 0;
   // The platform switch comes in one size: it is drawn larger, and the margins
-  // give the row the room its drawn size takes.
+  // give the row the room its drawn size takes. Until it is measured it has no
+  // room to grow into, so it stays unseen for that frame.
   const grown = isDefaultTextScale(scale)
     ? undefined
-    : {
-        transform: [{ scale }],
-        marginHorizontal: (switchSize.width * (scale - 1)) / 2,
-        marginVertical: (switchSize.height * (scale - 1)) / 2,
-      };
+    : isMeasured
+      ? {
+          transform: [{ scale }],
+          marginHorizontal: (switchSize.width * (scale - 1)) / 2,
+          marginVertical: (switchSize.height * (scale - 1)) / 2,
+        }
+      : styles.unmeasured;
 
   return (
     <View style={styles.toggle}>
@@ -58,5 +62,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  unmeasured: {
+    opacity: 0,
   },
 });

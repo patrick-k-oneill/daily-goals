@@ -9,6 +9,7 @@ import {
   scaleTextStyle,
   smallerTextScale,
   TEXT_SCALE_STEPS,
+  validTextScale,
 } from './logic';
 
 describe('text size steps', () => {
@@ -46,6 +47,26 @@ describe('text size steps', () => {
     expect(formatTextScale(1)).toBe('100%');
     expect(formatTextScale(1.15)).toBe('115%');
     expect(formatTextScale(2)).toBe('200%');
+  });
+});
+
+describe('validTextScale', () => {
+  it('keeps a saved size on or between the steps', () => {
+    expect(validTextScale(1.5)).toBe(1.5);
+    expect(validTextScale(1.2)).toBe(1.2);
+  });
+
+  it('brings a size outside 100% to 200% back to the nearer end', () => {
+    expect(validTextScale(0)).toBe(1);
+    expect(validTextScale(-2)).toBe(1);
+    expect(validTextScale(5)).toBe(2);
+  });
+
+  it('reads anything that is not a size as 100%', () => {
+    expect(validTextScale(NaN)).toBe(1);
+    expect(validTextScale(Infinity)).toBe(1);
+    expect(validTextScale('2')).toBe(1);
+    expect(validTextScale(undefined)).toBe(1);
   });
 });
 

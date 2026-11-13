@@ -4,6 +4,12 @@ export const TEXT_SCALE_STEPS = [1, 1.15, 1.3, 1.5, 1.75, 2] as const;
 export const DEFAULT_TEXT_SCALE: number = TEXT_SCALE_STEPS[0];
 const MAX_TEXT_SCALE: number = TEXT_SCALE_STEPS[TEXT_SCALE_STEPS.length - 1];
 
+/** A saved text size brought into range; anything that is not a size at all is 100%. */
+export function validTextScale(saved: unknown): number {
+  if (typeof saved !== 'number' || !Number.isFinite(saved)) return DEFAULT_TEXT_SCALE;
+  return Math.min(MAX_TEXT_SCALE, Math.max(DEFAULT_TEXT_SCALE, saved));
+}
+
 /** The next step up; a value off the ladder lands on the first step above it. */
 export function largerTextScale(scale: number): number {
   return TEXT_SCALE_STEPS.find((step) => step > scale) ?? MAX_TEXT_SCALE;

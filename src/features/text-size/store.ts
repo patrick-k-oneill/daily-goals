@@ -21,7 +21,13 @@ export const useTextSizeStore = create<TextSizeState>()(
       shrinkText: () => set((s) => ({ scale: logic.smallerTextScale(s.scale) })),
       resetTextSize: () => set({ scale: logic.DEFAULT_TEXT_SCALE }),
     }),
-    persistOptions<TextSizeState>('text-size'),
+    persistOptions<TextSizeState>('text-size', {
+      // A saved size that is no size would scale every text style to nothing.
+      merge: (persisted, current) => ({
+        ...current,
+        scale: logic.validTextScale((persisted as Partial<TextSizeState> | undefined)?.scale),
+      }),
+    }),
   ),
 );
 
