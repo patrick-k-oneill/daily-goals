@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
+import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
@@ -84,11 +84,10 @@ interface AddLineProps {
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
-  type?: ThemedTextProps['type'];
 }
 
 /** The next blank line on the page — "+ Add …" — that opens a form when tapped. */
-export function AddLine({ label, accessibilityLabel, onPress, type }: AddLineProps) {
+export function AddLine({ label, accessibilityLabel, onPress }: AddLineProps) {
   const { hovered, hoverProps } = useHover();
   return (
     <Pressable
@@ -97,9 +96,7 @@ export function AddLine({ label, accessibilityLabel, onPress, type }: AddLinePro
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={styles.addLine}>
-      <ThemedText type={type} themeColor={hovered ? 'text' : 'textSecondary'}>
-        {label}
-      </ThemedText>
+      <ThemedText themeColor={hovered ? 'text' : 'textSecondary'}>{label}</ThemedText>
     </Pressable>
   );
 }

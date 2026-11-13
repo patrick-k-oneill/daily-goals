@@ -2,7 +2,6 @@ import { useState } from 'react';
 
 import { SectionHeader } from '@/components/ui/section-header';
 import { Screen } from '@/components/ui/screen';
-import { UpcomingEvents } from '@/features/events/components/upcoming-events';
 import { GoalList } from '@/features/goals/components/goal-list';
 import { periodLabel } from '@/features/goals/logic';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
@@ -43,8 +42,6 @@ export default function TodayScreen() {
 
       <SectionHeader title="Annual Goals" detail={periodLabel('annual', day)} />
       <GoalList cadence="annual" day={day} />
-
-      {isToday && <UpcomingEvents />}
 
       <GratitudeEditor reflectionDate={isToday ? reflectionDateFor(today) : day} />
     </Screen>

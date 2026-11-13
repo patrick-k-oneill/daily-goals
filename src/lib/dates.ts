@@ -156,12 +156,6 @@ export function formatDayLong(key: DayKey): string {
   return `${WEEKDAY_LABELS[weekdayIndex(key)]}, ${MONTH_LABELS[date.getMonth()]} ${date.getDate()}`;
 }
 
-/** "Sun 8/23" — the way an event is jotted at the bottom of the page. */
-export function formatDayWithWeekday(key: DayKey): string {
-  const date = parseDayKey(key);
-  return `${WEEKDAY_LABELS[weekdayIndex(key)]} ${date.getMonth() + 1}/${date.getDate()}`;
-}
-
 /** "Aug 18 – 24" or "Aug 31 – Sep 6" for the ISO week containing `key`. */
 export function formatWeekRange(key: DayKey): string {
   const days = daysOfWeek(key);

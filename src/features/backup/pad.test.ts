@@ -1,4 +1,3 @@
-import { useEventsStore } from '@/features/events/store';
 import { seedGoals } from '@/features/goals/logic';
 import { useGoalsStore } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
@@ -50,16 +49,11 @@ const written: PadData = {
     },
     tombstones: {},
   },
-  events: {
-    events: [{ id: 'ev1', date: '2026-08-30', title: 'IRC', timeLabel: '4pm', updatedAt: NOW }],
-    tombstones: { ev0: NOW },
-  },
 };
 
 function freshInstall() {
   useGoalsStore.setState(seedGoals());
   useGratitudeStore.setState({ entries: {}, tombstones: {} });
-  useEventsStore.setState({ events: [], tombstones: {} });
 }
 
 // serializePad/parsePad are covered in logic.test.ts; this checks the store wiring.

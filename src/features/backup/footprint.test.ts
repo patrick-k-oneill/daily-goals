@@ -1,4 +1,3 @@
-import type { UpcomingEvent } from '@/features/events/types';
 import type { Cadence, CheckState, GoalEntry, GoalTemplate } from '@/features/goals/types';
 import type { GratitudeEntries } from '@/features/gratitude/types';
 import { addDays, weekKeyOf, yearKeyOf, type DayKey } from '@/lib/dates';
@@ -16,9 +15,9 @@ const WEB_LOCAL_STORAGE_BYTES = 5 * 1024 * 1024;
  * moves them, and that is the moment to revisit the decision.
  */
 const RECORDED_FIGURES = [
-  { years: 1, goals: 842_109, gratitude: 177_784, events: 13_535, total: 1_033_428 },
-  { years: 3, goals: 2_519_796, gratitude: 533_294, events: 40_603, total: 3_093_693 },
-  { years: 5, goals: 4_197_468, gratitude: 888_804, events: 67_644, total: 5_153_916 },
+  { years: 1, goals: 842_109, gratitude: 177_784, total: 1_019_893 },
+  { years: 3, goals: 2_519_796, gratitude: 533_294, total: 3_053_090 },
+  { years: 5, goals: 4_197_468, gratitude: 888_804, total: 5_086_272 },
 ];
 
 describe('storageFootprint', () => {
@@ -27,8 +26,7 @@ describe('storageFootprint', () => {
     const footprint = storageFootprint(pad);
     expect(footprint.goals).toBe(utf8Bytes(JSON.stringify(pad.goals)));
     expect(footprint.gratitude).toBe(utf8Bytes(JSON.stringify(pad.gratitude)));
-    expect(footprint.events).toBe(utf8Bytes(JSON.stringify(pad.events)));
-    expect(footprint.total).toBe(footprint.goals + footprint.gratitude + footprint.events);
+    expect(footprint.total).toBe(footprint.goals + footprint.gratitude);
   });
 
   it('counts bytes, not characters', () => {
@@ -78,7 +76,6 @@ describe('formatBytes', () => {
 const FIRST_DAY: DayKey = '2026-01-05'; // a Monday, so weeks line up
 const DAYS_PER_YEAR = 365;
 const WEEKS_PER_YEAR = 52;
-const EVENTS_PER_YEAR = 100;
 const GRATITUDE_CHARS = 400;
 /** Every item carries a stamp of this length (ADR 0005). */
 const STAMP = '2026-01-05T08:00:00.000Z';
@@ -128,7 +125,6 @@ function syntheticPad(years: number): PadData {
 
   const entries: GoalEntry[] = [];
   const gratitude: GratitudeEntries = {};
-  const events: UpcomingEvent[] = [];
 
   for (let d = 0; d < DAYS_PER_YEAR * years; d++) {
     const day = addDays(FIRST_DAY, d);
@@ -147,21 +143,10 @@ function syntheticPad(years: number): PadData {
     const year = yearKeyOf(addDays(FIRST_DAY, y * DAYS_PER_YEAR));
     for (const t of byCadence('annual')) entries.push(entry(t, year, y));
   }
-  for (let e = 0; e < EVENTS_PER_YEAR * years; e++) {
-    events.push({
-      id: id(900_000 + e),
-      date: addDays(FIRST_DAY, Math.floor(e * 3.65)),
-      title: e % 2 ? 'IRC' : 'Dinner with the Harlows',
-      timeLabel: e % 3 ? '4pm–5:30pm' : undefined,
-      note: e % 4 ? undefined : 'bring the good wine',
-      updatedAt: STAMP,
-    });
-  }
 
   return {
     goals: { templates, entries, tombstones: {} },
     gratitude: { entries: gratitude, tombstones: {} },
-    events: { events, tombstones: {} },
   };
 }
 
@@ -209,7 +194,6 @@ function padWithGratitude(text: string): PadData {
       entries: { '2026-01-05': { forDate: '2026-01-05', writtenAt: '2026-01-06T07:00:00Z', text } },
       tombstones: {},
     },
-    events: { events: [], tombstones: {} },
   };
 }
 
