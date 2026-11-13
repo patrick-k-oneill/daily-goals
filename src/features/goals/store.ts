@@ -16,6 +16,7 @@ interface GoalsState extends Goals {
   cycleCheck: (entryId: string, checkIndex: number) => void;
   updateGoal: (entryId: string, patch: logic.GoalEditPatch) => void;
   removeGoal: (entryId: string) => void;
+  moveEntry: (entryId: string, toIndex: number) => void;
   /** Replace every template and entry with an imported pad's; it lands with today written. */
   replaceGoals: (goals: Goals) => void;
   /** Reconcile with another device's copy; it lands with today written. */
@@ -40,6 +41,8 @@ export const useGoalsStore = create<GoalsState>()(
       updateGoal: (entryId, patch) =>
         set((goals) => logic.updateGoal(goals, entryId, patch, nowStamp())),
       removeGoal: (entryId) => set((goals) => logic.removeGoal(goals, entryId, nowStamp())),
+      moveEntry: (entryId, toIndex) =>
+        set((goals) => logic.moveEntry(goals, entryId, toIndex, todayKey(), nowStamp())),
       replaceGoals: (goals) => set(logic.materializeToday(goals, todayKey())),
       mergeGoals: (remote) =>
         set((goals) => logic.materializeToday(logic.mergeGoals(goals, remote), todayKey())),

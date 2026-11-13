@@ -288,6 +288,46 @@ export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
   };
 }
 
+/**
+ * Move a line to `toIndex` in its period's section. The section is renumbered
+ * 1… in the new order, and each line whose place changed is a write. On the
+ * period containing `today` the order carries forward (ADR 0007): every
+ * recurring line's template takes its line's place, so the next period
+ * materializes in the same order. A past page's order stays its own.
+ */
+export function moveEntry(
+  goals: Goals,
+  entryId: string,
+  toIndex: number,
+  today: DayKey,
+  now: Stamp,
+): Goals {
+  const moved = goals.entries.find((e) => e.id === entryId);
+  if (!moved) return goals;
+
+  const lines = entriesForPeriod(goals.entries, moved.periodKey);
+  const to = Math.min(lines.length - 1, Math.max(0, toIndex));
+  if (to === lines.indexOf(moved)) return goals;
+
+  const reordered = lines.filter((e) => e !== moved);
+  reordered.splice(to, 0, moved);
+  const places = new Map(reordered.map((e, i) => [e.id, i + 1]));
+  const entries = goals.entries.map((e) => placedAt(e, places.get(e.id), now));
+  if (periodKeyFor(moved.cadence, today) !== moved.periodKey) return { ...goals, entries };
+
+  const templatePlaces = new Map(
+    reordered.flatMap((e, i) => (e.templateId ? [[e.templateId, i + 1] as const] : [])),
+  );
+  return {
+    ...goals,
+    entries,
+    // A retired template writes no more lines, so its place is never read again.
+    templates: goals.templates.map((t) =>
+      t.retiredAt ? t : placedAt(t, templatePlaces.get(t.id), now),
+    ),
+  };
+}
+
 const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => x.updatedAt };
 
 /**
@@ -453,6 +493,16 @@ function bySortOrder(a: GoalEntry, b: GoalEntry): number {
 function byStarredOrder(a: StarredGoalEntry, b: StarredGoalEntry): number {
   if (Boolean(a.starred) !== Boolean(b.starred)) return a.starred ? -1 : 1;
   return bySortOrder(a, b);
+}
+
+/** The item at a new place, stamped; the same item when it has no new place. */
+function placedAt<T extends { sortOrder: number; updatedAt: Stamp }>(
+  item: T,
+  place: number | undefined,
+  now: Stamp,
+): T {
+  if (place === undefined || place === item.sortOrder) return item;
+  return { ...item, sortOrder: place, updatedAt: now };
 }
 
 function nextSortOrder(items: { sortOrder: number }[]): number {

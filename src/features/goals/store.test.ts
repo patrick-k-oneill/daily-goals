@@ -161,6 +161,16 @@ describe('useGoalsStore', () => {
     expect(useGoalsStore.getState().tombstones).toHaveProperty(written.id);
   });
 
+  it("moves a line on today's page, carrying its template along", () => {
+    useGoalsStore.getState().materializeToday(todayKey());
+    const [first, second] = entriesForPeriod(useGoalsStore.getState().entries, todayKey());
+    useGoalsStore.getState().moveEntry(second.id, 0);
+
+    expect(titlesOn(todayKey())).toEqual([second.title, first.title]);
+    const { templates } = useGoalsStore.getState();
+    expect(templates.find((t) => t.id === second.templateId)?.sortOrder).toBe(1);
+  });
+
   it("merges another device's copy and lands with today's page written", () => {
     useGoalsStore.getState().mergeGoals({ templates: [imported], entries: [], tombstones: {} });
     expect(titlesOn(todayKey())).toEqual(['Recurring Dailies', 'Daily Prod', 'Imported']);

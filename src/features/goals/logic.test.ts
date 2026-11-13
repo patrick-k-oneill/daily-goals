@@ -12,6 +12,7 @@ import {
   MAX_CHECK_LABEL_LENGTH,
   MAX_CHECKS,
   mergeGoals,
+  moveEntry,
   periodKeyFor,
   periodLabel,
   removeGoal,
@@ -504,6 +505,201 @@ describe('updateGoal', () => {
     expect(updateGoal(weekend, 'e1', { title: 'Lift' }, NOW).templates[0].weekdays).toEqual([6, 7]);
     const everyDay = updateGoal(weekend, 'e1', { weekdays: [...EVERY_WEEKDAY] }, NOW);
     expect(everyDay.templates[0].weekdays).toBeUndefined();
+  });
+});
+
+describe('moveEntry', () => {
+  const YESTERDAY = '2026-08-20';
+  const TOMORROW = '2026-08-22';
+
+  /** One-off lines on a page, numbered 1… in the order given; each line's id is its title. */
+  function page(titles: string[], periodKey = TODAY): GoalEntry[] {
+    return titles.map((title, i) => entry({ id: title, title, periodKey, sortOrder: i + 1 }));
+  }
+
+  /** A template and its line on today's page, each at its own place. */
+  function recurring(title: string, linePlace: number, templatePlace = linePlace) {
+    const id = title.toLowerCase();
+    return {
+      template: template({ id, title, targetCount: 1, sortOrder: templatePlace }),
+      line: entry({
+        id: materializedEntryId(id, TODAY),
+        templateId: id,
+        title,
+        sortOrder: linePlace,
+      }),
+    };
+  }
+
+  function placesOn(state: Goals, periodKey: string) {
+    return entriesForPeriod(state.entries, periodKey).map((e) => e.sortOrder);
+  }
+
+  it('moves a line up its section and renumbers the section 1…', () => {
+    const start = goals({ entries: page(['Read', 'Walk', 'Write']) });
+    const moved = moveEntry(start, 'Write', 0, TODAY, NOW);
+    expect(titlesOn(moved, TODAY)).toEqual(['Write', 'Read', 'Walk']);
+    expect(placesOn(moved, TODAY)).toEqual([1, 2, 3]);
+  });
+
+  it('moves a line down its section', () => {
+    const start = goals({ entries: page(['Read', 'Walk', 'Write']) });
+    expect(titlesOn(moveEntry(start, 'Read', 1, TODAY, NOW), TODAY)).toEqual([
+      'Walk',
+      'Read',
+      'Write',
+    ]);
+  });
+
+  it('writes only the lines whose place changed', () => {
+    const start = goals({ entries: page(['Read', 'Walk', 'Write', 'Call']) });
+    const moved = moveEntry(start, 'Walk', 2, TODAY, NOW);
+    expect(byId(moved, 'Read')).toBe(start.entries[0]);
+    expect(byId(moved, 'Call')).toBe(start.entries[3]);
+    expect(byId(moved, 'Walk')).toMatchObject({ sortOrder: 3, updatedAt: NOW });
+    expect(byId(moved, 'Write')).toMatchObject({ sortOrder: 2, updatedAt: NOW });
+  });
+
+  it('closes the gaps a section was numbered with', () => {
+    const [read, walk, write] = page(['Read', 'Walk', 'Write']);
+    const start = goals({
+      entries: [
+        { ...read, sortOrder: 2 },
+        { ...walk, sortOrder: 5 },
+        { ...write, sortOrder: 9 },
+      ],
+    });
+    const moved = moveEntry(start, 'Write', 1, TODAY, NOW);
+    expect(titlesOn(moved, TODAY)).toEqual(['Read', 'Write', 'Walk']);
+    expect(placesOn(moved, TODAY)).toEqual([1, 2, 3]);
+  });
+
+  it('settles a line dropped past either end on that end', () => {
+    const start = goals({ entries: page(['Read', 'Walk', 'Write']) });
+    expect(titlesOn(moveEntry(start, 'Read', 99, TODAY, NOW), TODAY)).toEqual([
+      'Walk',
+      'Write',
+      'Read',
+    ]);
+    expect(titlesOn(moveEntry(start, 'Write', -5, TODAY, NOW), TODAY)).toEqual([
+      'Write',
+      'Read',
+      'Walk',
+    ]);
+  });
+
+  it('writes nothing for a line dropped where it was, or one not on the pad', () => {
+    const start = goals({ entries: page(['Read', 'Walk']) });
+    expect(moveEntry(start, 'Walk', 1, TODAY, NOW)).toBe(start);
+    expect(moveEntry(start, 'Walk', 7, TODAY, NOW)).toBe(start);
+    expect(moveEntry(start, 'nope', 0, TODAY, NOW)).toBe(start);
+  });
+
+  it('leaves every other period as it was', () => {
+    const earlier = page(['Read', 'Walk'], YESTERDAY).map((e) => ({ ...e, id: `y:${e.id}` }));
+    const start = goals({ entries: [...earlier, ...page(['Read', 'Walk'])] });
+    const moved = moveEntry(start, 'Walk', 0, TODAY, NOW);
+    expect(moved.entries.slice(0, 2)).toEqual(earlier);
+    expect(titlesOn(moved, YESTERDAY)).toEqual(['Read', 'Walk']);
+  });
+
+  it('carries the order forward: the next period materializes the way this one was left', () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 2);
+    const start = goals({
+      templates: [read.template, walk.template],
+      entries: [read.line, walk.line, entry({ id: 'Call', title: 'Call', sortOrder: 3 })],
+    });
+
+    const moved = moveEntry(start, walk.line.id, 0, TODAY, NOW);
+    expect(titlesOn(moved, TODAY)).toEqual(['Walk', 'Read', 'Call']);
+    expect(moved.templates.map((t) => [t.title, t.sortOrder, t.updatedAt])).toEqual([
+      ['Read', 2, NOW],
+      ['Walk', 1, NOW],
+    ]);
+    expect(titlesOn(materializeToday(moved, TOMORROW), TOMORROW)).toEqual(['Walk', 'Read']);
+  });
+
+  it('carries forward the place a one-off line took from a recurring one', () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 2);
+    const start = goals({
+      templates: [read.template, walk.template],
+      entries: [read.line, walk.line, entry({ id: 'Call', title: 'Call', sortOrder: 3 })],
+    });
+
+    const moved = moveEntry(start, 'Call', 0, TODAY, NOW);
+    expect(moved.templates.map((t) => t.sortOrder)).toEqual([2, 3]);
+    const tomorrow = materializeToday(moved, TOMORROW);
+    expect(titlesOn(tomorrow, TOMORROW)).toEqual(['Read', 'Walk']);
+    expect(placesOn(tomorrow, TOMORROW)).toEqual([2, 3]);
+  });
+
+  it("gives every recurring line's template its line's place, not only the lines that moved", () => {
+    // A page whose order no longer matches its templates', as a retired star left it.
+    const write = recurring('Write', 1, 3);
+    const read = recurring('Read', 2, 1);
+    const walk = recurring('Walk', 3, 2);
+    const start = goals({
+      templates: [read.template, walk.template, write.template],
+      entries: [write.line, read.line, walk.line],
+    });
+
+    const moved = moveEntry(start, walk.line.id, 1, TODAY, NOW);
+    expect(titlesOn(moved, TODAY)).toEqual(['Write', 'Walk', 'Read']);
+    expect(titlesOn(materializeToday(moved, TOMORROW), TOMORROW)).toEqual([
+      'Write',
+      'Walk',
+      'Read',
+    ]);
+  });
+
+  it("carries a week's order into the next week", () => {
+    const fitness = template({ id: 'fitness', cadence: 'weekly', title: 'Fitness', sortOrder: 1 });
+    const prod = template({ id: 'prod', cadence: 'weekly', title: 'Weekly Prod', sortOrder: 2 });
+    const start = materializeToday(goals({ templates: [fitness, prod] }), TODAY);
+
+    const moved = moveEntry(start, 'prod:2026-W34', 0, TODAY, NOW);
+    const nextWeek = materializeToday(moved, '2026-08-24');
+    expect(titlesOn(nextWeek, '2026-W35')).toEqual(['Weekly Prod', 'Fitness']);
+  });
+
+  it("keeps a past page's order to itself", () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 2);
+    const start = goals({
+      templates: [read.template, walk.template],
+      entries: [read.line, walk.line],
+    });
+
+    const moved = moveEntry(start, walk.line.id, 0, TOMORROW, NOW);
+    expect(titlesOn(moved, TODAY)).toEqual(['Walk', 'Read']);
+    expect(moved.templates).toBe(start.templates);
+  });
+
+  it('never writes on a retired template', () => {
+    const read = recurring('Read', 1);
+    const walk = recurring('Walk', 2);
+    const retired = { ...walk.template, retiredAt: NOW, updatedAt: NOW };
+    const start = goals({
+      templates: [read.template, retired],
+      entries: [read.line, walk.line],
+    });
+
+    const moved = moveEntry(start, walk.line.id, 0, TODAY, LATER);
+    expect(moved.templates[1]).toBe(retired);
+    expect(moved.templates[0]).toMatchObject({ sortOrder: 2, updatedAt: LATER });
+  });
+
+  it('reaches another device through a merge, beside what that device wrote meanwhile', () => {
+    const phone = goals({ entries: page(['Read', 'Walk', 'Write']) });
+    const ipad = cycleCheck(structuredClone(phone), 'Read', 0, NOW);
+
+    const moved = moveEntry(phone, 'Write', 1, TODAY, LATER);
+    const merged = mergeGoals(moved, ipad);
+    expect(titlesOn(merged, TODAY)).toEqual(['Read', 'Write', 'Walk']);
+    expect(byId(merged, 'Read')?.checks).toEqual(['done']);
+    expect(mergeGoals(ipad, moved)).toEqual(merged);
   });
 });
 
