@@ -12,9 +12,8 @@ import { useGratitudeStore } from '../store';
 
 /**
  * The morning ritual card: written today, about yesterday — exactly like
- * writing on the previous day's pad page. Fully controlled by the store, so
- * every mount of the same reflection date (Today page + Journal) shares one
- * source of truth and stays in live sync; zustand persist saves each edit.
+ * writing on the previous day's pad page. Fully controlled by the store;
+ * zustand persist saves each edit.
  */
 export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) {
   const theme = useTheme();

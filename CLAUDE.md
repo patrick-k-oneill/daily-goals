@@ -64,6 +64,10 @@ Default vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-f
 
 A PR that changes a native module, app config, a native dependency or sync is judged on device: `/p-test` records verdicts on the PR, and `/p-ready` refuses to merge without a PASS. See `docs/agents/manual-testing.md`.
 
+### PR review
+
+`bug-reviewer` before the push, Greptile (`greptile-apps[bot]`) after it; config in `.greptile/config.json`. See `docs/agents/pr-review.md`.
+
 ### Domain docs
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root, created lazily by `/domain-modeling`. See `docs/agents/domain.md`.

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { addDays, todayKey } from '@/lib/dates';
-import { EPOCH } from '@/lib/merge';
+import { EPOCH, LEGACY } from '@/lib/merge';
 
 import { entriesForPeriod, seedGoals } from './logic';
 import { useGoalsStore } from './store';
@@ -69,6 +69,7 @@ describe('useGoalsStore', () => {
     expect(titlesOn('2026-08-20')).toEqual(['Deep Work', 'Read']);
     const { entries } = useGoalsStore.getState();
     expect(entries.map((e) => e.sortOrder)).toEqual([2, 1]);
+    expect(entries.map((e) => e.updatedAt)).toEqual([NOW, NOW]);
     expect(entries.some((e) => 'starred' in e)).toBe(false);
   });
 
@@ -115,7 +116,7 @@ describe('useGoalsStore', () => {
       'seed:daily:1:2026-08-20',
       `seed:daily:1:${todayKey()}`,
     ]);
-    expect(Date.parse(entries[0].updatedAt)).not.toBeNaN();
+    expect(entries[0].updatedAt).toBe(LEGACY);
     expect(entries[1].updatedAt).toBe(EPOCH);
     expect(tombstones).toEqual({});
   });
@@ -138,6 +139,14 @@ describe('useGoalsStore', () => {
     expect(titlesOn(todayKey())).toEqual(['Imported']);
     expect(titlesOn(yesterday)).toEqual(['Imported']);
     expect(useGoalsStore.getState().entries).toHaveLength(2);
+  });
+
+  it('drops the declined suggestions an imported pad does not hold', () => {
+    useGoalsStore.getState().declineSuggestion('e1');
+    expect(useGoalsStore.getState().declinedSuggestions).toEqual(['e1']);
+
+    useGoalsStore.getState().replaceGoals({ templates: [], entries: [], tombstones: {} });
+    expect(useGoalsStore.getState().declinedSuggestions).toBeUndefined();
   });
 
   it('applies each action as a stamped transition on the persisted state', () => {

@@ -1,23 +1,32 @@
 import type { PadData } from '@/features/backup/types';
-import { isUpcomingEvent } from '@/features/events/logic';
-import type { UpcomingEvent } from '@/features/events/types';
 import { isGoalEntry, isGoalTemplate, retireStars } from '@/features/goals/logic';
 import type { GoalEntry, GoalTemplate } from '@/features/goals/types';
 import { isGratitudeEntries } from '@/features/gratitude/logic';
 import type { GratitudeEntries } from '@/features/gratitude/types';
-import { isArrayOf, isNumber, isRecord, parseJson, type Guard } from '@/lib/guards';
+import {
+  isArrayOf,
+  isNumber,
+  isOptional,
+  isRecord,
+  isString,
+  parseJson,
+  type Guard,
+} from '@/lib/guards';
 import { canonicalJson, isTombstones, type Stamp, type Tombstones } from '@/lib/merge';
 
 import type { CloudFiles, CloudPad, SyncPhase } from './types';
 
-/** Bump when the cloud layout changes; an older app leaves a newer file alone. */
-export const CLOUD_SCHEMA_VERSION = 2;
+/**
+ * Bump when the cloud layout changes; an older app leaves a newer file alone.
+ * Layout 3 keeps declined suggestions in the goals index: an app on layout 2
+ * would merge the index and write it back without them, so it must not read it.
+ */
+export const CLOUD_SCHEMA_VERSION = 3;
 /** The last layout whose goal lines carry a star. */
 const LAST_STARRED_CLOUD_SCHEMA_VERSION = 1;
 
 const GOALS_INDEX = 'goals/index.json';
 const GRATITUDE_INDEX = 'gratitude/index.json';
-const EVENTS = 'events.json';
 const YEAR_FILE = /^(goals|gratitude)\/entries-(\d{4})\.json$/;
 const COPY = /^(.+)@\d+$/;
 
@@ -37,6 +46,7 @@ export function splitPad(pad: PadData): CloudFiles {
   write(GOALS_INDEX, {
     templates: sortById(pad.goals.templates),
     tombstones: pad.goals.tombstones,
+    ...declined(pad.goals.declinedSuggestions),
   });
   for (const [year, entries] of byYear(pad.goals.entries, (e) => e.periodKey)) {
     write(yearPath('goals', year), { entries: sortById(entries) });
@@ -47,14 +57,14 @@ export function splitPad(pad: PadData): CloudFiles {
       entries: Object.fromEntries(mornings.map((m) => [m.forDate, m])),
     });
   }
-  write(EVENTS, { events: sortById(pad.events.events), tombstones: pad.events.tombstones });
   return files;
 }
 
 /**
  * The pad the cloud files hold. A file that is missing holds nothing; one that
  * is damaged or from a newer app is unreadable — it contributes nothing and is
- * never overwritten. Paths outside the layout are left alone.
+ * never overwritten. Paths outside the layout are neither read nor written;
+ * the `events.json` of a layout that held upcoming events is one of them.
  */
 export function joinPad(files: CloudFiles): CloudPad {
   const unreadable: string[] = [];
@@ -68,7 +78,6 @@ export function joinPad(files: CloudFiles): CloudPad {
 
   const goalsIndex = read(GOALS_INDEX, isGoalsIndex);
   const gratitudeIndex = read(GRATITUDE_INDEX, isGratitudeIndex);
-  const events = read(EVENTS, isEventsFile);
   const entries: GoalEntry[] = [];
   const mornings: GratitudeEntries = {};
   for (const path of Object.keys(files).sort()) {
@@ -84,9 +93,9 @@ export function joinPad(files: CloudFiles): CloudPad {
         templates: goalsIndex?.templates ?? [],
         entries: sortById(entries),
         tombstones: goalsIndex?.tombstones ?? {},
+        ...declined(goalsIndex?.declinedSuggestions),
       },
       gratitude: { entries: mornings, tombstones: gratitudeIndex?.tombstones ?? {} },
-      events: { events: events?.events ?? [], tombstones: events?.tombstones ?? {} },
     },
     unreadable,
   };
@@ -150,6 +159,7 @@ interface CloudFile {
 interface GoalsIndex {
   templates: GoalTemplate[];
   tombstones: Tombstones;
+  declinedSuggestions?: string[];
 }
 
 interface GoalsYear {
@@ -164,14 +174,12 @@ interface GratitudeYear {
   entries: GratitudeEntries;
 }
 
-interface EventsFile {
-  events: UpcomingEvent[];
-  tombstones: Tombstones;
-}
-
 function isGoalsIndex(value: unknown): value is GoalsIndex {
   return (
-    isRecord(value) && isArrayOf(isGoalTemplate)(value.templates) && isTombstones(value.tombstones)
+    isRecord(value) &&
+    isArrayOf(isGoalTemplate)(value.templates) &&
+    isTombstones(value.tombstones) &&
+    isOptional(isArrayOf(isString))(value.declinedSuggestions)
   );
 }
 
@@ -185,12 +193,6 @@ function isGratitudeIndex(value: unknown): value is GratitudeIndex {
 
 function isGratitudeYear(value: unknown): value is GratitudeYear {
   return isRecord(value) && isGratitudeEntries(value.entries);
-}
-
-function isEventsFile(value: unknown): value is EventsFile {
-  return (
-    isRecord(value) && isArrayOf(isUpcomingEvent)(value.events) && isTombstones(value.tombstones)
-  );
 }
 
 function isCloudFile(value: unknown): value is CloudFile {
@@ -212,6 +214,11 @@ function yearEntries(year: (CloudFile & GoalsYear) | undefined): GoalEntry[] {
   if (!year) return [];
   if (year.schemaVersion > LAST_STARRED_CLOUD_SCHEMA_VERSION) return year.entries;
   return retireStars({ templates: [], entries: year.entries, tombstones: {} }).entries;
+}
+
+/** The declined suggestions as the goals hold them: sorted, and absent when there are none. */
+function declined(sourceEntryIds: string[] | undefined): { declinedSuggestions?: string[] } {
+  return sourceEntryIds?.length ? { declinedSuggestions: [...sourceEntryIds].sort() } : {};
 }
 
 function yearPath(feature: 'goals' | 'gratitude', year: string): string {

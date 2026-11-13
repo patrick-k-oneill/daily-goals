@@ -11,7 +11,7 @@ You are the **post-push PR watcher**. Run this after pushing to a PR (automatic 
 Poll the PR every **3 minutes** and react:
 
 1. **A CI check fails** → read the failure logs (`gh run view <run-id> --log-failed`), diagnose, fix with a small clean commit, push, and keep watching.
-2. **New review-bot comments detected** (`coderabbitai[bot]`, `cursor[bot]`) → fully verify each claim against the code, as `~/.claude/CLAUDE.md` says for BugBot; valid → 👍 + fix + commit + push; wrong → resolve the review thread, never a reply (a reply re-engages the bot, so this repo resolves instead of the global reply rule). Only when comments are new — never re-triage seen ones. The threads, with the comment id the poll saw, and the mutation:
+2. **New review-bot comments detected** (`greptile-apps[bot]`, `cursor[bot]`) → fully verify each claim against the code, as `~/.claude/CLAUDE.md` says for BugBot; valid → 👍 + fix + commit + push; wrong → resolve the review thread, never a reply (a reply re-engages the bot, so this repo resolves instead of the global reply rule). Only when comments are new — never re-triage seen ones. The threads, with the comment id the poll saw, and the mutation:
 
    ```bash
    gh api graphql -F owner='{owner}' -F repo='{repo}' -F pr=<num> -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved path comments(first:1){nodes{databaseId author{login}}}}}}}}'

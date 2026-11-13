@@ -1,12 +1,14 @@
 import type { PadData } from '@/features/backup/types';
-import { mergeEvents } from '@/features/events/logic';
 import {
   addGoal,
   cycleCheck,
+  declineSuggestion,
   entriesForPeriod,
   materializeToday,
   mergeGoals,
   seedGoals,
+  stopRepeating,
+  updateGoal,
 } from '@/features/goals/logic';
 import type { GoalEntry, StarredGoalEntry } from '@/features/goals/types';
 import { mergeGratitude, saveEntry } from '@/features/gratitude/logic';
@@ -67,6 +69,7 @@ function samplePad(): PadData {
         line('t1:2025-12-31', '2025-12-31', NOW),
       ],
       tombstones: { 't1:2026-01-01': NOW },
+      declinedSuggestions: ['one-off-2', 'one-off-1'],
     },
     gratitude: {
       entries: {
@@ -75,18 +78,22 @@ function samplePad(): PadData {
       },
       tombstones: { '2025-12-30': NOW },
     },
-    events: {
-      events: [{ id: 'ev1', date: '2026-08-30', title: 'IRC', timeLabel: '4pm', updatedAt: NOW }],
-      tombstones: { ev0: NOW },
-    },
   };
+}
+
+/** An events file as a layout that held upcoming events wrote it. */
+function eventsFile(): string {
+  return JSON.stringify({
+    schemaVersion: 2,
+    events: [{ id: 'ev1', date: '2026-08-30', title: 'Dentist', timeLabel: '4pm', updatedAt: NOW }],
+    tombstones: { ev0: NOW },
+  });
 }
 
 function emptyPad(): PadData {
   return {
     goals: { templates: [], entries: [], tombstones: {} },
     gratitude: { entries: {}, tombstones: {} },
-    events: { events: [], tombstones: {} },
   };
 }
 
@@ -98,7 +105,6 @@ describe('splitPad', () => {
   it('files each part where the layout puts it, under the schema version', () => {
     const files = splitPad(samplePad());
     expect(Object.keys(files).sort()).toEqual([
-      'events.json',
       'goals/entries-2025.json',
       'goals/entries-2026.json',
       'goals/index.json',
@@ -110,6 +116,7 @@ describe('splitPad', () => {
       schemaVersion: CLOUD_SCHEMA_VERSION,
       templates: [expect.objectContaining({ id: 't1' }), expect.objectContaining({ id: 't2' })],
       tombstones: { 't1:2026-01-01': NOW },
+      declinedSuggestions: ['one-off-1', 'one-off-2'],
     });
     expect(bodyOf(files, 'goals/entries-2025.json')).toEqual({
       schemaVersion: CLOUD_SCHEMA_VERSION,
@@ -123,19 +130,24 @@ describe('splitPad', () => {
       schemaVersion: CLOUD_SCHEMA_VERSION,
       tombstones: { '2025-12-30': NOW },
     });
-    expect(bodyOf(files, 'events.json')).toEqual({
-      schemaVersion: CLOUD_SCHEMA_VERSION,
-      events: [expect.objectContaining({ id: 'ev1' })],
-      tombstones: { ev0: NOW },
-    });
+  });
+
+  it('leaves declined suggestions out of the goals index when there are none', () => {
+    const index = bodyOf(splitPad(emptyPad()), 'goals/index.json');
+    expect('declinedSuggestions' in index).toBe(false);
+    const none = { ...emptyPad().goals, declinedSuggestions: [] };
+    expect(splitPad({ ...emptyPad(), goals: none })).toEqual(splitPad(emptyPad()));
   });
 
   it('writes the same bytes for the same pad whatever order it was written in', () => {
     const pad = samplePad();
     const reordered: PadData = {
       ...pad,
-      goals: { ...pad.goals, entries: [...pad.goals.entries].reverse() },
-      events: { tombstones: pad.events.tombstones, events: pad.events.events },
+      goals: {
+        ...pad.goals,
+        entries: [...pad.goals.entries].reverse(),
+        declinedSuggestions: [...(pad.goals.declinedSuggestions ?? [])].reverse(),
+      },
     };
     expect(splitPad(reordered)).toEqual(splitPad(pad));
   });
@@ -157,7 +169,31 @@ describe('joinPad', () => {
     expect(joined.goals.tombstones).toEqual(pad.goals.tombstones);
     expect(Object.keys(joined.gratitude.entries)).toEqual(['2025-12-31', '2026-01-01']);
     expect(joined.gratitude.tombstones).toEqual(pad.gratitude.tombstones);
-    expect(joined.events).toEqual(pad.events);
+    expect(joined.goals.declinedSuggestions).toEqual(['one-off-1', 'one-off-2']);
+  });
+
+  it('joins a cloud pad that still holds an events file, reading past it and never writing it', () => {
+    const files = splitPad(samplePad());
+    const plain = joinPad(files);
+
+    for (const events of [eventsFile(), '{not json', JSON.stringify({ schemaVersion: 99 })]) {
+      const withEvents = { ...files, 'events.json': events };
+      expect(joinPad(withEvents)).toEqual(plain);
+      expect(changedPaths(withEvents, splitPad(plain.pad), plain.unreadable)).toEqual([]);
+    }
+
+    const { copies } = separateCopies({ ...files, 'events.json@1': eventsFile() });
+    expect(copies.map((copy) => joinPad(copy))).toEqual([{ pad: emptyPad(), unreadable: [] }]);
+  });
+
+  it('reads a goals index written before it held declined suggestions', () => {
+    const { templates, tombstones } = samplePad().goals;
+    const { pad, unreadable } = joinPad({
+      'goals/index.json': JSON.stringify({ schemaVersion: 2, templates, tombstones }),
+    });
+    expect(unreadable).toEqual([]);
+    expect(pad.goals.templates).toHaveLength(2);
+    expect('declinedSuggestions' in pad.goals).toBe(false);
   });
 
   it('reads an empty cloud as an empty pad', () => {
@@ -201,44 +237,48 @@ describe('joinPad', () => {
     const files = splitPad(samplePad());
     files['goals/entries-2025.json'] = '{not json';
     files['gratitude/index.json'] = JSON.stringify({ schemaVersion: 1, tombstones: { x: 'soon' } });
-    files['events.json'] = JSON.stringify({
+    files['gratitude/entries-2025.json'] = JSON.stringify({
       schemaVersion: CLOUD_SCHEMA_VERSION + 1,
-      events: [],
-      tombstones: {},
+      entries: {},
     });
     files['notes.json'] = 'something a later app wrote';
 
     const { pad, unreadable } = joinPad(files);
     expect(unreadable.sort()).toEqual([
-      'events.json',
       'goals/entries-2025.json',
+      'gratitude/entries-2025.json',
       'gratitude/index.json',
     ]);
     expect(pad.goals.entries.map((e) => e.id)).toEqual(['t1:2026-01-02']);
     expect(pad.gratitude.tombstones).toEqual({});
-    expect(pad.events).toEqual({ events: [], tombstones: {} });
-    expect(Object.keys(pad.gratitude.entries)).toEqual(['2025-12-31', '2026-01-01']);
+    expect(Object.keys(pad.gratitude.entries)).toEqual(['2026-01-01']);
   });
 });
 
 describe('separateCopies', () => {
   it('sets the conflict copies iCloud kept apart from the current files', () => {
     const { current, copies } = separateCopies({
-      'events.json': 'a',
-      'events.json@1': 'b',
-      'events.json@2': 'c',
+      'gratitude/index.json': 'a',
+      'gratitude/index.json@1': 'b',
+      'gratitude/index.json@2': 'c',
       'goals/index.json': 'd',
     });
-    expect(current).toEqual({ 'events.json': 'a', 'goals/index.json': 'd' });
-    expect(copies).toEqual([{ 'events.json': 'b' }, { 'events.json': 'c' }]);
+    expect(current).toEqual({ 'gratitude/index.json': 'a', 'goals/index.json': 'd' });
+    expect(copies).toEqual([{ 'gratitude/index.json': 'b' }, { 'gratitude/index.json': 'c' }]);
   });
 });
 
 describe('changedPaths', () => {
   it('names only the files whose text the cloud lacks, and never an unreadable one', () => {
     const cloud = splitPad(samplePad());
-    const next = { ...cloud, 'events.json': 'changed', 'goals/entries-2026.json': 'changed' };
-    expect(changedPaths(cloud, next, ['events.json'])).toEqual(['goals/entries-2026.json']);
+    const next = {
+      ...cloud,
+      'gratitude/index.json': 'changed',
+      'goals/entries-2026.json': 'changed',
+    };
+    expect(changedPaths(cloud, next, ['gratitude/index.json'])).toEqual([
+      'goals/entries-2026.json',
+    ]);
     expect(changedPaths(cloud, cloud, [])).toEqual([]);
   });
 
@@ -255,7 +295,6 @@ describe('two devices through the cloud', () => {
     const pad: PadData = {
       goals: materializeToday(mergeGoals(local.goals, remote.goals), TODAY),
       gratitude: mergeGratitude(local.gratitude, remote.gratitude),
-      events: mergeEvents(local.events, remote.events),
     };
     const next = splitPad(pad);
     const written = { ...cloud };
@@ -299,6 +338,40 @@ describe('two devices through the cloud', () => {
     ).toEqual(['done']);
     expect(phoneAgain.pad.gratitude.entries['2026-08-20']?.text).toBe('Amy');
     expect(changedPaths(phoneAgain.cloud, splitPad(ipadNext.pad), [])).toEqual([]);
+  });
+
+  it('carry a declined suggestion to the other device through the goals index', () => {
+    const fresh = (): PadData => ({ ...emptyPad(), goals: materializeToday(seedGoals(), TODAY) });
+    const phone: PadData = { ...fresh(), goals: declineSuggestion(fresh().goals, 'one-off-1') };
+
+    const phoneFirst = reconcile(phone, {});
+    const ipadNext = reconcile(fresh(), phoneFirst.cloud);
+    const phoneAgain = reconcile(phoneFirst.pad, ipadNext.cloud);
+
+    expect(ipadNext.pad.goals.declinedSuggestions).toEqual(['one-off-1']);
+    expect(ipadNext.cloud).toEqual(phoneFirst.cloud);
+    expect(phoneAgain.pad).toEqual(ipadNext.pad);
+  });
+
+  it('keep a goal stopped on one device stopped after a later edit on the other', () => {
+    const fresh = (): PadData => ({ ...emptyPad(), goals: materializeToday(seedGoals(), TODAY) });
+    const lineId = `seed:daily:1:${TODAY}`;
+    const phone: PadData = { ...fresh(), goals: stopRepeating(fresh().goals, lineId, NOW) };
+    const ipad: PadData = {
+      ...fresh(),
+      goals: updateGoal(fresh().goals, lineId, { title: 'Dailies' }, LATER),
+    };
+
+    const phoneFirst = reconcile(phone, {});
+    const ipadNext = reconcile(ipad, phoneFirst.cloud);
+    const phoneAgain = reconcile(phoneFirst.pad, ipadNext.cloud);
+    const ipadAgain = reconcile(ipadNext.pad, phoneAgain.cloud);
+
+    const template = phoneAgain.pad.goals.templates.find((t) => t.id === 'seed:daily:1');
+    expect(template).toMatchObject({ title: 'Dailies', retiredAt: NOW, updatedAt: LATER });
+    expect(phoneAgain.pad.goals.entries.find((e) => e.id === lineId)?.title).toBe('Dailies');
+    expect(ipadAgain.pad).toEqual(phoneAgain.pad);
+    expect(ipadAgain.cloud).toEqual(phoneAgain.cloud);
   });
 });
 

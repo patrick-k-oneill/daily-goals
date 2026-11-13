@@ -2,7 +2,6 @@ import { AppState } from 'react-native';
 
 import { readPad } from '@/features/backup/pad';
 import type { PadData } from '@/features/backup/types';
-import { useEventsStore } from '@/features/events/store';
 import { useGoalsStore } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
 import { nowStamp } from '@/lib/clock';
@@ -87,7 +86,6 @@ export function startSync(
     try {
       useGoalsStore.getState().mergeGoals(remote.goals);
       useGratitudeStore.getState().mergeGratitude(remote.gratitude);
-      useEventsStore.getState().mergeEvents(remote.events);
     } finally {
       applying = false;
     }
@@ -118,7 +116,7 @@ export function startSync(
       if (event === 'changed') schedule('pull', pullDelay);
       else request('pull');
     }),
-    ...[useGoalsStore, useGratitudeStore, useEventsStore].map((store) =>
+    ...[useGoalsStore, useGratitudeStore].map((store) =>
       store.subscribe(() => {
         if (!applying) schedule('push', pushDelay);
       }),

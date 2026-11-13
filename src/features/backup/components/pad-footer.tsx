@@ -9,9 +9,8 @@ import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
 import { dayKeyOf, formatPadDate } from '@/lib/dates';
 
-import { formatBytes } from '../footprint';
 import { describePad, padFileName, parsePad, serializePad, type PadFileContents } from '../logic';
-import { readPad, useStorageFootprint, writePad } from '../pad';
+import { readPad, writePad } from '../pad';
 import { exportPadFile, pickPadFile } from '../pad-file';
 
 interface Notice {
@@ -26,7 +25,6 @@ interface Notice {
 export function PadFooter() {
   const theme = useTheme();
   const today = useToday();
-  const footprint = useStorageFootprint();
   const [notice, setNotice] = useState<Notice | null>(null);
 
   const exportPad = async () => {
@@ -56,7 +54,7 @@ export function PadFooter() {
     try {
       const text = await pickPadFile();
       if (text === null) return;
-      const parsed = parsePad(text, new Date().toISOString());
+      const parsed = parsePad(text);
       if (parsed.ok) confirmReplace(parsed);
       else setNotice({ tone: 'error', text: parsed.reason });
     } catch {
@@ -66,25 +64,13 @@ export function PadFooter() {
 
   return (
     <View style={[styles.footer, { borderTopColor: theme.rule }]}>
-      <ThemedText type="handSmall" themeColor="textSecondary">
-        Pad
-      </ThemedText>
-      <View style={styles.actions}>
-        <FooterAction
-          label="Export pad…"
-          accessibilityLabel="Export the whole pad as a file"
-          onPress={exportPad}
-        />
-        <FooterAction
-          label="Import pad…"
-          accessibilityLabel="Import a pad file, replacing this pad"
-          onPress={importPad}
-        />
+      <View style={styles.row}>
+        <View style={styles.actions}>
+          <FooterAction icon="↑" label="Export data" onPress={exportPad} />
+          <FooterAction icon="↓" label="Import data" onPress={importPad} />
+        </View>
+        <SyncLine />
       </View>
-      <ThemedText type="small" themeColor="textSecondary">
-        {formatBytes(footprint.total)} on this device
-      </ThemedText>
-      <SyncLine />
       {notice && (
         <ThemedText
           type="small"
@@ -98,21 +84,23 @@ export function PadFooter() {
 }
 
 function FooterAction({
+  icon,
   label,
-  accessibilityLabel,
   onPress,
 }: {
+  icon: string;
   label: string;
-  accessibilityLabel: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={label}
       onPress={onPress}
-      hitSlop={8}
       style={styles.action}>
+      <ThemedText type="small" themeColor="textSecondary">
+        {icon}
+      </ThemedText>
       <ThemedText type="small">{label}</ThemedText>
     </Pressable>
   );
@@ -121,9 +109,16 @@ function FooterAction({
 const styles = StyleSheet.create({
   footer: {
     marginTop: 'auto',
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.one,
     borderTopWidth: StyleSheet.hairlineWidth,
-    gap: Spacing.two,
+  },
+  // Actions at the left, the sync line at the right; on a narrow page it wraps under them.
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: Spacing.four,
   },
   actions: {
     flexDirection: 'row',
@@ -131,6 +126,9 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   action: {
-    paddingVertical: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    minHeight: 44,
   },
 });

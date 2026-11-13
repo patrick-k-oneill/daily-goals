@@ -1,10 +1,8 @@
 import { Caveat_700Bold, useFonts } from '@expo-google-fonts/caveat';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
-import AppTabs from '@/components/app-tabs';
-import { useEventsStore } from '@/features/events/store';
 import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
 import { useSyncEngine } from '@/features/sync/store';
@@ -14,7 +12,7 @@ import { useHydrated } from '@/lib/persisted-store';
 
 SplashScreen.preventAutoHideAsync();
 
-const persistedStores = [useGoalsStore, useGratitudeStore, useEventsStore];
+const persistedStores = [useGoalsStore, useGratitudeStore];
 
 export default function RootLayout() {
   const dark = useColorScheme() === 'dark';
@@ -39,7 +37,7 @@ export default function RootLayout() {
     ...base,
     colors: {
       ...base.colors,
-      primary: palette.accent,
+      primary: palette.primary,
       background: palette.background,
       card: palette.background,
       text: palette.text,
@@ -49,7 +47,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navTheme}>
-      <AppTabs />
+      <Stack screenOptions={{ headerShown: false }} />
     </ThemeProvider>
   );
 }

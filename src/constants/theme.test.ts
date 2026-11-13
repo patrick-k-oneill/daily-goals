@@ -14,8 +14,39 @@ function contrastRatio(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+const schemes = [
+  ['light', Colors.light],
+  ['dark', Colors.dark],
+] as const;
+
+describe('schemes', () => {
+  it('define the same tokens', () => {
+    expect(Object.keys(Colors.dark)).toEqual(Object.keys(Colors.light));
+  });
+});
+
 describe('dark-mode rule lines', () => {
   it('keeps the rule visible at ≥2.5:1 against the dark background', () => {
     expect(contrastRatio(Colors.dark.rule, Colors.dark.background)).toBeGreaterThanOrEqual(2.5);
+  });
+});
+
+describe.each(schemes)('%s primary', (_, scheme) => {
+  it('carries onPrimary at ≥4.5:1 at rest (WCAG AA for the pill label)', () => {
+    expect(contrastRatio(scheme.onPrimary, scheme.primary)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('carries onPrimary at ≥4.5:1 when pressed', () => {
+    expect(contrastRatio(scheme.onPrimary, scheme.primaryPressed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('outlines controls with primaryEdge at ≥3:1 against the page (WCAG AA non-text)', () => {
+    expect(contrastRatio(scheme.primaryEdge, scheme.background)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('darkens when pressed', () => {
+    expect(relativeLuminance(scheme.primaryPressed)).toBeLessThan(
+      relativeLuminance(scheme.primary),
+    );
   });
 });

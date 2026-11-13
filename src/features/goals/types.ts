@@ -33,7 +33,10 @@ export interface GoalTemplate {
 
 /** A goal line on a specific period's page — recurring instance or one-off. */
 export interface GoalEntry {
-  /** A materialized line is `<templateId>:<periodKey>`, so every device writes the same id. */
+  /**
+   * A materialized line is `<templateId>:<periodKey>` and a carried-over line
+   * `<first entry's id>><periodKey>`, so every device writes the same id.
+   */
   id: string;
   /** Present when this entry was materialized from a recurring template. */
   templateId?: string;
@@ -46,6 +49,8 @@ export interface GoalEntry {
   checkLabels?: string[];
   /** The line's place in its period's section, ascending; a new line takes the highest. */
   sortOrder: number;
+  /** The entry this line carries over, when it was written by accepting a suggestion. */
+  carriedFrom?: string;
   /** The epoch until someone writes on the line. */
   updatedAt: Stamp;
 }
@@ -56,6 +61,25 @@ export interface Goals {
   entries: GoalEntry[];
   /** Entries crossed off the page, by id. */
   tombstones: Tombstones;
+  /** The entries whose carryover suggestion was declined, by id, sorted; absent when none was. */
+  declinedSuggestions?: string[];
+}
+
+/**
+ * A goal the pad offers to write on the current period's section. It is on no
+ * page until it is accepted.
+ */
+export interface Suggestion {
+  /** Carryover: an unfinished one-off line from the most recent earlier period. */
+  kind: 'carryover';
+  /** The entry it would carry over. */
+  sourceEntryId: string;
+  /** The period the source entry is written on. */
+  sourcePeriodKey: string;
+  cadence: Cadence;
+  title: string;
+  targetCount: number;
+  checkLabels?: string[];
 }
 
 /** An entry as stored while the star was drawn (store v3, pad file 2–3): `starred` ranked it first in its section. */

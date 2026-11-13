@@ -82,13 +82,6 @@ export function currentStreak(entries: GratitudeEntries, reflectionDate: DayKey)
   return streak;
 }
 
-/** Written entries newest-first for the history list. */
-export function sortedEntries(entries: GratitudeEntries): GratitudeEntry[] {
-  return Object.values(entries)
-    .filter(isWritten)
-    .sort((a, b) => (a.forDate < b.forDate ? 1 : -1));
-}
-
 function isWritten(entry: GratitudeEntry | undefined): entry is GratitudeEntry {
   return Boolean(entry?.text.trim());
 }

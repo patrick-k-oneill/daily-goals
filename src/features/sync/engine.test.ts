@@ -1,5 +1,4 @@
 import type { PadData } from '@/features/backup/types';
-import { useEventsStore } from '@/features/events/store';
 import { materializeToday, seedGoals } from '@/features/goals/logic';
 import { useGoalsStore } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
@@ -52,7 +51,6 @@ function padWith(overrides: Partial<PadData>): PadData {
   return {
     goals: { templates: [], entries: [], tombstones: {} },
     gratitude: { entries: {}, tombstones: {} },
-    events: { events: [], tombstones: {} },
     ...overrides,
   };
 }
@@ -66,7 +64,6 @@ describe('startSync', () => {
   beforeEach(() => {
     useGoalsStore.setState(materializeToday(seedGoals(), todayKey()));
     useGratitudeStore.setState({ entries: {}, tombstones: {} });
-    useEventsStore.setState({ events: [], tombstones: {} });
   });
 
   afterEach(() => stop());

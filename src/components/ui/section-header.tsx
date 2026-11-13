@@ -6,13 +6,13 @@ import { useTheme } from '@/hooks/use-theme';
 
 interface SectionHeaderProps {
   title: string;
-  /** Date, week range, or year — sits small at the top-left like the corner of the page. */
+  /** The page's date — sits small at the top-left like the corner of the page. */
   detail?: string;
   /** Flip to the previous page. Renders a ‹ chevron beside the detail. */
   onPrev?: () => void;
   /** Flip to the next page. Renders a › chevron beside the detail. */
   onNext?: () => void;
-  /** Tap the detail itself (e.g. jump back to today). */
+  /** Tap the detail itself (e.g. open a date picker). */
   onDetailPress?: () => void;
   /** Render the detail in the accent color — signals "not today's page". */
   detailHighlight?: boolean;
@@ -50,7 +50,7 @@ export function SectionHeader({
           <Pressable
             disabled={!onDetailPress}
             accessibilityRole={onDetailPress ? 'button' : 'text'}
-            accessibilityLabel={onDetailPress ? `${detail} — back to today` : detail}
+            accessibilityLabel={onDetailPress ? `${detail} — choose a day` : detail}
             hitSlop={6}
             onPress={onDetailPress}>
             <ThemedText type="handSmall" themeColor={detailHighlight ? 'accent' : 'textSecondary'}>

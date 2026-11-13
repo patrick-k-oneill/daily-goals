@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
+import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
@@ -56,18 +56,28 @@ interface FormActionsProps {
   onCancel: () => void;
 }
 
-/** The accent submit pill and a quiet Cancel. */
+/** The yellow submit pill and a quiet Cancel. */
 export function FormActions({ submitLabel, canSubmit, onSubmit, onCancel }: FormActionsProps) {
   const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
   return (
     <View style={styles.actions}>
       <Pressable
+        {...hoverProps}
         accessibilityRole="button"
         accessibilityState={{ disabled: !canSubmit }}
         disabled={!canSubmit}
         onPress={onSubmit}
-        style={[styles.submit, { backgroundColor: theme.accent }, !canSubmit && styles.disabled]}>
-        <ThemedText type="smallBold" themeColor="onAccent">
+        style={({ pressed }) => [
+          styles.submit,
+          {
+            backgroundColor:
+              canSubmit && (pressed || hovered) ? theme.primaryPressed : theme.primary,
+            borderColor: theme.primaryEdge,
+          },
+          !canSubmit && styles.disabled,
+        ]}>
+        <ThemedText type="smallBold" themeColor="onPrimary">
           {submitLabel}
         </ThemedText>
       </Pressable>
@@ -84,11 +94,10 @@ interface AddLineProps {
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
-  type?: ThemedTextProps['type'];
 }
 
 /** The next blank line on the page — "+ Add …" — that opens a form when tapped. */
-export function AddLine({ label, accessibilityLabel, onPress, type }: AddLineProps) {
+export function AddLine({ label, accessibilityLabel, onPress }: AddLineProps) {
   const { hovered, hoverProps } = useHover();
   return (
     <Pressable
@@ -97,9 +106,7 @@ export function AddLine({ label, accessibilityLabel, onPress, type }: AddLinePro
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={styles.addLine}>
-      <ThemedText type={type} themeColor={hovered ? 'text' : 'textSecondary'}>
-        {label}
-      </ThemedText>
+      <ThemedText themeColor={hovered ? 'text' : 'textSecondary'}>{label}</ThemedText>
     </Pressable>
   );
 }
@@ -126,6 +133,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
+    borderWidth: 1,
   },
   disabled: {
     opacity: 0.4,

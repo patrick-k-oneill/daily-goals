@@ -92,17 +92,6 @@ export function weekdayOf(key: DayKey): number {
   return weekdayIndex(key) + 1;
 }
 
-/** The Monday of the ISO week containing `key`. */
-export function weekStart(key: DayKey): DayKey {
-  return addDays(key, -weekdayIndex(key));
-}
-
-/** All 7 day keys (Mon–Sun) of the ISO week containing `key`. */
-export function daysOfWeek(key: DayKey): DayKey[] {
-  const start = weekStart(key);
-  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
-}
-
 /** First day of the month containing `key`. */
 export function monthStart(key: DayKey): DayKey {
   return `${key.slice(0, 7)}-01`;
@@ -156,21 +145,8 @@ export function formatDayLong(key: DayKey): string {
   return `${WEEKDAY_LABELS[weekdayIndex(key)]}, ${MONTH_LABELS[date.getMonth()]} ${date.getDate()}`;
 }
 
-/** "Sun 8/23" — the way an event is jotted at the bottom of the page. */
+/** "Sun 8/23": a day named without its year. */
 export function formatDayWithWeekday(key: DayKey): string {
   const date = parseDayKey(key);
   return `${WEEKDAY_LABELS[weekdayIndex(key)]} ${date.getMonth() + 1}/${date.getDate()}`;
-}
-
-/** "Aug 18 – 24" or "Aug 31 – Sep 6" for the ISO week containing `key`. */
-export function formatWeekRange(key: DayKey): string {
-  const days = daysOfWeek(key);
-  const start = parseDayKey(days[0]);
-  const end = parseDayKey(days[6]);
-  const startLabel = `${MONTH_LABELS[start.getMonth()]} ${start.getDate()}`;
-  const endLabel =
-    start.getMonth() === end.getMonth()
-      ? `${end.getDate()}`
-      : `${MONTH_LABELS[end.getMonth()]} ${end.getDate()}`;
-  return `${startLabel} – ${endLabel}`;
 }

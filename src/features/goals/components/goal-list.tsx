@@ -12,10 +12,11 @@ import type { Cadence } from '../types';
 import { AddGoalRow } from './add-goal-row';
 import { GoalRow } from './goal-row';
 import { goalListLayouts } from './goal-row-layout';
+import { SuggestionRows } from './suggestion-row';
 
 /**
  * One cadence's section of the page for the period containing `day`: each
- * line, then the next blank one. Reads only — today's page is written by the
+ * line, any suggestions, then the next blank one. Reads only — today's page is written by the
  * goals store. Measures itself once so the whole section shares one layout
  * rhythm (see goalListLayouts).
  */
@@ -39,6 +40,7 @@ export function GoalList({ cadence, day }: { cadence: Cadence; day: DayKey }) {
           Nothing written on this page yet.
         </ThemedText>
       )}
+      <SuggestionRows cadence={cadence} periodKey={periodKey} />
       <AddGoalRow cadence={cadence} periodKey={periodKey} />
     </View>
   );
