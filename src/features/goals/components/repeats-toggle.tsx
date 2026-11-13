@@ -12,7 +12,8 @@ interface RepeatsToggleProps {
 /** The goal form's Repeats switch: on, the goal is written again every new period. */
 export function RepeatsToggle({ value, onValueChange }: RepeatsToggleProps) {
   const theme = useTheme();
-  const webKnob: object | null = Platform.OS === 'web' ? { activeThumbColor: theme.onPrimary } : null;
+  const webKnob: object | null =
+    Platform.OS === 'web' ? { activeThumbColor: theme.onPrimary } : null;
 
   return (
     <View style={styles.toggle}>
