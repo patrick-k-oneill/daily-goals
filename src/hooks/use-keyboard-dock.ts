@@ -34,6 +34,8 @@ export function useKeyboardDock(): KeyboardDock {
 }
 
 function nextDock(prev: KeyboardDock, { endCoordinates }: KeyboardEvent): KeyboardDock {
+  // Read when the frame changes: a rendered window size can lag a rotation.
+  // react-doctor-disable-next-line react-doctor/rn-no-dimensions-get
   const window = Dimensions.get('window');
   const { screenY, width, height } = endCoordinates;
   if (screenY >= window.height) return AT_REST;
