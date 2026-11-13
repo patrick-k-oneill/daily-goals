@@ -19,6 +19,7 @@ import {
   seedGoals,
   updateGoal,
   upgradeLegacyGoals,
+  type GoalEditPatch,
 } from './logic';
 import type {
   GoalEntry,
@@ -504,6 +505,79 @@ describe('updateGoal', () => {
     expect(updateGoal(weekend, 'e1', { title: 'Lift' }, NOW).templates[0].weekdays).toEqual([6, 7]);
     const everyDay = updateGoal(weekend, 'e1', { weekdays: [...EVERY_WEEKDAY] }, NOW);
     expect(everyDay.templates[0].weekdays).toBeUndefined();
+  });
+  describe('on a line whose count differs from its template', () => {
+    /** The count went down to two on today's line; yesterday's line keeps its three. */
+    const loweredSinceYesterday = () => {
+      const start = recurring();
+      start.entries.push(
+        entry({
+          id: 'y',
+          templateId: 't1',
+          periodKey: '2026-08-20',
+          title: 'Daily Prod',
+          checks: ['done', 'done', 'empty'],
+        }),
+      );
+      return updateGoal(start, 'e1', { targetCount: 2 }, NOW);
+    };
+    /** What the goal form sends on Save: the line's own title, count and labels, changed or not. */
+    const formOf = (state: Goals, id: string): GoalEditPatch => {
+      const line = byId(state, id);
+      return {
+        title: line?.title,
+        targetCount: line?.checks.length,
+        checkLabels: line?.checkLabels ?? [],
+        weekdays: EVERY_WEEKDAY,
+      };
+    };
+
+    it("renames the template without writing the older line's count back to it", () => {
+      const start = loweredSinceYesterday();
+      const renamed = updateGoal(start, 'y', { ...formOf(start, 'y'), title: 'Deep Work' }, LATER);
+
+      expect(byId(renamed, 'y')?.checks).toEqual(['done', 'done', 'empty']);
+      expect(renamed.templates[0]).toMatchObject({ title: 'Deep Work', targetCount: 2 });
+      const tomorrow = ensurePeriod(renamed, 'daily', '2026-08-22', '2026-08-22');
+      expect(byId(tomorrow, 't1:2026-08-22')?.checks).toHaveLength(2);
+    });
+
+    it('leaves the template as it was when the form is saved with nothing changed', () => {
+      const start = loweredSinceYesterday();
+      const saved = updateGoal(start, 'y', formOf(start, 'y'), LATER);
+      expect(saved.templates).toEqual(start.templates);
+    });
+
+    it("fits new labels to the template's own count", () => {
+      const start = loweredSinceYesterday();
+      const labeled = updateGoal(start, 'y', { checkLabels: ['Legs', 'Push', 'Pull'] }, LATER);
+
+      expect(byId(labeled, 'y')?.checkLabels).toEqual(['Legs', 'Push', 'Pull']);
+      expect(labeled.templates[0]).toMatchObject({
+        targetCount: 2,
+        checkLabels: ['Legs', 'Push'],
+        updatedAt: LATER,
+      });
+    });
+
+    it('still carries a count the edit changed, with the labels written over its new boxes', () => {
+      const start = loweredSinceYesterday();
+      const grown = updateGoal(start, 'y', { ...formOf(start, 'y'), targetCount: 4 }, LATER);
+      expect(byId(grown, 'y')?.checks).toHaveLength(4);
+      expect(grown.templates[0].targetCount).toBe(4);
+      expect(grown.templates[0].checkLabels).toBeUndefined();
+
+      const labeled = updateGoal(
+        grown,
+        'y',
+        { ...formOf(grown, 'y'), targetCount: 5, checkLabels: ['', '', '', '', 'Core'] },
+        LATER,
+      );
+      expect(labeled.templates[0]).toMatchObject({
+        targetCount: 5,
+        checkLabels: ['', '', '', '', 'Core'],
+      });
+    });
   });
 });
 

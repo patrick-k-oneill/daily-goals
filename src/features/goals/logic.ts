@@ -246,10 +246,11 @@ export interface GoalEditPatch {
 }
 
 /**
- * Edit a line in place. Edits to a recurring goal also update its template so
- * future pages inherit the new title, check count, labels and weekdays. A
- * blank title keeps the old one; existing marks survive a resize and labels
- * follow it.
+ * Edit a line in place. What an edit changes on a recurring goal's line also
+ * goes to its template, so future pages inherit the new title, check count,
+ * labels and weekdays; what it leaves alone on the line is left alone on the
+ * template. A blank title keeps the old one; existing marks survive a resize
+ * and labels follow it.
  */
 export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
@@ -268,19 +269,51 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, 
     ),
     templates: entry.templateId
       ? goals.templates.map((t) =>
-          t.id === entry.templateId
-            ? {
-                ...t,
-                title,
-                targetCount,
-                checkLabels,
-                weekdays: fitWeekdays(t.cadence, patch.weekdays ?? t.weekdays),
-                updatedAt: now,
-              }
-            : t,
+          t.id === entry.templateId ? editedTemplate(t, entry, patch, title, targetCount, now) : t,
         )
       : goals.templates,
   };
+}
+
+/**
+ * A template after an edit to one of its lines. It takes the title and count
+ * only where the edit changed them on the line, and new labels fitted to its
+ * own count: a line may differ from its template (an older page, a count
+ * changed since), and saving it must not write that difference back. An edit
+ * that changes nothing on the template leaves it unstamped.
+ */
+function editedTemplate(
+  template: GoalTemplate,
+  line: GoalEntry,
+  patch: GoalEditPatch,
+  title: string,
+  targetCount: number,
+  now: Stamp,
+): GoalTemplate {
+  // Both fitted to the edited count, so a label written over a box the edit added counts.
+  const isRelabeled =
+    patch.checkLabels !== undefined &&
+    !isSameJson(
+      fitCheckLabels(patch.checkLabels, targetCount),
+      fitCheckLabels(line.checkLabels, targetCount),
+    );
+  const count = targetCount === line.checks.length ? template.targetCount : targetCount;
+  const edited = {
+    title: title === line.title ? template.title : title,
+    targetCount: count,
+    checkLabels: fitCheckLabels(isRelabeled ? patch.checkLabels : template.checkLabels, count),
+    weekdays: fitWeekdays(template.cadence, patch.weekdays ?? template.weekdays),
+  };
+  const isUnchanged =
+    edited.title === template.title &&
+    edited.targetCount === template.targetCount &&
+    isSameJson(edited.checkLabels, template.checkLabels) &&
+    isSameJson(edited.weekdays, template.weekdays);
+  return isUnchanged ? template : { ...template, ...edited, updatedAt: now };
+}
+
+function isSameJson(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** Whether any box on a line carries a label. */
