@@ -59,6 +59,14 @@ _Avoid_: checkbox, tick, completion
 A short word over one check of a multi-check entry, like Fitness's Legs/Push/Pull: positional, at most six characters, written from the goal form and inherited from the template. A one-check entry has none.
 _Avoid_: sublabel, tag, caption
 
+**Achieved**:
+A section with every check on every entry done, once it has settled; its header then reads "Daily Goals Achieved!" (or Weekly, Annual). A section with no entries is never achieved. A section a check tap has just completed is settling: for a moment it keeps its plain header, so a check cycled past done to missed never shows as achieved.
+_Avoid_: complete, finished, all done
+
+**Reward moment**:
+The reinforcement played when a check tap achieves a section: the header's red-pen flourish drawn in, with a haptic. It plays once per period per section, only on the current period, and only ever from a tap — a rehydrated, imported or merged pad plays none. Which periods have played is remembered per device, outside the pad.
+_Avoid_: celebration, confetti
+
 ### Journal
 
 **Reflection date**:

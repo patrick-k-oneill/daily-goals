@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
 import { DatePicker } from '@/components/ui/date-picker';
-import { SectionHeader } from '@/components/ui/section-header';
 import { Screen } from '@/components/ui/screen';
 import { PadFooter } from '@/features/backup/components/pad-footer';
 import { GoalList } from '@/features/goals/components/goal-list';
+import { GoalSectionHeader } from '@/features/goals/components/goal-section-header';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
 import { reflectionDateFor } from '@/features/gratitude/logic';
 import { useToday } from '@/lib/clock';
@@ -27,8 +27,9 @@ export default function TodayScreen() {
 
   return (
     <Screen>
-      <SectionHeader
-        title="Daily Goals"
+      <GoalSectionHeader
+        cadence="daily"
+        day={day}
         detail={formatPadDate(day)}
         detailHighlight={!isToday}
         onPrev={() => showDay(addDays(day, -1))}
@@ -49,10 +50,10 @@ export default function TodayScreen() {
       )}
       <GoalList cadence="daily" day={day} />
 
-      <SectionHeader title="Weekly Goals" />
+      <GoalSectionHeader cadence="weekly" day={day} />
       <GoalList cadence="weekly" day={day} />
 
-      <SectionHeader title="Annual Goals" />
+      <GoalSectionHeader cadence="annual" day={day} />
       <GoalList cadence="annual" day={day} />
 
       <GratitudeEditor reflectionDate={isToday ? reflectionDateFor(today) : day} />
