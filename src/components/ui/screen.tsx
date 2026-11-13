@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ThemedView } from '@/components/themed-view';
 import { Layout, Spacing } from '@/constants/theme';
+import { useKeyboardDock } from '@/hooks/use-keyboard-dock';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -14,20 +15,25 @@ import { useTheme } from '@/hooks/use-theme';
 export function Screen({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const keyboardDock = useKeyboardDock();
 
   return (
     <ThemedView style={styles.root}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          // A docked keyboard insets the ScrollView on iOS, which also brings
+          // a focused input's caret above it; Android pads the page instead.
+          behavior={Platform.OS === 'android' ? 'padding' : undefined}>
           <ScrollView
             style={styles.flex}
             contentContainerStyle={[
               styles.scrollContent,
               { paddingBottom: insets.bottom + Spacing.five },
             ]}
-            keyboardShouldPersistTaps="handled">
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={keyboardDock.isDocked}
+            contentInset={{ bottom: keyboardDock.inset }}>
             <ThemedView style={[styles.page, { borderLeftColor: theme.margin }]}>
               {children}
             </ThemedView>

@@ -37,6 +37,8 @@ export function RepeatsToggle({ value, onValueChange }: RepeatsToggleProps) {
           marginVertical: (switchSize.height * (scale - 1)) / 2,
         }
       : styles.unmeasured;
+  const webKnob: object | null =
+    Platform.OS === 'web' ? { activeThumbColor: theme.onPrimary } : null;
 
   return (
     <View style={styles.toggle}>
@@ -48,8 +50,10 @@ export function RepeatsToggle({ value, onValueChange }: RepeatsToggleProps) {
           value={value}
           onValueChange={onValueChange}
           trackColor={{ false: theme.border, true: theme.primary }}
-          // Web renders no platform track, so the knob needs its own contrast.
+          // Web renders no platform track, so the knob needs its own contrast;
+          // react-native-web colors the on-state knob from activeThumbColor.
           thumbColor={Platform.OS === 'web' ? theme.text : undefined}
+          {...webKnob}
           accessibilityLabel="Repeats"
         />
       </View>
