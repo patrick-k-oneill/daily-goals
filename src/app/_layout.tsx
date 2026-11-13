@@ -1,9 +1,8 @@
 import { Caveat_700Bold, useFonts } from '@expo-google-fonts/caveat';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
-import AppTabs from '@/components/app-tabs';
 import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -46,7 +45,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navTheme}>
-      <AppTabs />
+      <Stack screenOptions={{ headerShown: false }} />
     </ThemeProvider>
   );
 }

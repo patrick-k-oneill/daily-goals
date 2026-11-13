@@ -3,8 +3,6 @@
  * red margin, ink text. Every color exists in both schemes under the same key.
  */
 
-import { Platform } from 'react-native';
-
 export const Colors = {
   light: {
     text: '#26221B',
@@ -48,10 +46,6 @@ export const Spacing = {
   five: 32,
   six: 64,
 } as const;
-
-// iOS 26's floating tab pill is taller than the classic bar; 68 keeps the
-// page's last line ≥16pt clear of it at max scroll.
-export const BottomTabInset = Platform.select({ ios: 68, android: 80 }) ?? 0;
 
 export const Layout = {
   /** A legal pad is 8.5" wide: the page column never grows past this, whatever the window. */

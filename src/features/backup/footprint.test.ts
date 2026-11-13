@@ -2,7 +2,7 @@ import type { Cadence, CheckState, GoalEntry, GoalTemplate } from '@/features/go
 import type { GratitudeEntries } from '@/features/gratitude/types';
 import { addDays, weekKeyOf, yearKeyOf, type DayKey } from '@/lib/dates';
 
-import { formatBytes, storageFootprint } from './footprint';
+import { storageFootprint } from './footprint';
 import type { PadData } from './types';
 
 /** Platform ceilings the pad must stay under (see ADR 0004). */
@@ -56,18 +56,6 @@ describe('storageFootprint', () => {
     expect(fiveYears.total).toBeLessThan(WEB_LOCAL_STORAGE_BYTES);
     expect(sixYears.total).toBeGreaterThan(WEB_LOCAL_STORAGE_BYTES);
     expect(sixYears.total).toBeLessThan(ANDROID_ASYNC_STORAGE_DEFAULT_BYTES);
-  });
-});
-
-describe('formatBytes', () => {
-  it('uses decimal units like iOS Settings', () => {
-    expect(formatBytes(0)).toBe('0 B');
-    expect(formatBytes(999)).toBe('999 B');
-    expect(formatBytes(1_000)).toBe('1 KB');
-    expect(formatBytes(12_400)).toBe('12 KB');
-    expect(formatBytes(412_600)).toBe('413 KB');
-    expect(formatBytes(1_500_000)).toBe('1.5 MB');
-    expect(formatBytes(5_000_000)).toBe('5.0 MB');
   });
 });
 

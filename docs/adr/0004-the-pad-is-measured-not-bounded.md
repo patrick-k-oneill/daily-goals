@@ -19,3 +19,5 @@ Revisited 2026-09-25 for sync (#6, ADR 0005): the stamp every item now carries m
 Revisited 2026-11-06 for the star's retirement (#29): the `starred` flag every entry carried is gone, moving the figures from 1.10 to 1.03 MB a year and the web line back from year five to year six. Decision unchanged.
 
 Revisited 2026-11-13 for the removal of upcoming events (#95): the events store is gone, moving the figures from 1.03 to 1.02 MB a year. Decision unchanged.
+
+Revisited 2026-11-13 for the simplified main screen (#96): the footer no longer shows the live footprint and `useStorageFootprint` is gone; the test still pins the figures. Decision unchanged.

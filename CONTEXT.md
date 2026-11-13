@@ -67,7 +67,7 @@ The whole pad — templates, entries, gratitude entries and their tombstones —
 _Avoid_: backup file, snapshot, dump
 
 **Footprint**:
-The pad's size on this device — the bytes of each store's persisted JSON, and their total — shown in the Pad footer and projected for future years in ADR 0004.
+The pad's size on this device — the bytes of each store's persisted JSON, and their total — projected for future years in ADR 0004.
 _Avoid_: storage usage, disk size, quota
 
 ### Sync
