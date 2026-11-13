@@ -7,6 +7,9 @@ import { buildIssue, filedOutcome, issueRequest, newIssueUrl } from './logic';
 import { readToken } from './token';
 import type { SendOutcome } from './types';
 
+const TOO_LONG_FOR_THE_BROWSER =
+  'This note is too long to hand to the browser. Shorten it, or add a GitHub token.';
+
 /**
  * File a note as an issue: through the GitHub API when a token is saved,
  * otherwise by opening GitHub's new-issue page with the note filled in. On
@@ -25,12 +28,15 @@ export async function sendFeedback(text: string, day: DayKey): Promise<SendOutco
   const token = readToken();
   try {
     if (!token) {
-      await Linking.openURL(newIssueUrl(issue));
+      const url = newIssueUrl(issue);
+      if (!url) return { ok: false, message: TOO_LONG_FOR_THE_BROWSER };
+      await Linking.openURL(url);
       return { ok: true, message: 'Opened GitHub to file it.' };
     }
     const { url, init } = issueRequest(issue, token);
     const response = await fetch(url, init);
-    return filedOutcome(response.status, await response.json().catch(() => null));
+    const answer = response.ok ? await response.json().catch(() => null) : null;
+    return filedOutcome(response.status, answer);
   } catch {
     return { ok: false, message: 'Couldn’t reach GitHub.' };
   }

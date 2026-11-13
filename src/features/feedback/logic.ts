@@ -4,6 +4,8 @@ const REPO = 'patrick-k-oneill/daily-goals';
 const TRIAGE_LABEL = 'needs-triage';
 /** An issue title holds at most this many characters. */
 export const MAX_TITLE_LENGTH = 72;
+/** GitHub answers a longer address with an error page and no filled-in note. */
+export const MAX_PREFILL_URL_LENGTH = 6000;
 
 /** Whether a note has anything to send. */
 export function canSend(text: string): boolean {
@@ -14,22 +16,32 @@ export function canSend(text: string): boolean {
  * Shape a note as an issue: its first line is the title, the rest the body,
  * closed by a footer saying where it was written. A first line too long for a
  * title is cut with an ellipsis and the whole note becomes the body, so
- * nothing is lost. A blank note shapes nothing.
+ * nothing is lost. The cut counts whole characters, never half of an emoji.
+ * A blank note shapes nothing.
  */
 export function buildIssue(text: string, context: FeedbackContext): FeedbackIssue | null {
   if (!canSend(text)) return null;
   const note = text.trim();
   const [firstLine, ...rest] = note.split('\n');
   const heading = firstLine.trim();
-  const fits = heading.length <= MAX_TITLE_LENGTH;
-  const title = fits ? heading : `${heading.slice(0, MAX_TITLE_LENGTH - 1).trimEnd()}…`;
+  const characters = Array.from(heading);
+  const fits = characters.length <= MAX_TITLE_LENGTH;
+  const title = fits
+    ? heading
+    : `${characters
+        .slice(0, MAX_TITLE_LENGTH - 1)
+        .join('')
+        .trimEnd()}…`;
   const detail = fits ? rest.join('\n').trim() : note;
   const footer = contextFooter(context);
   return { title, body: detail ? `${detail}\n\n${footer}` : footer, labels: [TRIAGE_LABEL] };
 }
 
-/** GitHub's new-issue page with the issue filled in, for sending without a token. */
-export function newIssueUrl(issue: FeedbackIssue): string {
+/**
+ * GitHub's new-issue page with the issue filled in, for sending without a
+ * token; null when the note makes the address too long for GitHub to accept.
+ */
+export function newIssueUrl(issue: FeedbackIssue): string | null {
   const query = [
     ['title', issue.title],
     ['body', issue.body],
@@ -37,7 +49,8 @@ export function newIssueUrl(issue: FeedbackIssue): string {
   ]
     .map(([name, value]) => `${name}=${encodeURIComponent(value)}`)
     .join('&');
-  return `https://github.com/${REPO}/issues/new?${query}`;
+  const url = `https://github.com/${REPO}/issues/new?${query}`;
+  return url.length <= MAX_PREFILL_URL_LENGTH ? url : null;
 }
 
 /** The GitHub API call that files the issue with a token. */

@@ -13,6 +13,8 @@ export function readToken(): string | null {
 }
 
 export function saveToken(token: string): void {
+  // The one place a browser can keep it (ADR 0010); the token is scoped to this repo's issues.
+  // react-doctor-disable-next-line react-doctor/auth-token-in-web-storage
   localStorage.setItem(KEY, token);
 }
 

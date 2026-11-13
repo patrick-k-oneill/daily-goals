@@ -3,6 +3,7 @@ import {
   canSend,
   filedOutcome,
   issueRequest,
+  MAX_PREFILL_URL_LENGTH,
   MAX_TITLE_LENGTH,
   newIssueUrl,
 } from './logic';
@@ -57,6 +58,12 @@ describe('buildIssue', () => {
     expect(issue?.body).toBe(`${longLine}\nSecond line.\n\n${FOOTER}`);
   });
 
+  it('never cuts a title through the middle of an emoji', () => {
+    const issue = buildIssue(`${'a'.repeat(MAX_TITLE_LENGTH - 2)}😀😀😀`, CONTEXT);
+    expect(issue?.title).toBe(`${'a'.repeat(MAX_TITLE_LENGTH - 2)}😀…`);
+    expect(() => encodeURIComponent(issue?.title ?? '')).not.toThrow();
+  });
+
   it('keeps a first line of exactly the title length whole', () => {
     const line = 'a'.repeat(MAX_TITLE_LENGTH);
     expect(buildIssue(line, CONTEXT)).toMatchObject({ title: line, body: FOOTER });
@@ -76,13 +83,21 @@ describe('buildIssue', () => {
 
 describe('newIssueUrl', () => {
   it('prefills GitHub’s new-issue page with the title, body and label', () => {
-    const url = new URL(newIssueUrl(ISSUE));
+    const url = new URL(newIssueUrl(ISSUE) ?? '');
     expect(`${url.origin}${url.pathname}`).toBe(
       'https://github.com/patrick-k-oneill/daily-goals/issues/new',
     );
     expect(url.searchParams.get('title')).toBe(ISSUE.title);
     expect(url.searchParams.get('body')).toBe(ISSUE.body);
     expect(url.searchParams.get('labels')).toBe('needs-triage');
+  });
+
+  it('gives no address for a note too long for GitHub to accept in one', () => {
+    const fitting = { ...ISSUE, body: 'a'.repeat(MAX_PREFILL_URL_LENGTH - 200) };
+    expect(newIssueUrl(fitting)?.length).toBeLessThanOrEqual(MAX_PREFILL_URL_LENGTH);
+    expect(newIssueUrl({ ...ISSUE, body: 'a'.repeat(MAX_PREFILL_URL_LENGTH) })).toBeNull();
+    // A space takes three characters of the address.
+    expect(newIssueUrl({ ...ISSUE, body: ' '.repeat(MAX_PREFILL_URL_LENGTH / 3) })).toBeNull();
   });
 
   it('escapes what would break the query', () => {

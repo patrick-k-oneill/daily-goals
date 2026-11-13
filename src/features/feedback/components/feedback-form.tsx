@@ -31,11 +31,11 @@ export function FeedbackForm({ draft, onChangeDraft, onSettled, onCancel }: Feed
   const [isSending, setIsSending] = useState(false);
   const [hasRemovalFailed, setHasRemovalFailed] = useState(false);
 
-  const send = async () => {
+  const send = () => {
     setIsSending(true);
-    const outcome = await sendFeedback(draft, today);
-    setIsSending(false);
-    onSettled(outcome);
+    sendFeedback(draft, today)
+      .then(onSettled)
+      .finally(() => setIsSending(false));
   };
 
   const forget = async () => {
