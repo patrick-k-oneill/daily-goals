@@ -716,6 +716,168 @@ describe('mergeGoals', () => {
   });
 });
 
+/**
+ * How a line comes to show more checks than its goal is set to. Each
+ * `it.failing` states what should hold and does not: every one is a write from
+ * a copy that has not heard the count changed, winning its whole row.
+ */
+describe('the check count a line ends up with', () => {
+  const YESTERDAY = '2026-08-20';
+  const TOMORROW = '2026-08-22';
+  const LAST_NIGHT = '2026-08-20T20:00:00.000Z';
+  const EARLIER = '2026-08-21T08:00:00.000Z';
+  const YESTERDAY_LINE = `t1:${YESTERDAY}`;
+  const TODAY_LINE = `t1:${TODAY}`;
+
+  /** The pad every device starts from: a recurring three-check goal and yesterday's line of it. */
+  const shared = () =>
+    goals({
+      templates: [
+        template({
+          id: 't1',
+          title: 'Deep Work',
+          targetCount: 3,
+          updatedAt: '2026-08-19T09:00:00.000Z',
+        }),
+      ],
+      entries: [
+        entry({
+          id: YESTERDAY_LINE,
+          templateId: 't1',
+          periodKey: YESTERDAY,
+          title: 'Deep Work',
+          checks: ['empty', 'empty', 'empty'],
+        }),
+      ],
+    });
+
+  const checkCount = (state: Goals, id: string) => byId(state, id)?.checks.length;
+  const targetCount = (state: Goals) => state.templates.find((t) => t.id === 't1')?.targetCount;
+  /** A merge as a device's store applies it, from either side. */
+  const mergedBothWays = (a: Goals, b: Goals) =>
+    [mergeGoals(a, b), mergeGoals(b, a)].map((merged) => materializeToday(merged, TODAY));
+
+  describe('when one device changed the count last night and the other has not heard', () => {
+    const lowered = () => updateGoal(shared(), YESTERDAY_LINE, { targetCount: 2 }, LAST_NIGHT);
+    const stale = () => materializeToday(shared(), TODAY);
+
+    it('keeps the lowered count when both wrote today untouched', () => {
+      for (const merged of mergedBothWays(materializeToday(lowered(), TODAY), stale())) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(2);
+      }
+    });
+
+    it.failing('keeps the lowered count when the stale device tapped a check on its line', () => {
+      const tapped = cycleCheck(stale(), TODAY_LINE, 0, NOW);
+      for (const merged of mergedBothWays(materializeToday(lowered(), TODAY), tapped)) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(2);
+      }
+    });
+
+    it.failing('keeps the lowered count when only the stale device has written today', () => {
+      for (const merged of mergedBothWays(lowered(), stale())) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(2);
+      }
+    });
+
+    it.failing(
+      'keeps the lowered count when only the stale device wrote today, and tapped it',
+      () => {
+        const tapped = cycleCheck(stale(), TODAY_LINE, 0, NOW);
+        for (const merged of mergedBothWays(lowered(), tapped)) {
+          expect(checkCount(merged, TODAY_LINE)).toBe(2);
+        }
+      },
+    );
+
+    it.failing('keeps a raised count when both wrote today untouched', () => {
+      const raised = updateGoal(shared(), YESTERDAY_LINE, { targetCount: 4 }, LAST_NIGHT);
+      for (const merged of mergedBothWays(materializeToday(raised, TODAY), stale())) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(4);
+      }
+    });
+
+    it.failing('keeps the lowered count when the stale device renames its line of today', () => {
+      const renamed = updateGoal(stale(), TODAY_LINE, { title: 'Deep work' }, NOW);
+      for (const merged of mergedBothWays(materializeToday(lowered(), TODAY), renamed)) {
+        expect(targetCount(merged)).toBe(2);
+        expect(checkCount(materializeToday(merged, TOMORROW), `t1:${TOMORROW}`)).toBe(2);
+      }
+    });
+  });
+
+  describe("when one device lowers the count on today's line", () => {
+    const lowered = () =>
+      updateGoal(materializeToday(shared(), TODAY), TODAY_LINE, { targetCount: 2 }, NOW);
+    const other = () => materializeToday(shared(), TODAY);
+
+    it("keeps the lowered count over the other device's untouched line", () => {
+      for (const merged of mergedBothWays(lowered(), other())) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(2);
+      }
+    });
+
+    it('keeps the lowered count over a check the other device tapped before', () => {
+      const tappedBefore = cycleCheck(other(), TODAY_LINE, 0, EARLIER);
+      for (const merged of mergedBothWays(lowered(), tappedBefore)) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(2);
+      }
+    });
+
+    it.failing(
+      'keeps the lowered count over a check the other device tapped after, unheard',
+      () => {
+        const tappedAfter = cycleCheck(other(), TODAY_LINE, 0, LATER);
+        for (const merged of mergedBothWays(lowered(), tappedAfter)) {
+          expect(checkCount(merged, TODAY_LINE)).toBe(2);
+        }
+      },
+    );
+  });
+
+  describe('when a device upgrades from before stamps holding the old count', () => {
+    /** Its template sits at a place no seed holds, so the upgrade keeps the id both devices share. */
+    const legacy = (): LegacyGoals => ({
+      templates: [
+        {
+          id: 't1',
+          cadence: 'daily',
+          title: 'Deep Work',
+          targetCount: 3,
+          sortOrder: 7,
+          active: true,
+        },
+      ],
+      entries: [
+        {
+          id: 'old-today',
+          templateId: 't1',
+          cadence: 'daily',
+          periodKey: TODAY,
+          title: 'Deep Work',
+          checks: ['empty', 'empty', 'empty'],
+          sortOrder: 1,
+        },
+      ],
+    });
+    const lowered = () =>
+      materializeToday(updateGoal(shared(), YESTERDAY_LINE, { targetCount: 2 }, LAST_NIGHT), TODAY);
+
+    it.failing("keeps the lowered count on the template against the upgraded device's", () => {
+      for (const merged of mergedBothWays(lowered(), upgradeLegacyGoals(legacy(), NOW))) {
+        expect(targetCount(merged)).toBe(2);
+        expect(checkCount(materializeToday(merged, TOMORROW), `t1:${TOMORROW}`)).toBe(2);
+      }
+    });
+
+    it.failing("keeps the lowered count on today's line against the upgraded device's", () => {
+      for (const merged of mergedBothWays(lowered(), upgradeLegacyGoals(legacy(), NOW))) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(2);
+      }
+    });
+  });
+});
+
 describe('upgradeLegacyGoals', () => {
   const legacy: LegacyGoals = {
     templates: [

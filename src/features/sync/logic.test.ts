@@ -7,6 +7,7 @@ import {
   materializeToday,
   mergeGoals,
   seedGoals,
+  updateGoal,
 } from '@/features/goals/logic';
 import type { GoalEntry, StarredGoalEntry } from '@/features/goals/types';
 import { mergeGratitude, saveEntry } from '@/features/gratitude/logic';
@@ -300,6 +301,37 @@ describe('two devices through the cloud', () => {
     expect(phoneAgain.pad.gratitude.entries['2026-08-20']?.text).toBe('Amy');
     expect(changedPaths(phoneAgain.cloud, splitPad(ipadNext.pad), [])).toEqual([]);
   });
+
+  // Reproduces a line gaining a check: the iPad's row, written from its old template, wins whole.
+  it.failing(
+    'keep a lowered check count when a device that has not heard taps its line first',
+    () => {
+      const YESTERDAY = '2026-08-20';
+      const prod = `seed:daily:2:${TODAY}`;
+      const yesterday = (): PadData => ({
+        ...emptyPad(),
+        goals: materializeToday(seedGoals(), YESTERDAY),
+      });
+      const phone: PadData = {
+        ...yesterday(),
+        goals: updateGoal(
+          yesterday().goals,
+          `seed:daily:2:${YESTERDAY}`,
+          { targetCount: 7 },
+          '2026-08-20T20:00:00.000Z',
+        ),
+      };
+      const phonePushed = reconcile(phone, {});
+      expect(phonePushed.pad.goals.entries.find((e) => e.id === prod)?.checks).toHaveLength(7);
+
+      const ipadOpened = materializeToday(yesterday().goals, TODAY);
+      const ipad: PadData = { ...emptyPad(), goals: cycleCheck(ipadOpened, prod, 0, NOW) };
+      const ipadSynced = reconcile(ipad, phonePushed.cloud);
+      const phoneAgain = reconcile(phonePushed.pad, ipadSynced.cloud);
+
+      expect(phoneAgain.pad.goals.entries.find((e) => e.id === prod)?.checks).toHaveLength(7);
+    },
+  );
 });
 
 describe('describeSync', () => {
