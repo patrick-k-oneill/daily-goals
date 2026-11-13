@@ -1,5 +1,11 @@
-import { useLayoutEffect, useRef } from 'react';
-import { TextInput, type TextInputKeyPressEventData, type TextInputProps } from 'react-native';
+import { useLayoutEffect, useReducer, useRef } from 'react';
+import {
+  Platform,
+  TextInput,
+  type TextInputKeyPressEventData,
+  type TextInputProps,
+  type TextInputSelectionChangeEventData,
+} from 'react-native';
 
 import { getTextSelection, setTextSelection } from '@/lib/text-selection';
 
@@ -7,6 +13,7 @@ import {
   applyListEdit,
   breakLine,
   indentLine,
+  rebaseEdit,
   type ListEdit,
   type TextSelection,
 } from './list-text';
@@ -34,22 +41,35 @@ export function ListTextInput({
   ...props
 }: ListTextInputProps) {
   const input = useRef<TextInput>(null);
+  // React Native sizes a native input from the text it last reported, so a
+  // line a rewrite adds is measured one commit late; a commit that changes any
+  // prop measures it, and `nativeID` is the prop with no other effect.
+  const [remeasures, remeasure] = useReducer((count: number) => count + 1, 0);
   const pendingCaret = useRef<ListEdit | undefined>(undefined);
-  // The text and caret as of the last event, ahead of the next render.
-  const latest = useRef({ text: value, caret: { start: 0, end: 0 } as TextSelection });
+  // As of the last event, ahead of the next render: the text the input should
+  // hold, the texts it may still hold instead (the one it last reported and
+  // each rewrite since), and its caret.
+  const latest = useRef({ text: value, held: [value], caret: { start: 0, end: 0 } });
 
   useLayoutEffect(() => {
-    latest.current.text = value;
+    // A value from outside this input replaces what it holds.
+    if (latest.current.text !== value) latest.current = { ...latest.current, text: value };
     const pending = pendingCaret.current;
     pendingCaret.current = undefined;
     if (pending?.text === value && input.current) {
       setTextSelection(input.current, pending.selection);
+      if (Platform.OS !== 'web') remeasure();
     }
   }, [value]);
 
   const commit = (edit: ListEdit, typed?: string) => {
-    const hasChanged = edit.text !== latest.current.text;
-    latest.current = { text: edit.text, caret: edit.selection };
+    const { text, held } = latest.current;
+    const hasChanged = edit.text !== text;
+    latest.current = {
+      text: edit.text,
+      held: hasChanged ? [...held.slice(-MAX_HELD), text] : held,
+      caret: edit.selection,
+    };
     if (edit.text !== typed) pendingCaret.current = edit;
     if (hasChanged) onChangeText(edit.text);
   };
@@ -59,11 +79,18 @@ export function ListTextInput({
       ref={input}
       multiline
       submitBehavior="submit"
+      nativeID={Platform.OS === 'web' ? undefined : `list-text-input-${remeasures}`}
       value={value}
-      onChangeText={(next) => commit(applyListEdit(latest.current.text, next), next)}
+      onChangeText={(next) => {
+        const { text, held } = latest.current;
+        commit(applyListEdit(text, rebaseEdit(held, text, next)), next);
+        latest.current.held = [next];
+      }}
       onSubmitEditing={() => commit(breakLine(latest.current.text, latest.current.caret))}
       onSelectionChange={(e) => {
-        latest.current.caret = e.nativeEvent.selection;
+        // iOS reports its text with the caret; a caret in any other text is stale.
+        const { selection, text } = e.nativeEvent as SelectionEvent;
+        if (text === undefined || text === latest.current.text) latest.current.caret = selection;
         onSelectionChange?.(e);
       }}
       onKeyPress={(e) => {
@@ -79,6 +106,11 @@ export function ListTextInput({
     />
   );
 }
+
+/** Rewrites kept as texts the input may still hold; a few cover the lag of a fast typist. */
+const MAX_HELD = 8;
+
+type SelectionEvent = TextInputSelectionChangeEventData & { text?: string };
 
 /** The DOM's KeyboardEvent fields that react-native-web passes through on nativeEvent. */
 type KeyEvent = TextInputKeyPressEventData & { isComposing?: boolean; shiftKey?: boolean };

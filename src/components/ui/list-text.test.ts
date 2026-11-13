@@ -1,4 +1,11 @@
-import { applyListEdit, breakLine, indentLine, stripBullets, type ListEdit } from './list-text';
+import {
+  applyListEdit,
+  breakLine,
+  indentLine,
+  rebaseEdit,
+  stripBullets,
+  type ListEdit,
+} from './list-text';
 
 function edit(text: string, caret: number): ListEdit {
   return { text, selection: { start: caret, end: caret } };
@@ -167,6 +174,32 @@ describe('applyListEdit', () => {
     expect(applyListEdit('● a', '● a\nx\ny')).toEqual(edit('● a\nx\ny', 7));
     expect(applyListEdit('● ab', '● ')).toEqual(edit('● ', 2));
     expect(applyListEdit('● teh', '● the')).toEqual(edit('● the', 5));
+  });
+});
+
+describe('rebaseEdit', () => {
+  it('passes an edit of the current text through', () => {
+    expect(rebaseEdit(['- '], '● ', '● a')).toBe('● a');
+    expect(rebaseEdit(['● a'], '● a', '● ab')).toBe('● ab');
+  });
+
+  it('keeps a rewrite the input reports again without it', () => {
+    expect(rebaseEdit(['- '], '● ', '- ')).toBe('● ');
+  });
+
+  it('replays a key typed on the text from before a rewrite', () => {
+    expect(rebaseEdit(['- '], '● ', '- a')).toBe('● a');
+    expect(rebaseEdit(['● a'], '● a\n● ', '● ab')).toBe('● a\n● b');
+    expect(rebaseEdit(['● a\n● '], '● a\n', '● a\n● b')).toBe('● a\nb');
+    expect(rebaseEdit(['x\n- '], 'x\n● ', 'yx\n- ')).toBe('yx\n● ');
+  });
+
+  it('replays a key typed on a rewrite that a later one has replaced', () => {
+    expect(rebaseEdit(['● ab', '● a\n● b'], '● a\n● b\n● ', '● a\n● bc')).toBe('● a\n● b\n● c');
+  });
+
+  it('takes the reported text when the edit overlaps the rewrite', () => {
+    expect(rebaseEdit(['- '], '● ', 'x')).toBe('x');
   });
 });
 
