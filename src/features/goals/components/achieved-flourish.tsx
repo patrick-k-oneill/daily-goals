@@ -10,19 +10,11 @@ import { scaleLengths, scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 import { useTheme } from '@/hooks/use-theme';
 
+import { STAR_BOX, STAR_CORNER } from './achieved-flourish-layout';
+
 // Every length here is the mark at 100%; the marks grow with the title they are drawn on.
 const UNDERLINE = { left: -4, bottom: -1, height: 3, borderRadius: 2 };
-const STAR_BOX = 24;
-const STAR_CORNER = { top: -8, right: -18, width: STAR_BOX, height: STAR_BOX };
 const SPARK = { width: 2, length: 7, launch: -12, landing: -24 };
-/**
- * The room the star needs kept clear beside the title. The page's margin holds
- * the star's overhang at 100%; this is what a larger text size adds to it.
- */
-export function achievedFlourishInset(scale: number): number {
-  return -STAR_CORNER.right * (scale - 1);
-}
-
 /** Degrees clockwise from straight up: the sparks fan away from the title. */
 const SPARK_ANGLES = [-35, 20, 75];
 

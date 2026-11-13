@@ -13,7 +13,8 @@ import { useRewardsStore } from '../rewards-store';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
 
-import { AchievedFlourish, achievedFlourishInset } from './achieved-flourish';
+import { AchievedFlourish } from './achieved-flourish';
+import { achievedFlourishInset } from './achieved-flourish-layout';
 
 const REWARD_MOMENT_MS = 1100;
 
