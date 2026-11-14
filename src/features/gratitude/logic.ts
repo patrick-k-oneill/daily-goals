@@ -1,6 +1,14 @@
 import { stripBullets } from '@/components/ui/list-text';
 import { addDays, type DayKey } from '@/lib/dates';
-import { mergeKeyed, withoutTombstone, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
+import { isRecord, isString, isTimestamp } from '@/lib/guards';
+import {
+  isTombstones,
+  mergeKeyed,
+  withoutTombstone,
+  withTombstone,
+  type KeyOf,
+  type Stamp,
+} from '@/lib/merge';
 
 import type { Gratitude, GratitudeEntries, GratitudeEntry } from './types';
 
@@ -77,4 +85,26 @@ export function currentStreak(entries: GratitudeEntries, reflectionDate: DayKey)
 
 function isWritten(entry: GratitudeEntry | undefined): entry is GratitudeEntry {
   return Boolean(entry && stripBullets(entry.text).trim());
+}
+
+export function isGratitudeEntry(value: unknown): value is GratitudeEntry {
+  return (
+    isRecord(value) &&
+    isString(value.forDate) &&
+    isTimestamp(value.writtenAt) &&
+    isString(value.text)
+  );
+}
+
+/** Entries are keyed by reflection date, so every key must match its entry's `forDate`. */
+export function isGratitudeEntries(value: unknown): value is GratitudeEntries {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(([day, entry]) => isGratitudeEntry(entry) && entry.forDate === day)
+  );
+}
+
+/** The journal as it arrives from a file — a pad file, a cloud file. */
+export function isGratitude(value: unknown): value is Gratitude {
+  return isRecord(value) && isGratitudeEntries(value.entries) && isTombstones(value.tombstones);
 }

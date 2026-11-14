@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRemindersRefresh, useRemindersStore } from '@/features/goals/reminders-store';
 import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
+import { useSyncEngine } from '@/features/sync/store';
 import { useTextSizeStore } from '@/features/text-size/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -24,6 +25,7 @@ export default function RootLayout() {
   const storesHydrated = useHydrated(persistedStores);
   useMaterializeToday();
   useRemindersRefresh();
+  useSyncEngine(storesHydrated);
   const ready = (fontsLoaded || Boolean(fontError)) && storesHydrated;
 
   useEffect(() => {

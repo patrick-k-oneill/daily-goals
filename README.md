@@ -10,6 +10,7 @@ Built with Expo (React Native + TypeScript), one codebase for **web, iOS, and An
 - **Edit in place** — tap any goal title to rename it, resize its checks, or remove it. Edits to a recurring goal carry into future pages.
 - **Pad-style checks** — a goal can have multiple checkboxes (e.g. `Daily Prod` ×8). Taps cycle blank → ✓ done → ✕ missed, like pen marks. Long-press a goal's title and drag it to reorder its section.
 - **Gratitude Journal** — written each morning _about yesterday_, exactly like writing on the previous day's page. Autosaves, tracks the streak, keeps history.
+- **One pad on every device** — the iPhone and iPad apps keep the pad in iCloud Drive and merge changes line by line, so edits made offline on each device are all kept.
 - **Legal-pad look** — warm paper, blue rule lines, red margin, handwriting headers. Light and dark.
 
 ## Getting started
@@ -33,7 +34,7 @@ npx eas-cli build -p ios --profile production --auto-submit  # TestFlight build;
 
 Every push to `main` deploys the web build to <https://patrick-k-oneill.github.io/daily-goals/>. Open it in Safari and choose **File → Add to Dock**: the pad launches as a standalone window with the app icon and the paper theme color, and the pad survives reload and relaunch.
 
-Data is per browser until iCloud sync (#6). To move a pad between the phone and the Mac, use **Export data** / **Import data** at the bottom of the page.
+The web build has no iCloud. To move a pad between the phone and the Mac, use **Export data** / **Import data** at the bottom of the page.
 
 ## Quality
 
@@ -48,6 +49,7 @@ CI runs the same gates plus a web export build on every push and PR.
 ## Architecture
 
 ```
+modules/icloud-pad/    # local Expo module: the pad directory in the iCloud container (Swift)
 public/                # copied as-is into the web export: manifest.json, PWA icons
 src/
   app/                 # expo-router routes (thin) and the static HTML shell (+html.tsx)
@@ -56,9 +58,11 @@ src/
   features/
     goals/             # templates, per-period entries, check transitions, row geometry
     gratitude/         # journal entries, streaks
+    backup/            # the pad file (export / import) and the storage footprint
+    sync/              # the cloud pad layout and the pull / push engine over iCloud Drive
     feedback/          # a note from the pad footer, filed as a GitHub issue
   hooks/               # color scheme / theme
-  lib/                 # dates & period keys, live clock (useToday), persistence config, platform shims
+  lib/                 # dates & period keys, live clock (useToday), persistence config, merge, platform shims
 ```
 
 Each feature owns its `types.ts`, a pure `logic.ts` core (every transition and query, unit-tested at that interface), a thin zustand `store.ts` (one action per transition, persisted via AsyncStorage), and `components/`. Persistence is configured in one file (`src/lib/persisted-store.ts`), and the root layout waits for every store to rehydrate before the first paint. The domain language lives in `CONTEXT.md`; decisions in `docs/adr/`.

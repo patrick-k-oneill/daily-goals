@@ -8,6 +8,7 @@ import type { SendOutcome } from '@/features/feedback/types';
 import { RemindersToggle } from '@/features/goals/components/reminders-toggle';
 import { TextSizeControl } from '@/features/text-size/components/text-size-control';
 import { useTextScale } from '@/features/text-size/store';
+import { SyncLine } from '@/features/sync/components/sync-line';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -87,14 +88,17 @@ export function PadFooter() {
 
   return (
     <View style={[styles.footer, { borderTopColor: theme.rule }]}>
-      <TextSizeControl />
+      <View style={styles.row}>
+        <TextSizeControl />
+        <RemindersToggle />
+      </View>
       <View style={styles.row}>
         <View style={styles.actions}>
           <FooterAction icon="↑" label="Export data" onPress={exportPad} />
           <FooterAction icon="↓" label="Import data" onPress={importPad} />
           <FooterAction icon="✎" label="Send feedback" onPress={toggleFeedback} />
         </View>
-        <RemindersToggle />
+        <SyncLine />
       </View>
       {isFeedbackOpen && (
         <FeedbackForm
@@ -147,7 +151,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: Spacing.two,
   },
-  // The actions sit at the left of a row that wraps on a narrow page.
+  // This device's settings, then the data actions with the sync line; on a narrow page the right side wraps under the left.
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
