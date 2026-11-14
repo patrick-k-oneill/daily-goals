@@ -19,6 +19,8 @@ export interface SectionHeaderProps {
   detailHighlight?: boolean;
   /** Marks drawn over the title, in a box the size of its text. */
   titleFlourish?: ReactNode;
+  /** Room kept clear either side of the title, for a flourish that overhangs it. */
+  titleInset?: number;
 }
 
 /**
@@ -33,6 +35,7 @@ export function SectionHeader({
   onDetailPress,
   detailHighlight,
   titleFlourish,
+  titleInset = 0,
 }: SectionHeaderProps) {
   const theme = useTheme();
 
@@ -74,11 +77,13 @@ export function SectionHeader({
           )}
         </View>
       ) : null}
-      <View style={styles.titleBox}>
-        <ThemedText type="hand" style={styles.title} aria-live="polite">
-          {title}
-        </ThemedText>
-        {titleFlourish}
+      <View style={[styles.titleRow, { paddingHorizontal: titleInset }]}>
+        <View style={styles.titleBox}>
+          <ThemedText type="hand" style={styles.title} aria-live="polite">
+            {title}
+          </ThemedText>
+          {titleFlourish}
+        </View>
       </View>
     </View>
   );
@@ -95,8 +100,10 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     alignSelf: 'flex-start',
   },
+  titleRow: {
+    alignItems: 'center',
+  },
   titleBox: {
-    alignSelf: 'center',
     maxWidth: '100%',
   },
   title: {

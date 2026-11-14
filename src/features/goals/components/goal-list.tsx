@@ -4,6 +4,7 @@ import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ReorderableRow, useReorderable } from '@/components/ui/reorderable';
 import { Spacing } from '@/constants/theme';
+import { useTextScale } from '@/features/text-size/store';
 import type { DayKey } from '@/lib/dates';
 
 import { entriesForPeriod, periodKeyFor } from '../logic';
@@ -27,9 +28,11 @@ export function GoalList({ cadence, day }: { cadence: Cadence; day: DayKey }) {
   const entries = useGoalsStore((s) => s.entries);
   const moveEntry = useGoalsStore((s) => s.moveEntry);
   const [listWidth, setListWidth] = useState(0);
+  const textScale = useTextScale();
 
   const list = entriesForPeriod(entries, periodKey);
-  const layouts = goalListLayouts(listWidth, list);
+  // Boxes, labels and the title all grow with the text size, so the fit is judged in 100% units.
+  const layouts = goalListLayouts(listWidth / textScale, list);
   const reorder = useReorderable({
     ids: list.map((entry) => entry.id),
     gap: styles.list.gap,

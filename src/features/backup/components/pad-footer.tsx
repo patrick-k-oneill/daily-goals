@@ -6,6 +6,8 @@ import { Spacing } from '@/constants/theme';
 import { FeedbackForm } from '@/features/feedback/components/feedback-form';
 import type { SendOutcome } from '@/features/feedback/types';
 import { RemindersToggle } from '@/features/goals/components/reminders-toggle';
+import { TextSizeControl } from '@/features/text-size/components/text-size-control';
+import { useTextScale } from '@/features/text-size/store';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -15,6 +17,9 @@ import { describePad, padFileName, parsePad, serializePad, type PadFileContents 
 import { readPad, writePad } from '../pad';
 import { exportPadFile, pickPadFile } from '../pad-file';
 
+/** An action's height at 100%: a full tap target. It grows with the text size. */
+const ACTION_HEIGHT = 44;
+
 interface Notice {
   tone: 'ok' | 'error';
   text: string;
@@ -22,8 +27,9 @@ interface Notice {
 
 /**
  * The pad's back cover: carry the whole pad off this device as one file, or
- * replace it from one. Import is replace-all; merging belongs to sync. A
- * third action opens the feedback note, whose draft is kept here until sent.
+ * replace it from one, and set this device's text size. Import is replace-all;
+ * merging belongs to sync. A third action opens the feedback note, whose draft
+ * is kept here until sent.
  */
 export function PadFooter() {
   const theme = useTheme();
@@ -81,6 +87,7 @@ export function PadFooter() {
 
   return (
     <View style={[styles.footer, { borderTopColor: theme.rule }]}>
+      <TextSizeControl />
       <View style={styles.row}>
         <View style={styles.actions}>
           <FooterAction icon="↑" label="Export data" onPress={exportPad} />
@@ -118,12 +125,13 @@ function FooterAction({
   label: string;
   onPress: () => void;
 }) {
+  const scale = useTextScale();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={styles.action}>
+      style={[styles.action, { minHeight: ACTION_HEIGHT * scale }]}>
       <ThemedText type="small" themeColor="textSecondary">
         {icon}
       </ThemedText>
@@ -147,6 +155,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     columnGap: Spacing.four,
   },
+  // Side by side, one under the other once a larger text size outgrows the page.
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -158,6 +167,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
-    minHeight: 44,
   },
 });

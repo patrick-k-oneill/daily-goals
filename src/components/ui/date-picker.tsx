@@ -4,6 +4,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { AddLine, InlineForm } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
+import { scaleTextStyle } from '@/features/text-size/logic';
+import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -18,6 +20,9 @@ import {
 
 const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
+/** A day cell's height at 100%: a full tap target. It grows with the text size. */
+const DAY_CELL_HEIGHT = 44;
+
 interface DatePickerProps {
   selected: DayKey;
   /** The last day that can be picked. */
@@ -27,6 +32,7 @@ interface DatePickerProps {
 
 /** A month grid for picking a day up to today, opening on the selected day's month. */
 export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
+  const scale = useTextScale();
   const [month, setMonth] = useState(() => monthStart(selected));
   const isLatestMonth = month >= monthStart(today);
 
@@ -44,7 +50,7 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
         </Pressable>
         <ThemedText type="handSmall">{formatMonth(month)}</ThemedText>
         {isLatestMonth ? (
-          <View style={styles.chevronSpacer} />
+          <View style={{ width: Spacing.three * scale }} />
         ) : (
           <Pressable
             accessibilityRole="button"
@@ -66,7 +72,7 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
             key={i}
             type="small"
             themeColor="textSecondary"
-            style={styles.weekdayLabel}>
+            style={scaleTextStyle(styles.weekdayLabel, scale)}>
             {initial}
           </ThemedText>
         ))}
@@ -87,7 +93,7 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
             ) : (
               // Blank grid cell — position is the identity.
               // react-doctor-disable-next-line react-doctor/no-array-index-as-key
-              <View key={i} style={styles.dayCell} />
+              <View key={i} style={[styles.dayCell, { minHeight: DAY_CELL_HEIGHT * scale }]} />
             ),
           )}
         </View>
@@ -119,6 +125,7 @@ function DayCell({
 }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
+  const scale = useTextScale();
 
   return (
     <Pressable
@@ -130,6 +137,7 @@ function DayCell({
       onPress={onPress}
       style={[
         styles.dayCell,
+        { minHeight: DAY_CELL_HEIGHT * scale },
         hovered && { backgroundColor: theme.backgroundElement },
         isSelected && { backgroundColor: theme.backgroundSelected },
       ]}>
@@ -154,9 +162,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     paddingBottom: Spacing.one,
   },
-  chevronSpacer: {
-    width: Spacing.three,
-  },
   weekRow: {
     flexDirection: 'row',
   },
@@ -170,6 +175,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Spacing.two,
-    minHeight: 44,
   },
 });

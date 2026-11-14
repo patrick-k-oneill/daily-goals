@@ -116,6 +116,12 @@ _Avoid_: storage usage, disk size, quota
 An unshaped note to self written from the pad footer and filed as a GitHub issue labelled `needs-triage`: its first line is the title, the rest the body, closed by a footer saying where it was written. It is never part of the pad.
 _Avoid_: bug report, ticket, comment
 
+### Device
+
+**Text size**:
+This device's multiplier on every text style — 100% to 200% in steps, set from the Pad footer. A local preference: never written to the pad file or synced, and on iOS it multiplies on top of Dynamic Type.
+_Avoid_: zoom, font scale, accessibility size
+
 ### Sync
 
 **Stamp**:

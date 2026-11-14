@@ -2,7 +2,7 @@ import { Spacing } from '@/constants/theme';
 
 import type { GoalEntry } from '../types';
 
-/** The pad checkbox is a fixed square; rows are fitted around it. */
+/** The pad checkbox's side at 100%; it grows with the text size and rows are fitted around it. */
 export const CHECK_BOX_SIZE = 28;
 export const CHECK_BOX_GAP = Spacing.one;
 /** A check label's 10pt type runs about this wide per character. */
