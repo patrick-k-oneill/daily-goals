@@ -393,7 +393,7 @@ describe('two devices through the cloud', () => {
 });
 
 describe('describeSync', () => {
-  it('says where sync stands in the pad footer', () => {
+  it('says where sync stands in Settings', () => {
     expect(describeSync('starting', null, null)).toBe('Checking iCloud…');
     expect(describeSync('syncing', null, null)).toBe('Syncing with iCloud…');
     expect(describeSync('synced', NOW, null)).toMatch(/^Synced with iCloud at \d/);

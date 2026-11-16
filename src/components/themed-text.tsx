@@ -38,6 +38,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
   return (
     <Text
+      allowFontScaling={false}
       style={[{ color: theme[themeColor ?? 'text'] }, scaleTextStyle(styles[type], scale), style]}
       {...rest}
     />

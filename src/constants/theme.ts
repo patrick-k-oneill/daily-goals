@@ -62,4 +62,5 @@ export const Spacing = {
 export const Layout = {
   /** A legal pad is 8.5" wide: the page column never grows past this, whatever the window. */
   padWidth: 640,
+  primaryEdgeWidth: 1.5,
 } as const;

@@ -45,7 +45,7 @@ The first kind of suggestion: an unfinished one-off entry (some check not done) 
 _Avoid_: roll over, auto-carry, migrate
 
 **Today list**:
-The list named Today in the device's Reminders app. While the Reminders switch is on, its unfinished reminders are the second kind of suggestion: offered on today's Daily section, marked "from Reminders". A goal both sources hold under one title is offered once, as the carryover. The list is read at launch, on each return to the foreground and every minute in front, and is never saved; only iOS has one. The smart Today view in Reminders is not a list and is not read.
+The list named Today in the device's Reminders app. While the "Suggest iOS Reminders due Today" switch in Settings is on, its unfinished reminders are the second kind of suggestion: offered on today's Daily section, marked "from Reminders". A goal both sources hold under one title is offered once, as the carryover. The list is read at launch, on each return to the foreground and every minute in front, and is never saved; only iOS has one. The smart Today view in Reminders is not a list and is not read.
 _Avoid_: Reminders sync, inbox, import
 
 **Linked reminder**:
@@ -113,14 +113,22 @@ _Avoid_: storage usage, disk size, quota
 ### Feedback
 
 **Feedback note**:
-An unshaped note to self written from the pad footer and filed as a GitHub issue labelled `needs-triage`: its first line is the title, the rest the body, closed by a footer saying where it was written. It is never part of the pad.
+An unshaped note to self written from Settings and filed as a GitHub issue labelled `needs-triage`: its first line is the title, the rest the body, closed by a footer saying where it was written. It is never part of the pad.
 _Avoid_: bug report, ticket, comment
 
 ### Device
 
+**Settings**:
+The view behind the gear in the page's fixed header: the Reminders switch, where sync stands, the pad file's export and import, and the feedback note. Nothing in it sets the text size.
+_Avoid_: pad footer, preferences, options
+
 **Text size**:
-This device's multiplier on every text style — 100% to 200% in steps, set from the Pad footer. A local preference: never written to the pad file or synced, and on iOS it multiplies on top of Dynamic Type.
-_Avoid_: zoom, font scale, accessibility size
+The multiplier every text style, and every length that holds text, is drawn at: 100% to 200%. It is derived, never set in the app: the system's text size (Dynamic Type on iOS, the font scale on Android, the browser's default font size on web) times the Mac's zoom.
+_Avoid_: font scale, accessibility size
+
+**Zoom**:
+The Mac's part of the text size: a step from 100% to 200%, moved by Zoom In (⌘+) and Zoom Out (⌘−) in the View menu. It is kept on the Mac across launches, never written to the pad file or synced, and no other device has one.
+_Avoid_: text size (for the Mac's step alone), magnification
 
 ### Sync
 

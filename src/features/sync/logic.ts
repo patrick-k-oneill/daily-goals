@@ -129,7 +129,7 @@ export function changedPaths(
     .sort();
 }
 
-/** The Pad footer's line on where sync stands. */
+/** The Settings line on where sync stands. */
 export function describeSync(
   phase: SyncPhase,
   lastSyncedAt: Stamp | null,

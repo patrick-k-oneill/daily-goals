@@ -50,17 +50,19 @@ CI runs the same gates plus a web export build on every push and PR.
 
 ```
 modules/icloud-pad/    # local Expo module: the pad directory in the iCloud container (Swift)
+modules/zoom-menu/     # local Expo module: Zoom In / Zoom Out in the Mac's View menu (Swift)
 public/                # copied as-is into the web export: manifest.json, PWA icons
 src/
   app/                 # expo-router routes (thin) and the static HTML shell (+html.tsx)
-  components/ui/       # design-system primitives (Screen, SectionHeader, inline form kit)
+  components/ui/       # design-system primitives (Screen, page header, popover, settings list, inline form kit)
   constants/theme.ts   # design tokens — paper palette, spacing
   features/
     goals/             # templates, per-period entries, check transitions, row geometry
     gratitude/         # journal entries, streaks
     backup/            # the pad file (export / import) and the storage footprint
     sync/              # the cloud pad layout and the pull / push engine over iCloud Drive
-    feedback/          # a note from the pad footer, filed as a GitHub issue
+    feedback/          # a note from Settings, filed as a GitHub issue
+    text-size/         # the text size: the system's font scale times the Mac's zoom
   hooks/               # color scheme / theme
   lib/                 # dates & period keys, live clock (useToday), persistence config, merge, platform shims
 ```

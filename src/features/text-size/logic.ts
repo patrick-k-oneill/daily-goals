@@ -1,39 +1,31 @@
-/** The sizes a device's text can be set to, as multipliers of each style's 100% metrics. */
-export const TEXT_SCALE_STEPS = [1, 1.15, 1.3, 1.5, 1.75, 2] as const;
+export const ZOOM_STEPS = [1, 1.15, 1.3, 1.5, 1.75, 2] as const;
 
-export const DEFAULT_TEXT_SCALE: number = TEXT_SCALE_STEPS[0];
-const MAX_TEXT_SCALE: number = TEXT_SCALE_STEPS[TEXT_SCALE_STEPS.length - 1];
+export const DEFAULT_TEXT_SCALE: number = ZOOM_STEPS[0];
+const MAX_TEXT_SCALE: number = ZOOM_STEPS[ZOOM_STEPS.length - 1];
 
-/** A saved text size brought into range; anything that is not a size at all is 100%. */
-export function validTextScale(saved: unknown): number {
-  if (typeof saved !== 'number' || !Number.isFinite(saved)) return DEFAULT_TEXT_SCALE;
-  return Math.min(MAX_TEXT_SCALE, Math.max(DEFAULT_TEXT_SCALE, saved));
+export function validTextScale(scale: unknown): number {
+  if (typeof scale !== 'number' || !Number.isFinite(scale)) return DEFAULT_TEXT_SCALE;
+  return Math.min(MAX_TEXT_SCALE, Math.max(DEFAULT_TEXT_SCALE, scale));
 }
 
-/** The next step up; a value off the ladder lands on the first step above it. */
-export function largerTextScale(scale: number): number {
-  return TEXT_SCALE_STEPS.find((step) => step > scale) ?? MAX_TEXT_SCALE;
+export function textScale(systemFontScale: number, zoom: number): number {
+  return validTextScale(validTextScale(systemFontScale) * validTextScale(zoom));
 }
 
-/** The next step down; a value off the ladder lands on the first step below it. */
-export function smallerTextScale(scale: number): number {
-  return [...TEXT_SCALE_STEPS].reverse().find((step) => step < scale) ?? DEFAULT_TEXT_SCALE;
+export function zoomedIn(zoom: number): number {
+  return ZOOM_STEPS.find((step) => step > zoom) ?? MAX_TEXT_SCALE;
 }
 
-export function canEnlargeText(scale: number): boolean {
-  return scale < MAX_TEXT_SCALE;
+export function zoomedOut(zoom: number): number {
+  return [...ZOOM_STEPS].reverse().find((step) => step < zoom) ?? DEFAULT_TEXT_SCALE;
 }
 
-export function canShrinkText(scale: number): boolean {
-  return scale > DEFAULT_TEXT_SCALE;
+export function canZoomIn(zoom: number): boolean {
+  return zoom < MAX_TEXT_SCALE;
 }
 
-export function isDefaultTextScale(scale: number): boolean {
-  return scale === DEFAULT_TEXT_SCALE;
-}
-
-export function formatTextScale(scale: number): string {
-  return `${Math.round(scale * 100)}%`;
+export function canZoomOut(zoom: number): boolean {
+  return zoom > DEFAULT_TEXT_SCALE;
 }
 
 /** A set of point lengths at `scale`; at 100% it is the very same object, so rendering is untouched. */

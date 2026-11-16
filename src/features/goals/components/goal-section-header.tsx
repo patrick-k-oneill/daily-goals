@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Easing, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { SectionHeader, type SectionHeaderProps } from '@/components/ui/section-header';
+import { SectionHeader } from '@/components/ui/section-header';
 import { useTextScale } from '@/features/text-size/store';
 import { announce } from '@/lib/announce';
 import { nowStamp } from '@/lib/clock';
@@ -18,10 +18,10 @@ import { achievedFlourishInset } from './achieved-flourish-layout';
 
 const REWARD_MOMENT_MS = 1100;
 
-type GoalSectionHeaderProps = Omit<SectionHeaderProps, 'title' | 'titleFlourish' | 'titleInset'> & {
+interface GoalSectionHeaderProps {
   cadence: Cadence;
   day: DayKey;
-};
+}
 
 /**
  * The header of one cadence's section for the period containing `day`. It
@@ -29,7 +29,7 @@ type GoalSectionHeaderProps = Omit<SectionHeaderProps, 'title' | 'titleFlourish'
  * completed is settling it keeps its plain name, then settles it: the header
  * changes, and the reward moment plays when one is due.
  */
-export function GoalSectionHeader({ cadence, day, ...header }: GoalSectionHeaderProps) {
+export function GoalSectionHeader({ cadence, day }: GoalSectionHeaderProps) {
   const periodKey = periodKeyFor(cadence, day);
   const entries = useGoalsStore((s) => s.entries);
   const settling = useRewardsStore((s) => s.settling);
@@ -74,7 +74,6 @@ export function GoalSectionHeader({ cadence, day, ...header }: GoalSectionHeader
       title={sectionTitle(cadence, status)}
       titleFlourish={status === 'achieved' ? <AchievedFlourish moment={moment} /> : null}
       titleInset={status === 'achieved' ? achievedFlourishInset(scale) : 0}
-      {...header}
     />
   );
 }

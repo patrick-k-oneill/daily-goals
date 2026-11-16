@@ -9,7 +9,7 @@ import { useRemindersRefresh, useRemindersStore } from '@/features/goals/reminde
 import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
 import { useSyncEngine } from '@/features/sync/store';
-import { useTextSizeStore } from '@/features/text-size/store';
+import { useTextSizeStore, useZoomMenu } from '@/features/text-size/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { useHydrated } from '@/lib/persisted-store';
@@ -26,6 +26,7 @@ export default function RootLayout() {
   useMaterializeToday();
   useRemindersRefresh();
   useSyncEngine(storesHydrated);
+  useZoomMenu();
   const ready = (fontsLoaded || Boolean(fontError)) && storesHydrated;
 
   useEffect(() => {

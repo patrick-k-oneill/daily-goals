@@ -1,57 +1,48 @@
 import {
-  canEnlargeText,
-  canShrinkText,
+  canZoomIn,
+  canZoomOut,
   DEFAULT_TEXT_SCALE,
-  formatTextScale,
-  isDefaultTextScale,
-  largerTextScale,
   scaleLengths,
   scaleTextStyle,
-  smallerTextScale,
-  TEXT_SCALE_STEPS,
+  textScale,
   validTextScale,
+  ZOOM_STEPS,
+  zoomedIn,
+  zoomedOut,
 } from './logic';
 
-describe('text size steps', () => {
+describe('zoom steps', () => {
   it('starts at 100% and climbs to 200%', () => {
     expect(DEFAULT_TEXT_SCALE).toBe(1);
-    expect(TEXT_SCALE_STEPS).toEqual([1, 1.15, 1.3, 1.5, 1.75, 2]);
+    expect(ZOOM_STEPS).toEqual([1, 1.15, 1.3, 1.5, 1.75, 2]);
   });
 
-  it('steps up and down the ladder and stops at the ends', () => {
-    expect(largerTextScale(1)).toBe(1.15);
-    expect(largerTextScale(1.75)).toBe(2);
-    expect(largerTextScale(2)).toBe(2);
-    expect(smallerTextScale(1.15)).toBe(1);
-    expect(smallerTextScale(2)).toBe(1.75);
-    expect(smallerTextScale(1)).toBe(1);
+  it('steps in and out along the ladder and stops at the ends', () => {
+    expect(zoomedIn(1)).toBe(1.15);
+    expect(zoomedIn(1.75)).toBe(2);
+    expect(zoomedIn(2)).toBe(2);
+    expect(zoomedOut(1.15)).toBe(1);
+    expect(zoomedOut(2)).toBe(1.75);
+    expect(zoomedOut(1)).toBe(1);
   });
 
   it('brings a value off the ladder back onto it', () => {
-    expect(largerTextScale(1.2)).toBe(1.3);
-    expect(smallerTextScale(1.2)).toBe(1.15);
-    expect(largerTextScale(3)).toBe(2);
-    expect(smallerTextScale(0.5)).toBe(1);
+    expect(zoomedIn(1.2)).toBe(1.3);
+    expect(zoomedOut(1.2)).toBe(1.15);
+    expect(zoomedIn(3)).toBe(2);
+    expect(zoomedOut(0.5)).toBe(1);
   });
 
   it('knows where the ends are', () => {
-    expect(canShrinkText(1)).toBe(false);
-    expect(canEnlargeText(1)).toBe(true);
-    expect(canShrinkText(2)).toBe(true);
-    expect(canEnlargeText(2)).toBe(false);
-    expect(isDefaultTextScale(1)).toBe(true);
-    expect(isDefaultTextScale(1.15)).toBe(false);
-  });
-
-  it('formats as a whole percent', () => {
-    expect(formatTextScale(1)).toBe('100%');
-    expect(formatTextScale(1.15)).toBe('115%');
-    expect(formatTextScale(2)).toBe('200%');
+    expect(canZoomOut(1)).toBe(false);
+    expect(canZoomIn(1)).toBe(true);
+    expect(canZoomOut(2)).toBe(true);
+    expect(canZoomIn(2)).toBe(false);
   });
 });
 
 describe('validTextScale', () => {
-  it('keeps a saved size on or between the steps', () => {
+  it('keeps a size on or between the steps', () => {
     expect(validTextScale(1.5)).toBe(1.5);
     expect(validTextScale(1.2)).toBe(1.2);
   });
@@ -67,6 +58,28 @@ describe('validTextScale', () => {
     expect(validTextScale(Infinity)).toBe(1);
     expect(validTextScale('2')).toBe(1);
     expect(validTextScale(undefined)).toBe(1);
+  });
+});
+
+describe('textScale', () => {
+  it('is the system font scale where nothing is zoomed', () => {
+    expect(textScale(1, 1)).toBe(1);
+    expect(textScale(1.353, 1)).toBe(1.353);
+  });
+
+  it('is the zoom where the system font scale is the default', () => {
+    expect(textScale(1, 1.5)).toBe(1.5);
+  });
+
+  it('multiplies the two and stops at 200%', () => {
+    expect(textScale(1.118, 1.15)).toBeCloseTo(1.2857);
+    expect(textScale(1.786, 1.5)).toBe(2);
+    expect(textScale(3.571, 1)).toBe(2);
+  });
+
+  it('never draws the page smaller than 100%', () => {
+    expect(textScale(0.823, 1)).toBe(1);
+    expect(textScale(NaN, 1)).toBe(1);
   });
 });
 

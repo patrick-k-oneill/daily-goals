@@ -1,6 +1,7 @@
 import { Alert, Linking } from 'react-native';
 
-import { LabeledSwitch } from '@/components/ui/labeled-switch';
+import { SettingsGroup, SettingsRow } from '@/components/ui/settings-list';
+import { ToggleSwitch } from '@/components/ui/toggle-switch';
 
 import { TODAY_LIST_TITLE } from '../logic';
 import { hasReminders } from '../reminders';
@@ -10,6 +11,8 @@ import {
   useRemindersStore,
   type EnableOutcome,
 } from '../reminders-store';
+
+const SWITCH_LABEL = 'Suggest iOS Reminders due Today';
 
 /** What to say when turning the switch on did not end with a Today list being read. */
 function explain(outcome: EnableOutcome) {
@@ -42,7 +45,7 @@ function explain(outcome: EnableOutcome) {
  * The switch that lets the Reminders Today list suggest goals on today's
  * page. Turning it on asks for access. Absent where there is no Reminders app.
  */
-export function RemindersToggle() {
+export function RemindersSetting() {
   const isEnabled = useRemindersStore((s) => s.isEnabled);
   if (!hasReminders) return null;
 
@@ -52,11 +55,14 @@ export function RemindersToggle() {
   };
 
   return (
-    <LabeledSwitch
-      label="Reminders"
-      value={isEnabled}
-      onValueChange={(isOn) => void toggle(isOn)}
-      accessibilityLabel={`Suggest goals from the Reminders ${TODAY_LIST_TITLE} list`}
-    />
+    <SettingsGroup title="Suggestions">
+      <SettingsRow label={SWITCH_LABEL}>
+        <ToggleSwitch
+          value={isEnabled}
+          onValueChange={(isOn) => void toggle(isOn)}
+          accessibilityLabel={SWITCH_LABEL}
+        />
+      </SettingsRow>
+    </SettingsGroup>
   );
 }

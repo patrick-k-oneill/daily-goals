@@ -97,6 +97,7 @@ export function ListTextInput({
       <TextInput
         ref={input}
         multiline
+        allowFontScaling={false}
         // The page scrolls to the caret; an input that scrolls itself hides it.
         scrollEnabled={false}
         inputAccessoryViewID={Platform.OS === 'ios' ? accessoryID : undefined}

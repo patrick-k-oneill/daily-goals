@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Layout, Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
@@ -41,6 +41,7 @@ export function FormInput({ style, onEscape, onKeyPress, ...props }: FormInputPr
   const scale = useTextScale();
   return (
     <TextInput
+      allowFontScaling={false}
       placeholderTextColor={theme.textSecondary}
       style={[
         scaleTextStyle(styles.input, scale),
@@ -56,6 +57,46 @@ export function FormInput({ style, onEscape, onKeyPress, ...props }: FormInputPr
   );
 }
 
+interface PrimaryButtonProps {
+  label: string;
+  onPress: () => void;
+  isDisabled?: boolean;
+  accessibilityLabel?: string;
+}
+
+export function PrimaryButton({
+  label,
+  onPress,
+  isDisabled = false,
+  accessibilityLabel,
+}: PrimaryButtonProps) {
+  const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
+  return (
+    <Pressable
+      {...hoverProps}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: isDisabled }}
+      disabled={isDisabled}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.primaryButton,
+        {
+          backgroundColor:
+            !isDisabled && (pressed || hovered) ? theme.primaryPressed : theme.primary,
+          borderColor: theme.primaryEdge,
+        },
+        isDisabled && styles.disabled,
+      ]}>
+      <ThemedText type="smallBold" themeColor="onPrimary">
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 interface FormActionsProps {
   submitLabel: string;
   canSubmit: boolean;
@@ -65,29 +106,9 @@ interface FormActionsProps {
 
 /** The yellow submit pill and a quiet Cancel. */
 export function FormActions({ submitLabel, canSubmit, onSubmit, onCancel }: FormActionsProps) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
   return (
     <View style={styles.actions}>
-      <Pressable
-        {...hoverProps}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !canSubmit }}
-        disabled={!canSubmit}
-        onPress={onSubmit}
-        style={({ pressed }) => [
-          styles.submit,
-          {
-            backgroundColor:
-              canSubmit && (pressed || hovered) ? theme.primaryPressed : theme.primary,
-            borderColor: theme.primaryEdge,
-          },
-          !canSubmit && styles.disabled,
-        ]}>
-        <ThemedText type="smallBold" themeColor="onPrimary">
-          {submitLabel}
-        </ThemedText>
-      </Pressable>
+      <PrimaryButton label={submitLabel} isDisabled={!canSubmit} onPress={onSubmit} />
       <Pressable accessibilityRole="button" onPress={onCancel} hitSlop={8}>
         <ThemedText type="small" themeColor="textSecondary">
           Cancel
@@ -136,11 +157,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.four,
   },
-  submit: {
+  primaryButton: {
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
-    borderWidth: 1,
+    borderWidth: Layout.primaryEdgeWidth,
   },
   disabled: {
     opacity: 0.4,

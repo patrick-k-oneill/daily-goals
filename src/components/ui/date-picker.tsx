@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { AddLine, InlineForm } from '@/components/ui/form';
-import { Spacing } from '@/constants/theme';
+import { AddLine } from '@/components/ui/form';
+import { Layout, Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
@@ -22,6 +22,9 @@ const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 /** A day cell's height at 100%: a full tap target. It grows with the text size. */
 const DAY_CELL_HEIGHT = 44;
+const DAY_MARK_SIZE = 34;
+
+export const DATE_PICKER_WIDTH = 304;
 
 interface DatePickerProps {
   selected: DayKey;
@@ -37,7 +40,7 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
   const isLatestMonth = month >= monthStart(today);
 
   return (
-    <InlineForm style={styles.picker}>
+    <View style={styles.picker}>
       <View style={styles.monthRow}>
         <Pressable
           accessibilityRole="button"
@@ -106,7 +109,7 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
           onPress={() => onSelect(today)}
         />
       )}
-    </InlineForm>
+    </View>
   );
 }
 
@@ -126,6 +129,7 @@ function DayCell({
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
   const scale = useTextScale();
+  const markSize = DAY_MARK_SIZE * scale;
 
   return (
     <Pressable
@@ -135,18 +139,25 @@ function DayCell({
       accessibilityLabel={`${formatDayLong(day)}${isToday ? ', today' : ''}`}
       accessibilityState={{ selected: isSelected, disabled: !isPickable }}
       onPress={onPress}
-      style={[
-        styles.dayCell,
-        { minHeight: DAY_CELL_HEIGHT * scale },
-        hovered && { backgroundColor: theme.backgroundElement },
-        isSelected && { backgroundColor: theme.backgroundSelected },
-      ]}>
-      <ThemedText
-        type="small"
-        // Today gets the accent so it stands apart from the days after it.
-        themeColor={isToday ? 'accent' : isPickable ? 'text' : 'border'}>
-        {parseDayKey(day).getDate()}
-      </ThemedText>
+      style={[styles.dayCell, { minHeight: DAY_CELL_HEIGHT * scale }]}>
+      <View
+        style={[
+          styles.dayMark,
+          { width: markSize, height: markSize, borderRadius: markSize / 2 },
+          hovered && { backgroundColor: theme.backgroundElement },
+          isSelected && { backgroundColor: theme.backgroundSelected },
+          isToday && {
+            backgroundColor: hovered ? theme.primaryPressed : theme.primary,
+            borderColor: theme.primaryEdge,
+            borderWidth: Layout.primaryEdgeWidth,
+          },
+        ]}>
+        <ThemedText
+          type={isToday ? 'smallBold' : 'small'}
+          themeColor={isToday ? 'onPrimary' : isPickable ? 'text' : 'border'}>
+          {parseDayKey(day).getDate()}
+        </ThemedText>
+      </View>
     </Pressable>
   );
 }
@@ -154,6 +165,7 @@ function DayCell({
 const styles = StyleSheet.create({
   picker: {
     gap: Spacing.one,
+    padding: Spacing.one,
   },
   monthRow: {
     flexDirection: 'row',
@@ -174,6 +186,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+  },
+  dayMark: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

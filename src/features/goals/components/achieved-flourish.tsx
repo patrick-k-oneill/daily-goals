@@ -65,7 +65,9 @@ export function AchievedFlourish({ moment }: { moment: SharedValue<number> }) {
         {SPARK_ANGLES.map((angle) => (
           <Spark key={angle} moment={moment} angle={angle} />
         ))}
-        <Animated.Text style={[scaleTextStyle(styles.star, scale), { color: theme.accent }, star]}>
+        <Animated.Text
+          allowFontScaling={false}
+          style={[scaleTextStyle(styles.star, scale), { color: theme.accent }, star]}>
           ★
         </Animated.Text>
       </View>

@@ -1,37 +1,58 @@
+import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { persistOptions } from '@/lib/persisted-store';
+import { useSystemFontScale } from '@/lib/system-font-scale';
+
+import ZoomMenu from '../../../modules/zoom-menu';
 
 import * as logic from './logic';
 
 interface TextSizeState {
-  scale: number;
-  enlargeText: () => void;
-  shrinkText: () => void;
-  resetTextSize: () => void;
+  zoom: number;
+  zoomIn: () => void;
+  zoomOut: () => void;
 }
 
-/** This device's text size: a local preference, never part of the pad, its file or sync. */
+const hasZoomMenu = ZoomMenu?.isSupported() ?? false;
+
 export const useTextSizeStore = create<TextSizeState>()(
   persist(
     (set) => ({
-      scale: logic.DEFAULT_TEXT_SCALE,
-      enlargeText: () => set((s) => ({ scale: logic.largerTextScale(s.scale) })),
-      shrinkText: () => set((s) => ({ scale: logic.smallerTextScale(s.scale) })),
-      resetTextSize: () => set({ scale: logic.DEFAULT_TEXT_SCALE }),
+      zoom: logic.DEFAULT_TEXT_SCALE,
+      zoomIn: () => set((s) => ({ zoom: logic.zoomedIn(s.zoom) })),
+      zoomOut: () => set((s) => ({ zoom: logic.zoomedOut(s.zoom) })),
     }),
     persistOptions<TextSizeState>('text-size', {
-      // A saved size that is no size would scale every text style to nothing.
       merge: (persisted, current) => ({
         ...current,
-        scale: logic.validTextScale((persisted as Partial<TextSizeState> | undefined)?.scale),
+        zoom: logic.validTextScale((persisted as Partial<TextSizeState> | undefined)?.zoom),
       }),
     }),
   ),
 );
 
-/** The multiplier every text style on screen renders at. */
 export function useTextScale(): number {
-  return useTextSizeStore((s) => s.scale);
+  const systemFontScale = useSystemFontScale();
+  const zoom = useTextSizeStore((s) => s.zoom);
+  return logic.textScale(systemFontScale, hasZoomMenu ? zoom : logic.DEFAULT_TEXT_SCALE);
+}
+
+export function useZoomMenu() {
+  const zoom = useTextSizeStore((s) => s.zoom);
+
+  useEffect(() => {
+    if (!hasZoomMenu) return undefined;
+    const subscription = ZoomMenu?.addListener('zoom', ({ direction }) => {
+      const { zoomIn, zoomOut } = useTextSizeStore.getState();
+      if (direction === 'in') zoomIn();
+      else zoomOut();
+    });
+    return () => subscription?.remove();
+  }, []);
+
+  useEffect(() => {
+    if (hasZoomMenu) ZoomMenu?.setLimits(logic.canZoomIn(zoom), logic.canZoomOut(zoom));
+  }, [zoom]);
 }

@@ -20,7 +20,7 @@ interface FeedbackFormProps {
 }
 
 /**
- * The inline note form under the pad footer's row; adding a GitHub token
+ * The inline note form under the Settings row; adding a GitHub token
  * takes the form over until it is saved or cancelled. The draft belongs to
  * the caller, so it outlives both Cancel and the token form.
  */

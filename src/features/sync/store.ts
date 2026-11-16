@@ -15,7 +15,7 @@ interface SyncState extends SyncReporter {
   problem: string | null;
 }
 
-/** Where sync stands, for the Pad footer: this session's only, never persisted. */
+/** Where sync stands, for Settings: this session's only, never persisted. */
 export const useSyncStore = create<SyncState>()((set) => ({
   phase: 'starting',
   lastSyncedAt: null,

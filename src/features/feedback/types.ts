@@ -16,7 +16,7 @@ export interface FeedbackIssue {
   labels: string[];
 }
 
-/** How a send ended, with the line the pad footer shows. */
+/** How a send ended, with the line Settings shows. */
 export interface SendOutcome {
   ok: boolean;
   message: string;
