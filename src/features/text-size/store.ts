@@ -40,6 +40,7 @@ export function useTextScale(): number {
 }
 
 export function useZoomMenu() {
+  const systemFontScale = useSystemFontScale();
   const zoom = useTextSizeStore((s) => s.zoom);
 
   useEffect(() => {
@@ -53,6 +54,10 @@ export function useZoomMenu() {
   }, []);
 
   useEffect(() => {
-    if (hasZoomMenu) ZoomMenu?.setLimits(logic.canZoomIn(zoom), logic.canZoomOut(zoom));
-  }, [zoom]);
+    if (!hasZoomMenu) return;
+    ZoomMenu?.setLimits(
+      logic.canZoomIn(systemFontScale, zoom),
+      logic.canZoomOut(systemFontScale, zoom),
+    );
+  }, [systemFontScale, zoom]);
 }

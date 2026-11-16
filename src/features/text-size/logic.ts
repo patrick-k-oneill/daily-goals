@@ -20,12 +20,12 @@ export function zoomedOut(zoom: number): number {
   return [...ZOOM_STEPS].reverse().find((step) => step < zoom) ?? DEFAULT_TEXT_SCALE;
 }
 
-export function canZoomIn(zoom: number): boolean {
-  return zoom < MAX_TEXT_SCALE;
+export function canZoomIn(systemFontScale: number, zoom: number): boolean {
+  return textScale(systemFontScale, zoomedIn(zoom)) > textScale(systemFontScale, zoom);
 }
 
-export function canZoomOut(zoom: number): boolean {
-  return zoom > DEFAULT_TEXT_SCALE;
+export function canZoomOut(systemFontScale: number, zoom: number): boolean {
+  return textScale(systemFontScale, zoomedOut(zoom)) < textScale(systemFontScale, zoom);
 }
 
 /** A set of point lengths at `scale`; at 100% it is the very same object, so rendering is untouched. */

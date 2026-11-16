@@ -11,7 +11,7 @@ import {
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import { placePopover, type PopoverPlacement } from './popover-placement';
+import { placePopover, type AnchorBox, type WindowSize } from './popover-placement';
 
 interface PopoverProps {
   anchor: RefObject<View | null>;
@@ -23,11 +23,12 @@ interface PopoverProps {
 
 export function Popover({ anchor, width, closeLabel, onClose, children }: PopoverProps) {
   const theme = useTheme();
-  const [placement, setPlacement] = useState<PopoverPlacement | null>(null);
+  const [measured, setMeasured] = useState<{ anchor: AnchorBox; window: WindowSize } | null>(null);
+  const placement = measured && placePopover(measured.anchor, width, measured.window);
 
-  const place = ({ nativeEvent: { layout } }: LayoutChangeEvent) => {
+  const measure = ({ nativeEvent: { layout } }: LayoutChangeEvent) => {
     anchor.current?.measureInWindow((x, y, _anchorWidth, height) =>
-      setPlacement(placePopover({ x, y, height }, width, layout)),
+      setMeasured({ anchor: { x, y, height }, window: layout }),
     );
   };
 
@@ -45,11 +46,12 @@ export function Popover({ anchor, width, closeLabel, onClose, children }: Popove
       navigationBarTranslucent
       onRequestClose={onClose}>
       <Pressable
+        key={width}
         accessibilityRole="button"
         accessibilityLabel={closeLabel}
         focusable={false}
         style={StyleSheet.absoluteFill}
-        onLayout={place}
+        onLayout={measure}
         onPress={onClose}
       />
       {placement && (

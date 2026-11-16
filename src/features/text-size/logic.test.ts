@@ -34,10 +34,17 @@ describe('zoom steps', () => {
   });
 
   it('knows where the ends are', () => {
-    expect(canZoomOut(1)).toBe(false);
-    expect(canZoomIn(1)).toBe(true);
-    expect(canZoomOut(2)).toBe(true);
-    expect(canZoomIn(2)).toBe(false);
+    expect(canZoomOut(1, 1)).toBe(false);
+    expect(canZoomIn(1, 1)).toBe(true);
+    expect(canZoomOut(1, 2)).toBe(true);
+    expect(canZoomIn(1, 2)).toBe(false);
+  });
+
+  it('offers no step that the 200% ceiling would hide', () => {
+    expect(canZoomIn(1.353, 1.5)).toBe(false);
+    expect(canZoomIn(1.353, 1.3)).toBe(true);
+    expect(canZoomOut(2, 1.5)).toBe(false);
+    expect(canZoomOut(1.353, 1.5)).toBe(true);
   });
 });
 

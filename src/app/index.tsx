@@ -32,7 +32,7 @@ export default function TodayScreen() {
           day={day}
           today={today}
           onShowDay={showDay}
-          onOpenSettings={() => router.push('/settings')}
+          onOpenSettings={() => router.navigate('/settings')}
         />
       }>
       <GoalSectionHeader cadence="daily" day={day} />
