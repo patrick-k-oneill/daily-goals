@@ -47,7 +47,7 @@ export function FeedbackSettings() {
           {notice && <SettingsNotice {...notice} />}
         </>
       }>
-      <SettingsRow label="Send feedback" detail="A note to self, filed on GitHub.">
+      <SettingsRow label="Send feedback" detail="Opens an Issue ticket on GitHub.">
         <PrimaryButton label="Write" accessibilityLabel="Send feedback" onPress={toggleForm} />
       </SettingsRow>
     </SettingsGroup>

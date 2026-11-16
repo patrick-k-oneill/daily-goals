@@ -28,7 +28,7 @@ function handwriting(fontSize: number, lineHeight: number) {
 }
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'subtitle' | 'small' | 'smallBold' | 'hand' | 'handSmall';
+  type?: 'default' | 'subtitle' | 'small' | 'smallBold' | 'hand' | 'handSmall' | 'handGlyph';
   themeColor?: ThemeColor;
 };
 
@@ -68,4 +68,5 @@ const styles = StyleSheet.create({
   },
   hand: handwriting(34, 42),
   handSmall: handwriting(24, 30),
+  handGlyph: handwriting(31, 32),
 });

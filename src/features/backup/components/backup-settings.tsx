@@ -56,10 +56,10 @@ export function BackupSettings() {
 
   return (
     <SettingsGroup title="Data" footer={notice && <SettingsNotice {...notice} />}>
-      <SettingsRow label="Export data" detail="Save the whole pad as one file.">
+      <SettingsRow label="Export data" detail="Save a copy of your Goals history.">
         <PrimaryButton label="Export" accessibilityLabel="Export data" onPress={exportPad} />
       </SettingsRow>
-      <SettingsRow label="Import data" detail="Replace this pad with a pad file.">
+      <SettingsRow label="Import data" detail="Replace your history from a saved file.">
         <PrimaryButton label="Import" accessibilityLabel="Import data" onPress={importPad} />
       </SettingsRow>
     </SettingsGroup>

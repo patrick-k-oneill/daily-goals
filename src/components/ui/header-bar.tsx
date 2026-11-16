@@ -1,7 +1,7 @@
 import type { ReactNode, Ref } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
 import { Spacing, type ThemeColor } from '@/constants/theme';
 import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
@@ -18,6 +18,7 @@ interface HeaderButtonProps {
   accessibilityLabel: string;
   onPress: () => void;
   themeColor?: ThemeColor;
+  type?: ThemedTextProps['type'];
   ref?: Ref<View>;
 }
 
@@ -26,6 +27,7 @@ export function HeaderButton({
   accessibilityLabel,
   onPress,
   themeColor = 'textSecondary',
+  type = 'handSmall',
   ref,
 }: HeaderButtonProps) {
   const { hovered, hoverProps } = useHover();
@@ -38,7 +40,7 @@ export function HeaderButton({
       hitSlop={10}
       onPress={onPress}
       style={({ pressed }) => pressed && styles.pressed}>
-      <ThemedText type="handSmall" themeColor={hovered ? 'text' : themeColor}>
+      <ThemedText type={type} themeColor={hovered ? 'text' : themeColor}>
         {label}
       </ThemedText>
     </Pressable>

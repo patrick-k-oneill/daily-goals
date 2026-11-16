@@ -45,7 +45,12 @@ export function PageHeader({ day, today, onShowDay, onOpenSettings }: PageHeader
           />
         )}
       </View>
-      <HeaderButton label="⚙︎" accessibilityLabel="Settings" onPress={onOpenSettings} />
+      <HeaderButton
+        label="⚙︎"
+        type="handGlyph"
+        accessibilityLabel="Settings"
+        onPress={onOpenSettings}
+      />
       {isPickingDay && (
         <Popover
           anchor={date}

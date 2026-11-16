@@ -86,11 +86,11 @@ export function FeedbackForm({ draft, onChangeDraft, onSettled, onCancel }: Feed
         onCancel={onCancel}
       />
       <View style={styles.tokenRow}>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.tokenHint}>
-          {hasToken
-            ? 'Send files the note on GitHub with the saved token.'
-            : 'Send opens GitHub in the browser to file the note.'}
-        </ThemedText>
+        {hasToken && (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.tokenHint}>
+            Send files the note on GitHub with the saved token.
+          </ThemedText>
+        )}
         <Pressable
           accessibilityRole="button"
           onPress={hasToken ? confirmForget : () => setIsAddingToken(true)}
@@ -140,8 +140,8 @@ function TokenForm({ onSaved, onCancel }: { onSaved: () => void; onCancel: () =>
         onEscape={onCancel}
       />
       <ThemedText type="small" themeColor="textSecondary">
-        A fine-grained token for this repo with Issues set to read and write. It is kept on this
-        device only.
+        Generate one on GitHub: Settings → Developer settings → Personal access tokens →
+        Fine-grained tokens. Give it the daily-goals repository, with Issues set to Read and write.
       </ThemedText>
       <FormActions
         submitLabel="Save token"
