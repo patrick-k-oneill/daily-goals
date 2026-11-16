@@ -22,7 +22,7 @@ interface FeedbackFormProps {
 /**
  * The inline note form under the Settings row; adding a GitHub token
  * takes the form over until it is saved or cancelled. The draft belongs to
- * the caller, so it outlives both Cancel and the token form.
+ * the caller, so it outlives Cancel, the token form and leaving Settings.
  */
 export function FeedbackForm({ draft, onChangeDraft, onSettled, onCancel }: FeedbackFormProps) {
   const today = useToday();

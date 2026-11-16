@@ -8,13 +8,15 @@ import {
   type Notice,
 } from '@/components/ui/settings-list';
 
+import { useFeedbackDraftStore } from '../store';
 import type { SendOutcome } from '../types';
 
 import { FeedbackForm } from './feedback-form';
 
 export function FeedbackSettings() {
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [draft, setDraft] = useState('');
+  const draft = useFeedbackDraftStore((s) => s.draft);
+  const writeDraft = useFeedbackDraftStore((s) => s.writeDraft);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   const toggleForm = () => {
@@ -25,7 +27,7 @@ export function FeedbackSettings() {
   const settle = (outcome: SendOutcome) => {
     setNotice({ tone: outcome.ok ? 'ok' : 'error', text: outcome.message });
     if (!outcome.ok) return;
-    setDraft('');
+    writeDraft('');
     setIsFormOpen(false);
   };
 
@@ -37,7 +39,7 @@ export function FeedbackSettings() {
           {isFormOpen && (
             <FeedbackForm
               draft={draft}
-              onChangeDraft={setDraft}
+              onChangeDraft={writeDraft}
               onSettled={settle}
               onCancel={() => setIsFormOpen(false)}
             />
