@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { AddLine } from '@/components/ui/form';
 import { Layout, Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
@@ -102,14 +101,26 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
         </View>
       ))}
 
-      {selected !== today && (
-        <AddLine
-          label="Back to today"
-          accessibilityLabel="Back to today’s page"
-          onPress={() => onSelect(today)}
-        />
-      )}
+      {selected !== today && <GoToToday onPress={() => onSelect(today)} />}
     </View>
+  );
+}
+
+function GoToToday({ onPress }: { onPress: () => void }) {
+  const { hovered, hoverProps } = useHover();
+
+  return (
+    <Pressable
+      {...hoverProps}
+      accessibilityRole="button"
+      accessibilityLabel="Go to today’s page"
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => [styles.goToToday, (pressed || hovered) && styles.goToTodayActive]}>
+      <ThemedText type="smallBold" themeColor="primaryEdge">
+        Go to Today
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -190,5 +201,13 @@ const styles = StyleSheet.create({
   dayMark: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  goToToday: {
+    alignSelf: 'center',
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  goToTodayActive: {
+    opacity: 0.6,
   },
 });
