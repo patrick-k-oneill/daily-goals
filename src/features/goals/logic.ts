@@ -152,7 +152,7 @@ export function ensurePeriod(
   const additions: GoalEntry[] = [];
   for (const t of goals.templates) {
     if (t.retiredAt || t.cadence !== cadence || instantiated.has(t.id)) continue;
-    if (written.has(startedFrom(t.id) ?? '')) continue;
+    if (isWrittenFromSource(t, periodKey, written)) continue;
     if (!repeatsOn(t, periodKey)) continue;
     const id = materializedEntryId(t.id, periodKey);
     if (id in goals.tombstones) continue;
@@ -483,6 +483,16 @@ function startedFrom(templateId: string): string | undefined {
   return templateId.slice(0, at);
 }
 
+function isWrittenFromSource(
+  template: GoalTemplate,
+  periodKey: string,
+  written: ReadonlySet<string>,
+): boolean {
+  const source = startedFrom(template.id);
+  if (source === undefined) return false;
+  return written.has(source) || written.has(carriedEntryId(source, periodKey));
+}
+
 export function startRepeating(
   goals: Goals,
   entryId: string,
@@ -496,20 +506,22 @@ export function startRepeating(
 
   const started = goals.templates.filter((t) => startedFrom(t.id) === entryId);
   const live = started.find((t) => !t.retiredAt);
-  const template: GoalTemplate = live ?? {
-    id: startedTemplateId(entryId, started.length + 1),
+  const template: GoalTemplate = {
+    id: live?.id ?? startedTemplateId(entryId, started.length + 1),
     cadence: entry.cadence,
     title: entry.title,
     targetCount: entry.checks.length,
     checkLabels: entry.checkLabels,
     weekdays: fitWeekdays(entry.cadence, weekdays),
-    sortOrder: entry.sortOrder,
+    sortOrder: live?.sortOrder ?? entry.sortOrder,
     updatedAt: now,
   };
 
   return {
     ...goals,
-    templates: live ? goals.templates : [...goals.templates, template],
+    templates: live
+      ? goals.templates.map((t) => (t.id === live.id ? template : t))
+      : [...goals.templates, template],
     entries: goals.entries.map((e) =>
       e.id === entryId ? { ...e, templateId: template.id, updatedAt: now } : e,
     ),

@@ -1249,6 +1249,20 @@ describe('startRepeating', () => {
     ]);
   });
 
+  it('writes no second line where the line was already carried over', () => {
+    const yesterday = entry({ periodKey: '2026-08-20', title: 'Pay rent' });
+    const carried = entry({
+      id: carriedEntryId('e1', TODAY),
+      title: 'Pay rent',
+      carriedFrom: 'e1',
+    });
+    const start = goals({ entries: [yesterday, carried] });
+    const state = startRepeating(start, 'e1', undefined, NOW);
+
+    expect(materializeToday(state, TODAY)).toBe(state);
+    expect(titlesOn(materializeToday(state, '2026-08-22'), '2026-08-22')).toEqual(['Pay rent']);
+  });
+
   it('keeps a weekday schedule off a weekly goal', () => {
     const weekly = entry({ cadence: 'weekly', periodKey: '2026-W34' });
     const state = startRepeating(goals({ entries: [weekly] }), 'e1', [1, 3], NOW);
@@ -1895,9 +1909,33 @@ describe('mergeGoals', () => {
     expect(materializeToday(merged, TODAY)).toBe(merged);
     expect(titlesOn(materializeToday(merged, '2026-08-22'), '2026-08-22')).toEqual(['One-off']);
 
-    const relinked = startRepeating(merged, 'e1', undefined, '2026-08-21T11:00:00.000Z');
-    expect(relinked.templates).toBe(merged.templates);
+    const AGAIN = '2026-08-21T11:00:00.000Z';
+    const relinked = startRepeating(merged, 'e1', [1, 3], AGAIN);
+    expect(relinked.templates).toEqual([
+      { ...merged.templates[0], weekdays: [1, 3], updatedAt: AGAIN },
+    ]);
     expect(byId(relinked, 'e1')?.templateId).toBe(startedTemplateId('e1', 1));
+  });
+
+  it('leaves a started goal stopped when another device starts it before hearing of the stop', () => {
+    const pad = goals({ entries: [entry()] });
+    const stopped = stopRepeating(startRepeating(pad, 'e1', undefined, NOW), 'e1', LATER);
+    const startedLater = startRepeating(
+      structuredClone(pad),
+      'e1',
+      undefined,
+      '2026-08-21T11:00:00.000Z',
+    );
+
+    const merged = mergeGoals(stopped, startedLater);
+    expect(merged.templates.map((t) => [t.id, t.retiredAt])).toEqual([
+      [startedTemplateId('e1', 1), LATER],
+    ]);
+    expect(merged).toEqual(mergeGoals(startedLater, stopped));
+    expect(materializeToday(merged, '2026-08-22')).toBe(merged);
+
+    const again = startRepeating(merged, 'e1', undefined, '2026-08-21T12:00:00.000Z');
+    expect(byId(again, 'e1')?.templateId).toBe(startedTemplateId('e1', 2));
   });
 
   it('keeps the first retirement when both devices retire the same goal', () => {
