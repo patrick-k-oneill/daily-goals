@@ -11,7 +11,6 @@ import {
   EVERY_WEEKDAY,
   hasCheckLabels,
   isSectionComplete,
-  isTodayList,
   materializedEntryId,
   materializeToday,
   MAX_CHECK_LABEL_LENGTH,
@@ -1443,9 +1442,9 @@ describe('suggestions', () => {
     });
   });
 
-  describe('the Today list as a source', () => {
+  describe('due reminders as a source', () => {
     function reminder(overrides: Partial<Reminder> = {}): Reminder {
-      return { id: 'r1', title: 'Buy stamps', completed: false, ...overrides };
+      return { id: 'r1', title: 'Buy stamps', completed: false, dueDay: TODAY, ...overrides };
     }
 
     function fromReminders(overrides: Partial<ReminderSuggestion> = {}): ReminderSuggestion {
@@ -1463,14 +1462,18 @@ describe('suggestions', () => {
       return suggestionsFor(state, 'daily', day, day, reminders);
     }
 
-    it('reads a Reminders list named Today, whatever its case', () => {
-      expect(isTodayList('Today')).toBe(true);
-      expect(isTodayList(' today ')).toBe(true);
-      expect(isTodayList('Today’s errands')).toBe(false);
-      expect(isTodayList('')).toBe(false);
+    it('offers reminders due today or earlier, the longest due first, and none due later or undated', () => {
+      const list = [
+        reminder({ id: 'r1', title: 'Due today' }),
+        reminder({ id: 'r2', title: 'Due tomorrow', dueDay: '2026-08-22' }),
+        reminder({ id: 'r3', title: 'Overdue', dueDay: '2026-08-19' }),
+        reminder({ id: 'r4', title: 'No date', dueDay: undefined }),
+        reminder({ id: 'r5', title: 'Long overdue', dueDay: '2025-12-31' }),
+      ];
+      expect(offered(goals(), list).map(suggestionSourceId)).toEqual(['r5', 'r3', 'r1']);
     });
 
-    it("offers the list's unfinished reminders on today's daily section, after the carryovers", () => {
+    it("offers the unfinished due reminders on today's daily section, after the carryovers", () => {
       const state = goals({ entries: [left()] });
       const list = [reminder(), reminder({ id: 'r2', title: ' Renew passport ' })];
       expect(offered(state, list)).toEqual([

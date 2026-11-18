@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { readTodayList, requestRemindersAccess } from './reminders';
+import { readDueReminders, requestRemindersAccess } from './reminders';
 import {
   disableReminders,
   enableReminders,
@@ -14,14 +14,16 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 jest.mock('./reminders', () => ({
   hasReminders: true,
-  readTodayList: jest.fn(),
+  readDueReminders: jest.fn(),
   requestRemindersAccess: jest.fn(),
 }));
 
-const read = jest.mocked(readTodayList);
+const read = jest.mocked(readDueReminders);
 const request = jest.mocked(requestRemindersAccess);
 
-const list: Reminder[] = [{ id: 'r1', title: 'Buy stamps', completed: false }];
+const list: Reminder[] = [
+  { id: 'r1', title: 'Buy stamps', completed: false, dueDay: '2026-08-21' },
+];
 
 function state() {
   const { isEnabled, reminders } = useRemindersStore.getState();
@@ -46,25 +48,25 @@ describe('the Reminders switch', () => {
     expect(state()).toEqual({ isEnabled: false, reminders: [] });
   });
 
-  it('turns on with access and reads the Today list, saying when there is none', async () => {
+  it('turns on with access and reads the due reminders', async () => {
     request.mockResolvedValue('granted');
-    read.mockResolvedValue({ hasList: true, reminders: list });
+    read.mockResolvedValue(list);
     expect(await enableReminders()).toBe('on');
     expect(state()).toEqual({ isEnabled: true, reminders: list });
 
-    read.mockResolvedValue({ hasList: false, reminders: [] });
-    expect(await refreshReminders()).toBe('no-list');
+    read.mockResolvedValue([]);
+    expect(await refreshReminders()).toBe('on');
     expect(state()).toEqual({ isEnabled: true, reminders: [] });
   });
 
   it('keeps the list it holds when a read finds nothing new', async () => {
     useRemindersStore.setState({ isEnabled: true, reminders: list });
-    read.mockResolvedValue({ hasList: true, reminders: structuredClone(list) });
+    read.mockResolvedValue(structuredClone(list));
     await refreshReminders();
     expect(useRemindersStore.getState().reminders).toBe(list);
 
-    const changed = [{ ...list[0], title: 'Buy envelopes' }];
-    read.mockResolvedValue({ hasList: true, reminders: changed });
+    const changed = [{ ...list[0], dueDay: '2026-08-20' }];
+    read.mockResolvedValue(changed);
     await refreshReminders();
     expect(useRemindersStore.getState().reminders).toBe(changed);
   });
@@ -73,7 +75,7 @@ describe('the Reminders switch', () => {
     useRemindersStore.setState({ isEnabled: true, reminders: list });
     read.mockImplementation(async () => {
       disableReminders();
-      return { hasList: true, reminders: list };
+      return list;
     });
     await refreshReminders();
     expect(state()).toEqual({ isEnabled: false, reminders: [] });

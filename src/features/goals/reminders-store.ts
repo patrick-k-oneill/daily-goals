@@ -5,28 +5,28 @@ import { persist } from 'zustand/middleware';
 
 import { persistOptions } from '@/lib/persisted-store';
 
-import { readTodayList, requestRemindersAccess } from './reminders';
+import { readDueReminders, requestRemindersAccess } from './reminders';
 import type { Reminder } from './types';
 
 interface RemindersState {
-  /** Whether this device's Today list feeds suggestions. The only part that is persisted. */
+  /** Whether this device's due reminders feed suggestions. The only part that is persisted. */
   isEnabled: boolean;
-  /** The Today list as last read from the device; empty while the switch is off. */
+  /** The due reminders as last read from the device; empty while the switch is off. */
   reminders: Reminder[];
   setEnabled: (isEnabled: boolean) => void;
   /**
-   * Takes a fresh read of the Today list. One that lands after the switch went
+   * Takes a fresh read of the due reminders. One that lands after the switch went
    * off is dropped, and one that matches the list held changes nothing.
    */
   setReminders: (reminders: Reminder[]) => void;
 }
 
-/** How often the Today list is read again while the app stays in front. */
+/** How often the due reminders are read again while the app stays in front. */
 const REFRESH_INTERVAL_MS = 60_000;
 
 /**
  * This device's link to Reminders: a switch, off until turned on, and the
- * Today list as last read. It is no part of the pad (ADR 0011): the list is
+ * due reminders as last read. It is no part of the pad (ADR 0011): the list is
  * read again on every launch and never saved, exported or merged.
  */
 export const useRemindersStore = create<RemindersState>()(
@@ -46,27 +46,27 @@ export const useRemindersStore = create<RemindersState>()(
   ),
 );
 
-/** How turning the switch on ended: on, on with no Today list to read, or refused. */
-export type EnableOutcome = 'on' | 'no-list' | 'denied' | 'unavailable';
+/** How turning the switch on ended: on, or refused. */
+export type EnableOutcome = 'on' | 'denied' | 'unavailable';
 
 /**
- * Read the Today list into the store while the switch is on. A list that can
+ * Read the due reminders into the store while the switch is on. A list that can
  * no longer be read (access withdrawn in Settings) turns the switch off.
  */
 export async function refreshReminders(): Promise<EnableOutcome | 'off'> {
   if (!useRemindersStore.getState().isEnabled) return 'off';
 
-  const list = await readTodayList();
+  const due = await readDueReminders();
   const { setEnabled, setReminders } = useRemindersStore.getState();
-  if (list === null) {
+  if (due === null) {
     setEnabled(false);
     return 'unavailable';
   }
-  setReminders(list.reminders);
-  return list.hasList ? 'on' : 'no-list';
+  setReminders(due);
+  return 'on';
 }
 
-/** Turn the switch on: ask for access, and on a yes read the Today list. */
+/** Turn the switch on: ask for access, and on a yes read the due reminders. */
 export async function enableReminders(): Promise<EnableOutcome> {
   const access = await requestRemindersAccess();
   if (access !== 'granted') return access;
@@ -81,7 +81,7 @@ export function disableReminders(): void {
 }
 
 /**
- * Keep the Today list fresh while the switch is on: at launch, on each return
+ * Keep the due reminders fresh while the switch is on: at launch, on each return
  * to the foreground, and every minute in front. Nothing announces a change
  * made in Reminders while the app stays active beside it (Split View, a Mac
  * window), so the list is read again on a timer.
@@ -108,6 +108,12 @@ export function useRemindersRefresh() {
 function isSameList(a: Reminder[], b: Reminder[]): boolean {
   return (
     a.length === b.length &&
-    a.every((r, i) => r.id === b[i].id && r.title === b[i].title && r.completed === b[i].completed)
+    a.every(
+      (r, i) =>
+        r.id === b[i].id &&
+        r.title === b[i].title &&
+        r.completed === b[i].completed &&
+        r.dueDay === b[i].dueDay,
+    )
   );
 }

@@ -3,7 +3,6 @@ import { Alert, Linking } from 'react-native';
 import { SettingsGroup, SettingsRow } from '@/components/ui/settings-list';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 
-import { TODAY_LIST_TITLE } from '../logic';
 import { hasReminders } from '../reminders';
 import {
   disableReminders,
@@ -14,16 +13,11 @@ import {
 
 const SWITCH_LABEL = 'Suggest iOS Reminders due Today';
 
-/** What to say when turning the switch on did not end with a Today list being read. */
+/** What to say when turning the switch on was refused. */
 function explain(outcome: EnableOutcome) {
   switch (outcome) {
     case 'on':
       return;
-    case 'no-list':
-      return Alert.alert(
-        `No ${TODAY_LIST_TITLE} list yet`,
-        `Create a list named ${TODAY_LIST_TITLE} in Reminders. Its unfinished reminders are suggested on today’s page.`,
-      );
     case 'denied':
       return Alert.alert(
         'Reminders access is off',
@@ -42,7 +36,7 @@ function explain(outcome: EnableOutcome) {
 }
 
 /**
- * The switch that lets the Reminders Today list suggest goals on today's
+ * The switch that lets due reminders suggest goals on today's
  * page. Turning it on asks for access. Absent where there is no Reminders app.
  */
 export function RemindersSetting() {

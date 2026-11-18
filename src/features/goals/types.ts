@@ -1,3 +1,4 @@
+import type { DayKey } from '@/lib/dates';
 import type { Stamp, Tombstones } from '@/lib/merge';
 
 export const CADENCES = ['daily', 'weekly', 'annual'] as const;
@@ -67,11 +68,12 @@ export interface Goals {
   declinedSuggestions?: string[];
 }
 
-/** A reminder in the device's Today list, as the goals core reads it. */
+/** A reminder in the device's Reminders app, as the goals core reads it. */
 export interface Reminder {
   id: string;
   title: string;
   completed: boolean;
+  dueDay?: DayKey;
 }
 
 /**
@@ -98,7 +100,7 @@ export interface CarryoverSuggestion extends SuggestedGoal {
   reminderId?: string;
 }
 
-/** An unfinished reminder in the Today list that no entry is linked to. */
+/** An unfinished reminder due today or earlier that no entry is linked to. */
 export interface ReminderSuggestion extends SuggestedGoal {
   kind: 'reminder';
   sourceReminderId: string;

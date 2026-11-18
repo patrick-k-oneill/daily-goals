@@ -91,14 +91,6 @@ export function carriedEntryId(sourceId: string, periodKey: string): string {
   return `${root}${CARRY_MARK}${periodKey}`;
 }
 
-/** The Reminders list whose unfinished reminders are suggested for today. */
-export const TODAY_LIST_TITLE = 'Today';
-
-/** Whether a Reminders list is the Today list, whatever its case or surrounding space. */
-export function isTodayList(title: string): boolean {
-  return titleKey(title) === titleKey(TODAY_LIST_TITLE);
-}
-
 function seedTemplateId(cadence: Cadence, sortOrder: number): string {
   return `seed:${cadence}:${sortOrder}`;
 }
@@ -481,7 +473,7 @@ type SuggestionSource = Pick<Goals, 'entries' | 'tombstones' | 'declinedSuggesti
  * What the pad offers to write on a period's section, carryovers first: the
  * unfinished one-off lines of the most recent earlier period with any lines,
  * in their stored order, then, on the daily section, the unfinished reminders
- * of the Today list. Only the period containing `today` gets suggestions.
+ * due today or earlier. Only the period containing `today` gets suggestions.
  * Nothing is offered while its title is written on this period, and a goal
  * that both sources hold is offered once, as a carryover.
  */
@@ -541,8 +533,10 @@ function carryoverSuggestions(
     }));
 }
 
+type DueReminder = Reminder & { dueDay: DayKey };
+
 /**
- * Reminders: unfinished, titled, and in the order the list gives them. A
+ * Reminders: unfinished, titled, due by this day, the longest due first. A
  * reminder stops being offered once any entry is linked to it or it is
  * declined, and for the day once the line written from it is crossed off.
  */
@@ -555,13 +549,16 @@ function reminderSuggestions(
   const declined = new Set(goals.declinedSuggestions);
   return reminders
     .filter(
-      (r) =>
+      (r): r is DueReminder =>
+        r.dueDay !== undefined &&
+        r.dueDay <= periodKey &&
         !r.completed &&
         titleKey(r.title) !== '' &&
         !declined.has(r.id) &&
         !isLinked(goals, r.id, periodKey) &&
         !taken.has(titleKey(r.title)),
     )
+    .sort((a, b) => a.dueDay.localeCompare(b.dueDay))
     .map((r) => ({
       kind: 'reminder',
       sourceReminderId: r.id,
