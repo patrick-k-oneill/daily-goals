@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { PrimaryButton } from '@/components/ui/form';
 import { Layout, Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -106,19 +108,35 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
   );
 }
 
+const GO_TO_TODAY = 'Go to Today';
+const GO_TO_TODAY_LABEL = 'Go to today’s page';
+
 function GoToToday({ onPress }: { onPress: () => void }) {
   const { hovered, hoverProps } = useHover();
+  const isYellowReadableOnPage = useColorScheme() === 'dark';
+
+  if (!isYellowReadableOnPage) {
+    return (
+      <View style={styles.goToTodayPill}>
+        <PrimaryButton
+          label={GO_TO_TODAY}
+          accessibilityLabel={GO_TO_TODAY_LABEL}
+          onPress={onPress}
+        />
+      </View>
+    );
+  }
 
   return (
     <Pressable
       {...hoverProps}
       accessibilityRole="button"
-      accessibilityLabel="Go to today’s page"
+      accessibilityLabel={GO_TO_TODAY_LABEL}
       hitSlop={8}
       onPress={onPress}
       style={({ pressed }) => [styles.goToToday, (pressed || hovered) && styles.goToTodayActive]}>
-      <ThemedText type="smallBold" themeColor="primaryEdge">
-        Go to Today
+      <ThemedText type="smallBold" themeColor="primary">
+        {GO_TO_TODAY}
       </ThemedText>
     </Pressable>
   );
@@ -209,5 +227,9 @@ const styles = StyleSheet.create({
   },
   goToTodayActive: {
     opacity: 0.6,
+  },
+  goToTodayPill: {
+    alignSelf: 'center',
+    paddingVertical: Spacing.one,
   },
 });

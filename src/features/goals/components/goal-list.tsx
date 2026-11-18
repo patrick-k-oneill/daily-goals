@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
 import { ReorderableRow, useReorderable } from '@/components/ui/reorderable';
 import { Spacing } from '@/constants/theme';
 import { useTextScale } from '@/features/text-size/store';
@@ -48,11 +47,6 @@ export function GoalList({ cadence, day }: { cadence: Cadence; day: DayKey }) {
           <GoalRow entry={entry} layout={layouts[i]} />
         </ReorderableRow>
       ))}
-      {list.length === 0 && (
-        <ThemedText themeColor="textSecondary" style={styles.empty}>
-          Nothing written on this page yet.
-        </ThemedText>
-      )}
       <SuggestionRows cadence={cadence} periodKey={periodKey} />
       <AddGoalRow cadence={cadence} periodKey={periodKey} />
     </View>
@@ -62,8 +56,5 @@ export function GoalList({ cadence, day }: { cadence: Cadence; day: DayKey }) {
 const styles = StyleSheet.create({
   list: {
     gap: Spacing.half,
-  },
-  empty: {
-    paddingVertical: Spacing.two,
   },
 });
