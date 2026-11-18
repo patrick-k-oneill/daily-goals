@@ -142,13 +142,17 @@ export function ensurePeriod(
   if (periodKeyFor(cadence, today) !== periodKey) return goals;
 
   const instantiated = new Set<string>();
+  const written = new Set<string>();
   for (const e of goals.entries) {
-    if (e.periodKey === periodKey && e.templateId) instantiated.add(e.templateId);
+    if (e.periodKey !== periodKey) continue;
+    written.add(e.id);
+    if (e.templateId) instantiated.add(e.templateId);
   }
 
   const additions: GoalEntry[] = [];
   for (const t of goals.templates) {
     if (t.retiredAt || t.cadence !== cadence || instantiated.has(t.id)) continue;
+    if (written.has(startedFrom(t.id) ?? '')) continue;
     if (!repeatsOn(t, periodKey)) continue;
     const id = materializedEntryId(t.id, periodKey);
     if (id in goals.tombstones) continue;
@@ -464,6 +468,51 @@ export function stopRepeating(goals: Goals, entryId: string, now: Stamp): Goals 
       t.id === template.id ? { ...t, retiredAt: now, updatedAt: now } : t,
     ),
     entries: goals.entries.map((e) => (e.id === entryId ? { ...e, updatedAt: now } : e)),
+  };
+}
+
+const START_MARK = '~';
+
+export function startedTemplateId(entryId: string, start: number): string {
+  return `${entryId}${START_MARK}${start}`;
+}
+
+function startedFrom(templateId: string): string | undefined {
+  const at = templateId.lastIndexOf(START_MARK);
+  if (at <= 0 || !/^\d+$/.test(templateId.slice(at + 1))) return undefined;
+  return templateId.slice(0, at);
+}
+
+export function startRepeating(
+  goals: Goals,
+  entryId: string,
+  weekdays: readonly number[] | undefined,
+  now: Stamp,
+): Goals {
+  const entry = goals.entries.find((e) => e.id === entryId);
+  if (!entry) return goals;
+  const linked = goals.templates.find((t) => t.id === entry.templateId);
+  if (linked && !linked.retiredAt) return goals;
+
+  const started = goals.templates.filter((t) => startedFrom(t.id) === entryId);
+  const live = started.find((t) => !t.retiredAt);
+  const template: GoalTemplate = live ?? {
+    id: startedTemplateId(entryId, started.length + 1),
+    cadence: entry.cadence,
+    title: entry.title,
+    targetCount: entry.checks.length,
+    checkLabels: entry.checkLabels,
+    weekdays: fitWeekdays(entry.cadence, weekdays),
+    sortOrder: entry.sortOrder,
+    updatedAt: now,
+  };
+
+  return {
+    ...goals,
+    templates: live ? goals.templates : [...goals.templates, template],
+    entries: goals.entries.map((e) =>
+      e.id === entryId ? { ...e, templateId: template.id, updatedAt: now } : e,
+    ),
   };
 }
 

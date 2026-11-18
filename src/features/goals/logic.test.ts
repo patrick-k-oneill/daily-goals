@@ -28,6 +28,8 @@ import {
   settleAfterTap,
   settleSection,
   seedGoals,
+  startedTemplateId,
+  startRepeating,
   stopRepeating,
   suggestionNote,
   suggestionSourceId,
@@ -1209,6 +1211,85 @@ describe('stopRepeating', () => {
   });
 });
 
+describe('startRepeating', () => {
+  const STARTED = startedTemplateId('e1', 1);
+
+  it('makes a one-off line the first line of a new template, with its checks kept', () => {
+    const line = entry({ checks: ['empty', 'empty'], checkLabels: ['AM', 'PM'], sortOrder: 3 });
+    const start = cycleCheck(goals({ entries: [line] }), 'e1', 0, NOW);
+    const state = startRepeating(start, 'e1', [5, 1, 3], LATER);
+
+    expect(state.templates).toEqual([
+      {
+        id: STARTED,
+        cadence: 'daily',
+        title: 'One-off',
+        targetCount: 2,
+        checkLabels: ['AM', 'PM'],
+        weekdays: [1, 3, 5],
+        sortOrder: 3,
+        updatedAt: LATER,
+      },
+    ]);
+    expect(byId(state, 'e1')).toEqual({
+      ...byId(start, 'e1'),
+      templateId: STARTED,
+      updatedAt: LATER,
+    });
+    expect(byId(state, 'e1')?.checks).toEqual(['done', 'empty']);
+  });
+
+  it('writes the goal on the next page and not a second time on its own', () => {
+    const state = startRepeating(goals({ entries: [entry()] }), 'e1', undefined, NOW);
+
+    expect(materializeToday(state, TODAY)).toBe(state);
+    const tomorrow = materializeToday(state, '2026-08-22');
+    expect(entriesForPeriod(tomorrow.entries, '2026-08-22')).toMatchObject([
+      { id: materializedEntryId(STARTED, '2026-08-22'), templateId: STARTED, title: 'One-off' },
+    ]);
+  });
+
+  it('keeps a weekday schedule off a weekly goal', () => {
+    const weekly = entry({ cadence: 'weekly', periodKey: '2026-W34' });
+    const state = startRepeating(goals({ entries: [weekly] }), 'e1', [1, 3], NOW);
+    expect(state.templates[0].weekdays).toBeUndefined();
+  });
+
+  it('starts a stopped goal as a new template and leaves the old one retired', () => {
+    const written = materializeToday(goals({ templates: [template()] }), TODAY);
+    const stopped = stopRepeating(written, 't1:2026-08-21', NOW);
+    const state = startRepeating(stopped, 't1:2026-08-21', undefined, LATER);
+    const restarted = startedTemplateId('t1:2026-08-21', 1);
+
+    expect(state.templates.map((t) => [t.id, t.retiredAt])).toEqual([
+      ['t1', NOW],
+      [restarted, undefined],
+    ]);
+    expect(byId(state, 't1:2026-08-21')?.templateId).toBe(restarted);
+    const tomorrow = materializeToday(state, '2026-08-22');
+    expect(entriesForPeriod(tomorrow.entries, '2026-08-22').map((e) => e.templateId)).toEqual([
+      restarted,
+    ]);
+  });
+
+  it('gives each start after a stop a template of its own', () => {
+    const once = startRepeating(goals({ entries: [entry()] }), 'e1', undefined, NOW);
+    const again = startRepeating(stopRepeating(once, 'e1', LATER), 'e1', undefined, LATER);
+
+    expect(again.templates.map((t) => [t.id, t.retiredAt])).toEqual([
+      [STARTED, LATER],
+      [startedTemplateId('e1', 2), undefined],
+    ]);
+    expect(byId(again, 'e1')?.templateId).toBe(startedTemplateId('e1', 2));
+  });
+
+  it('ignores a line that already repeats and an unknown entry', () => {
+    const start = materializeToday(goals({ templates: [template()] }), TODAY);
+    expect(startRepeating(start, 't1:2026-08-21', undefined, NOW)).toBe(start);
+    expect(startRepeating(start, 'missing', undefined, NOW)).toBe(start);
+  });
+});
+
 describe('suggestions', () => {
   const YESTERDAY = '2026-08-20';
 
@@ -1790,6 +1871,33 @@ describe('mergeGoals', () => {
     expect(merged).toEqual(mergeGoals(renamed, stopped));
     expect(mergeGoals(merged, renamed)).toEqual(merged);
     expect(materializeToday(merged, '2026-08-22')).toBe(merged);
+  });
+
+  it('starts a goal once when two devices turn Repeats on for the same line', () => {
+    const pad = goals({ entries: [entry()] });
+    const onPhone = startRepeating(pad, 'e1', undefined, NOW);
+    const onIpad = startRepeating(structuredClone(pad), 'e1', [1, 3], LATER);
+
+    const merged = mergeGoals(onPhone, onIpad);
+    expect(merged.templates).toEqual(onIpad.templates);
+    expect(merged).toEqual(mergeGoals(onIpad, onPhone));
+    expect(titlesOn(materializeToday(merged, '2026-08-24'), '2026-08-24')).toEqual(['One-off']);
+  });
+
+  it('writes a started goal once on its page when a stale device writes on the line later', () => {
+    const pad = goals({ entries: [entry()] });
+    const started = startRepeating(pad, 'e1', undefined, NOW);
+    const tappedLater = cycleCheck(structuredClone(pad), 'e1', 0, LATER);
+
+    const merged = mergeGoals(started, tappedLater);
+    expect(byId(merged, 'e1')).toEqual(byId(tappedLater, 'e1'));
+    expect(merged).toEqual(mergeGoals(tappedLater, started));
+    expect(materializeToday(merged, TODAY)).toBe(merged);
+    expect(titlesOn(materializeToday(merged, '2026-08-22'), '2026-08-22')).toEqual(['One-off']);
+
+    const relinked = startRepeating(merged, 'e1', undefined, '2026-08-21T11:00:00.000Z');
+    expect(relinked.templates).toBe(merged.templates);
+    expect(byId(relinked, 'e1')?.templateId).toBe(startedTemplateId('e1', 1));
   });
 
   it('keeps the first retirement when both devices retire the same goal', () => {

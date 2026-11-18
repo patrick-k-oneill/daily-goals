@@ -18,6 +18,7 @@ interface GoalsState extends Goals {
   updateGoal: (entryId: string, patch: logic.GoalEditPatch) => void;
   removeGoal: (entryId: string) => void;
   stopRepeating: (entryId: string) => void;
+  startRepeating: (entryId: string, weekdays?: readonly number[]) => void;
   acceptSuggestion: (suggestion: Suggestion, periodKey: string) => void;
   declineSuggestion: (sourceId: string) => void;
   moveEntry: (entryId: string, toIndex: number) => void;
@@ -49,6 +50,13 @@ export const useGoalsStore = create<GoalsState>()(
         set((goals) => logic.updateGoal(goals, entryId, patch, nowStamp())),
       removeGoal: (entryId) => set((goals) => logic.removeGoal(goals, entryId, nowStamp())),
       stopRepeating: (entryId) => set((goals) => logic.stopRepeating(goals, entryId, nowStamp())),
+      startRepeating: (entryId, weekdays) =>
+        set((goals) =>
+          logic.materializeToday(
+            logic.startRepeating(goals, entryId, weekdays, nowStamp()),
+            todayKey(),
+          ),
+        ),
       acceptSuggestion: (suggestion, periodKey) =>
         set((goals) => logic.acceptSuggestion(goals, suggestion, periodKey, nowStamp())),
       declineSuggestion: (sourceId) => set((goals) => logic.declineSuggestion(goals, sourceId)),

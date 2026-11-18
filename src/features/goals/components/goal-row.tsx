@@ -112,10 +112,12 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
   const updateGoal = useGoalsStore((s) => s.updateGoal);
   const removeGoal = useGoalsStore((s) => s.removeGoal);
   const stopRepeating = useGoalsStore((s) => s.stopRepeating);
+  const startRepeating = useGoalsStore((s) => s.startRepeating);
   const template = useGoalsStore((s) => s.templates.find((t) => t.id === entry.templateId));
   // A line kept from a stopped template edits as a one-off.
   const recurring = template !== undefined && !template.retiredAt;
-  const [repeats, setRepeats] = useState(true);
+  const [repeatsChoice, setRepeatsChoice] = useState<boolean>();
+  const repeats = repeatsChoice ?? recurring;
 
   const remove = () => {
     confirmAction(
@@ -138,16 +140,15 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
       placeholder="Goal title…"
       submitLabel="Save"
       style={styles.editor}
-      showWeekdays={recurring && repeats && entry.cadence === 'daily'}
+      showWeekdays={repeats && entry.cadence === 'daily'}
       onSubmit={(draft) => {
         updateGoal(entry.id, draft);
         if (recurring && !repeats) stopRepeating(entry.id);
+        if (!recurring && repeats) startRepeating(entry.id, draft.weekdays);
         onDone();
       }}
       onCancel={onDone}
-      accessory={
-        recurring ? <RepeatsToggle value={repeats} onValueChange={setRepeats} /> : undefined
-      }
+      accessory={<RepeatsToggle value={repeats} onValueChange={setRepeatsChoice} />}
       footer={
         <Pressable
           accessibilityRole="button"

@@ -33,8 +33,12 @@ A goal line on a specific period's section, either materialized from a template 
 _Avoid_: goal instance, task, item, starred or key goal (the margin star is retired)
 
 **Stop repeating**:
-Retiring a template from one of its lines without crossing that line off, by turning Repeats off in the line's edit form. The line stays where it was written, with its checks and its `templateId`; lines already written on other periods stay too, and no later period gets one. A stopped template never starts again: the goal is written anew with Repeats on.
+Retiring a template from one of its lines without crossing that line off, by turning Repeats off in the line's edit form. The line stays where it was written, with its checks and its `templateId`; lines already written on other periods stay too, and no later period gets one. A stopped template never starts again; turning Repeats back on starts a new one.
 _Avoid_: pause, disable, archive
+
+**Start repeating**:
+Making a template from an entry that has none, or whose template was stopped, by turning Repeats on in the line's edit form. The template takes the entry's title, check count, labels and place, and the entry becomes its line on that period. Every device gives the template the same id (the entry and how many templates were started from it), so starting it on two devices makes one template (ADR 0008).
+_Avoid_: resume, revive, restart
 
 **Suggestion**:
 A goal the pad offers to write on the current period's section: a faded row at the foot of the section with Add and Decline. It is on no page until it is accepted, and a past page shows none. Only the Daily section offers suggestions, from two sources: carryovers first, then due reminders.
