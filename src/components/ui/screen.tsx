@@ -1,15 +1,9 @@
 import { type ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
+  useAnimatedRef,
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
@@ -19,6 +13,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Layout, Spacing } from '@/constants/theme';
 import { useKeyboardDock } from '@/hooks/use-keyboard-dock';
 import { useTheme } from '@/hooks/use-theme';
+
+import { PageScrollContext } from './page-scroll';
 
 const MARGIN_LINE_WIDTH = 2;
 const HEADER_SHADOW_FADE_DISTANCE = 12;
@@ -37,7 +33,9 @@ export function Screen({ header, children }: ScreenProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const keyboardDock = useKeyboardDock();
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useSharedValue(0);
+  const contentHeight = useSharedValue(0);
   const headerShadow = useAnimatedStyle(() => ({
     opacity: interpolate(
       scrollOffset.get(),
@@ -75,14 +73,16 @@ export function Screen({ header, children }: ScreenProps) {
             // A docked keyboard insets the ScrollView on iOS, which also brings
             // a focused input's caret above it; Android pads the page instead.
             behavior={Platform.OS === 'android' ? 'padding' : undefined}>
-            <ScrollView
+            <Animated.ScrollView
+              ref={scrollRef}
               style={[styles.flex, styles.scrollGutters]}
               contentContainerStyle={[styles.centered, styles.scrollContent]}
               keyboardShouldPersistTaps="handled"
               automaticallyAdjustKeyboardInsets={keyboardDock.isDocked}
               contentInset={{ bottom: keyboardDock.inset }}
               scrollEventThrottle={16}
-              onScroll={(e) => scrollOffset.set(e.nativeEvent.contentOffset.y)}>
+              onScroll={(e) => scrollOffset.set(e.nativeEvent.contentOffset.y)}
+              onContentSizeChange={(_width, height) => contentHeight.set(height)}>
               <View
                 style={[
                   styles.column,
@@ -90,9 +90,17 @@ export function Screen({ header, children }: ScreenProps) {
                   styles.page,
                   { paddingBottom: insets.bottom + Spacing.five },
                 ]}>
-                {children}
+                <PageScrollContext
+                  value={{
+                    ref: scrollRef,
+                    offset: scrollOffset,
+                    contentHeight,
+                    insetBottom: insets.bottom,
+                  }}>
+                  {children}
+                </PageScrollContext>
               </View>
-            </ScrollView>
+            </Animated.ScrollView>
           </KeyboardAvoidingView>
         </View>
       </SafeAreaView>

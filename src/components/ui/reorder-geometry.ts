@@ -31,6 +31,20 @@ export function slotAt(thresholds: number[], top: number): number {
   return slot;
 }
 
+const EDGE_SCROLL_ZONE = 72;
+const EDGE_SCROLL_SPEED = 900;
+
+export function edgeScrollSpeed(pointer: number, top: number, bottom: number): number {
+  'worklet';
+  const zone = Math.min(EDGE_SCROLL_ZONE, (bottom - top) / 2);
+  if (zone <= 0) return 0;
+  const above = top + zone - pointer;
+  if (above > 0) return -EDGE_SCROLL_SPEED * Math.min(1, above / zone);
+  const below = pointer - (bottom - zone);
+  if (below > 0) return EDGE_SCROLL_SPEED * Math.min(1, below / zone);
+  return 0;
+}
+
 /**
  * Which side of the row at `index` opens up to leave the lifted row's slot
  * free: above the row that follows the slot, or below the last row when the

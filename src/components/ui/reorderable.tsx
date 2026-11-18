@@ -10,7 +10,10 @@ import {
 import { Gesture, type PanGesture } from 'react-native-gesture-handler';
 import Animated, {
   LinearTransition,
+  measure,
+  scrollTo,
   useAnimatedStyle,
+  useFrameCallback,
   useSharedValue,
   withTiming,
   type SharedValue,
@@ -21,7 +24,8 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { dropTap, liftTap } from '@/lib/haptics';
 
-import { dragSlots, roomBeside, slotAt, type RowBox } from './reorder-geometry';
+import { usePageScroll } from './page-scroll';
+import { dragSlots, edgeScrollSpeed, roomBeside, slotAt, type RowBox } from './reorder-geometry';
 
 /** How long a press rests on a handle before its row lifts. */
 const LONG_PRESS_MS = 350;
@@ -55,6 +59,13 @@ interface DragBounds {
   thresholds: number[];
 }
 
+interface ScrollSpan {
+  top: number;
+  bottom: number;
+  start: number;
+  limit: number;
+}
+
 export interface Reorderable {
   ids: string[];
   gap: number;
@@ -63,7 +74,7 @@ export interface Reorderable {
   keyOf: (id: string) => string;
   measure: (id: string, box: RowBox) => void;
   begin: (id: string) => void;
-  hover: (over: number) => void;
+  follow: () => void;
   drop: (success: boolean) => void;
   moveBy: (id: string, delta: number) => void;
   pressIn: (event: GestureResponderEvent) => void;
@@ -76,7 +87,10 @@ export interface Reorderable {
   translateY: SharedValue<number>;
   lift: SharedValue<number>;
   bounds: SharedValue<DragBounds | null>;
-  slot: SharedValue<number>;
+  pointerY: SharedValue<number | null>;
+  travel: SharedValue<number>;
+  scrolled: SharedValue<number>;
+  scrollSpan: SharedValue<ScrollSpan | null>;
 }
 
 /**
@@ -110,8 +124,66 @@ export function useReorderable({
   const lift = useSharedValue(0);
   const bounds = useSharedValue<DragBounds | null>(null);
   const slot = useSharedValue(0);
+  const scroll = usePageScroll();
+  const pointerY = useSharedValue<number | null>(null);
+  const travel = useSharedValue(0);
+  const scrolled = useSharedValue(0);
+  const scrollSpan = useSharedValue<ScrollSpan | null>(null);
 
   const keyOf = (id: string) => `${id}:${generations[id] ?? 0}`;
+
+  const hover = (over: number) => {
+    if (!live.current) return;
+    live.current = { ...live.current, over };
+    setDrag(live.current);
+  };
+
+  const follow = () => {
+    'worklet';
+    const reach = travel.get() + scrolled.get();
+    const range = bounds.get();
+    if (!range) {
+      translateY.set(reach);
+      return;
+    }
+    const top = Math.min(range.max, Math.max(range.min, range.origin + reach));
+    translateY.set(top - range.origin);
+    const over = slotAt(range.thresholds, top);
+    if (over === slot.get()) return;
+    slot.set(over);
+    scheduleOnRN(hover, over);
+  };
+
+  const edgeScroll = useFrameCallback(({ timeSincePreviousFrame }) => {
+    const pointer = pointerY.get();
+    const range = bounds.get();
+    if (!scroll || pointer === null || !range || timeSincePreviousFrame === null) return;
+
+    let span = scrollSpan.get();
+    if (!span) {
+      const viewport = measure(scroll.ref);
+      if (!viewport) return;
+      const start = scroll.offset.get();
+      span = {
+        top: viewport.pageY,
+        bottom: viewport.pageY + viewport.height - scroll.insetBottom,
+        start,
+        limit: Math.max(start, scroll.contentHeight.get() - viewport.height),
+      };
+      scrollSpan.set(span);
+    }
+
+    const speed = edgeScrollSpeed(pointer, span.top, span.bottom);
+    const top = range.origin + translateY.get();
+    if (speed === 0 || (speed < 0 && top <= range.min) || (speed > 0 && top >= range.max)) return;
+
+    const from = span.start + scrolled.get();
+    const to = Math.min(span.limit, Math.max(0, from + (speed * timeSincePreviousFrame) / 1000));
+    if (to === from) return;
+    scrollTo(scroll.ref, 0, to, false);
+    scrolled.set(to - span.start);
+    follow();
+  }, false);
 
   const begin = (id: string) => {
     const from = ids.indexOf(id);
@@ -128,13 +200,8 @@ export function useReorderable({
     setDrag(lifted);
     slot.set(from);
     bounds.set({ origin: tops[from], min: tops[0], max: tops[tops.length - 1], thresholds });
+    edgeScroll.setActive(true);
     liftTap();
-  };
-
-  const hover = (over: number) => {
-    if (!live.current) return;
-    live.current = { ...live.current, over };
-    setDrag(live.current);
   };
 
   const finish = () => {
@@ -155,6 +222,7 @@ export function useReorderable({
     const over = success ? lifted.over : lifted.from;
     live.current = { ...lifted, over };
     setDrag(live.current);
+    edgeScroll.setActive(false);
     dropTap();
     lift.set(withTiming(0, { duration: SETTLE_MS }));
     translateY.set(
@@ -179,7 +247,7 @@ export function useReorderable({
     keyOf,
     measure: (id, box) => boxes.current.set(id, box),
     begin,
-    hover,
+    follow,
     drop,
     moveBy,
     pressIn: ({ nativeEvent }) => {
@@ -200,7 +268,10 @@ export function useReorderable({
     translateY,
     lift,
     bounds,
-    slot,
+    pointerY,
+    travel,
+    scrolled,
+    scrollSpan,
   };
 }
 
@@ -345,17 +416,22 @@ export function useReorderHandle(): ReorderHandle {
 }
 
 function liftAndDrag({ reorder, id, token }: Row, owns: SharedValue<boolean>): PanGesture {
-  const { active, busy, translateY, lift, bounds, slot, begin, hover, drop } = reorder;
+  const { active, busy, translateY, lift, bounds, begin, follow, drop } = reorder;
+  const { pointerY, travel, scrolled, scrollSpan } = reorder;
 
   return Gesture.Pan()
     .enabled(reorder.ids.length > 1)
     .activateAfterLongPress(LONG_PRESS_MS)
-    .onStart(() => {
+    .onStart((event) => {
       'worklet';
       if (busy.get()) return;
       busy.set(true);
       owns.set(true);
       bounds.set(null);
+      scrollSpan.set(null);
+      scrolled.set(0);
+      travel.set(0);
+      pointerY.set(event.absoluteY);
       translateY.set(0);
       active.set(token);
       lift.set(withTiming(1, { duration: LIFT_MS }));
@@ -364,22 +440,15 @@ function liftAndDrag({ reorder, id, token }: Row, owns: SharedValue<boolean>): P
     .onUpdate((event) => {
       'worklet';
       if (!owns.get() || active.get() !== token) return;
-      const range = bounds.get();
-      if (!range) {
-        translateY.set(event.translationY);
-        return;
-      }
-      const top = Math.min(range.max, Math.max(range.min, range.origin + event.translationY));
-      translateY.set(top - range.origin);
-      const over = slotAt(range.thresholds, top);
-      if (over === slot.get()) return;
-      slot.set(over);
-      scheduleOnRN(hover, over);
+      travel.set(event.translationY);
+      pointerY.set(event.absoluteY);
+      follow();
     })
     .onFinalize((_event, success) => {
       'worklet';
       if (!owns.get()) return;
       owns.set(false);
+      pointerY.set(null);
       // A lift that never took (its rows were unmeasured) has no drag of its own to drop.
       if (active.get() !== token) return;
       scheduleOnRN(drop, success);

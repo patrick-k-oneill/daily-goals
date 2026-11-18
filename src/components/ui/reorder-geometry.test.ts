@@ -1,4 +1,4 @@
-import { dragSlots, roomBeside, slotAt, type RowBox } from './reorder-geometry';
+import { dragSlots, edgeScrollSpeed, roomBeside, slotAt, type RowBox } from './reorder-geometry';
 
 const GAP = 2;
 
@@ -84,5 +84,39 @@ describe('roomBeside', () => {
   it('opens room beside one row only', () => {
     const sides = [1, 2, 3].map((index) => roomBeside(index, 0, 3, 4));
     expect(sides).toEqual([null, null, 'below']);
+  });
+});
+
+describe('edgeScrollSpeed', () => {
+  const TOP = 100;
+  const BOTTOM = 800;
+
+  it('leaves the page still while the pointer is clear of both edges', () => {
+    expect(edgeScrollSpeed(172, TOP, BOTTOM)).toBe(0);
+    expect(edgeScrollSpeed(450, TOP, BOTTOM)).toBe(0);
+    expect(edgeScrollSpeed(728, TOP, BOTTOM)).toBe(0);
+  });
+
+  it('scrolls up near the top edge and down near the bottom one', () => {
+    expect(edgeScrollSpeed(136, TOP, BOTTOM)).toBeLessThan(0);
+    expect(edgeScrollSpeed(764, TOP, BOTTOM)).toBeGreaterThan(0);
+    expect(edgeScrollSpeed(136, TOP, BOTTOM)).toBe(-edgeScrollSpeed(764, TOP, BOTTOM));
+  });
+
+  it('scrolls faster the closer the pointer is to the edge, and no faster past it', () => {
+    const near = edgeScrollSpeed(740, TOP, BOTTOM);
+    const nearer = edgeScrollSpeed(780, TOP, BOTTOM);
+    const atEdge = edgeScrollSpeed(BOTTOM, TOP, BOTTOM);
+    expect(nearer).toBeGreaterThan(near);
+    expect(atEdge).toBeGreaterThan(nearer);
+    expect(edgeScrollSpeed(BOTTOM + 200, TOP, BOTTOM)).toBe(atEdge);
+    expect(edgeScrollSpeed(TOP - 200, TOP, BOTTOM)).toBe(-atEdge);
+  });
+
+  it('splits a window too short for both zones down the middle', () => {
+    expect(edgeScrollSpeed(120, 100, 200)).toBeLessThan(0);
+    expect(edgeScrollSpeed(150, 100, 200)).toBe(0);
+    expect(edgeScrollSpeed(180, 100, 200)).toBeGreaterThan(0);
+    expect(edgeScrollSpeed(100, 100, 100)).toBe(0);
   });
 });

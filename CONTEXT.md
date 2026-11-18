@@ -61,7 +61,7 @@ An entry's position in its section, stored as `sortOrder`: a section reads in as
 _Avoid_: rank, priority, position
 
 **Move**:
-Giving an entry a new place in its section: long-press its title and drag, or use the title's Move up and Move down actions. Only the moved entry is written: its place becomes a number between its new neighbors'.
+Giving an entry a new place in its section: long-press its title and drag, or use the title's Move up and Move down actions. Only the moved entry is written: its place becomes a number between its new neighbors'. A lifted entry held near the top or bottom of the window scrolls the page under it.
 _Avoid_: reorder (as a noun), sort, rearrange
 
 **Carry forward**:
