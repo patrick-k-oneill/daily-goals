@@ -17,4 +17,4 @@ Strengthen the person, then their health, then uncover the potential a learning 
 ## Order of play
 
 1. [Issue #3 Cut over from the legal pad](https://github.com/patrick-k-oneill/daily-goals/issues/3).
-2. The rest as daily use asks for them: [Issue #37 Ink](https://github.com/patrick-k-oneill/daily-goals/issues/37).
+2. The rest as daily use asks for them.
