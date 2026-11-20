@@ -7,10 +7,10 @@ import { createJSONStorage, type PersistOptions } from 'zustand/middleware';
  * native storage on iOS/Android) under a namespaced key. Swapping the storage
  * engine or adding a migration happens here or in the caller's `migrate`.
  */
-export function persistOptions<S>(
+export function persistOptions<S, P = S>(
   name: string,
-  options: Pick<PersistOptions<S>, 'version' | 'migrate' | 'merge'> = {},
-): PersistOptions<S> {
+  options: Pick<PersistOptions<S, P>, 'version' | 'migrate' | 'merge' | 'partialize'> = {},
+): PersistOptions<S, P> {
   return {
     name: `daily-goals/${name}`,
     version: 1,

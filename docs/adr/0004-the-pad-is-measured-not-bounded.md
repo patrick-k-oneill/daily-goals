@@ -1,14 +1,14 @@
 # The pad's storage is measured, not bounded
 
-Every page is kept forever (ADR 0001) and each store persists as one JSON blob that zustand rewrites in full on every change. Measured before optimizing anything: a pad written every morning — 10 daily, 8 weekly and 5 annual recurring goals, a ~400-character gratitude entry a day, 100 events a year — takes, as persisted UTF-8 JSON (`storageFootprint`, pinned by `footprint.test.ts`):
+Every page is kept forever (ADR 0001) and each store persists as one JSON blob that zustand rewrites in full on every change. Measured before optimizing anything: a pad written every morning — 10 daily, 8 weekly and 5 annual recurring goals, a ~400-character gratitude entry a day — takes, as persisted UTF-8 JSON (`storageFootprint`, pinned by `footprint.test.ts`):
 
-| Years | goals     | gratitude | events | total     |
-| ----- | --------- | --------- | ------ | --------- |
-| 1     | 842,109   | 177,784   | 13,535 | 1,033,428 |
-| 3     | 2,519,796 | 533,294   | 40,603 | 3,093,693 |
-| 5     | 4,197,468 | 888,804   | 67,644 | 5,153,916 |
+| Years | goals     | gratitude | total     |
+| ----- | --------- | --------- | --------- |
+| 1     | 842,109   | 177,784   | 1,019,893 |
+| 3     | 2,519,796 | 533,294   | 3,053,090 |
+| 5     | 4,197,468 | 888,804   | 5,086,272 |
 
-Growth is linear at ~1.03 MB a year, four fifths of it goal entries (the `checks` arrays of `"empty"`/`"done"`/`"missed"` strings are most of that, the sync stamp on every item a sixth). The ceilings: iOS AsyncStorage has none (values over 1 KB become their own file in the sandbox); Android's default database cap is 6 MiB (`AsyncStorage_db_size_in_MB`); web `localStorage` is ~5 MiB per origin. Five years fit under all three; year six crosses the web line and year seven Android's.
+Growth is linear at ~1.02 MB a year, four fifths of it goal entries (the `checks` arrays of `"empty"`/`"done"`/`"missed"` strings are most of that, the sync stamp on every item a sixth). The ceilings: iOS AsyncStorage has none (values over 1 KB become their own file in the sandbox); Android's default database cap is 6 MiB (`AsyncStorage_db_size_in_MB`); web `localStorage` is ~5 MiB per origin. Five years fit under all three; year six crosses the web line and year seven Android's.
 
 Decision: no change to persistence now. The pad's first and unbounded device is the iPhone, Android is not a target, and the web build is a stopgap for the Mac until the Designed-for-iPad build (#9) — a horizon well short of six years. Instead of a bound, the size is kept visible and pinned: the Pad footer shows the live footprint (`useStorageFootprint`), and the test above fails the moment a persisted shape moves the figures, which is the moment to revisit this record.
 
@@ -17,3 +17,7 @@ When the tripwire fires, in order: partition `goals` by year so a check tap rewr
 Revisited 2026-09-25 for sync (#6, ADR 0005): the stamp every item now carries moved the figures from 0.93 to 1.10 MB a year and the web line from year six to year five. Decision unchanged — the web build's horizon is shorter than that — and the remedies stand in the order above.
 
 Revisited 2026-11-06 for the star's retirement (#29): the `starred` flag every entry carried is gone, moving the figures from 1.10 to 1.03 MB a year and the web line back from year five to year six. Decision unchanged.
+
+Revisited 2026-11-13 for the removal of upcoming events (#95): the events store is gone, moving the figures from 1.03 to 1.02 MB a year. Decision unchanged.
+
+Revisited 2026-11-13 for the simplified main screen (#96): the footer no longer shows the live footprint and `useStorageFootprint` is gone; the test still pins the figures. Decision unchanged.

@@ -1,8 +1,11 @@
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ListTextInput } from '@/components/ui/list-text-input';
 import { Spacing } from '@/constants/theme';
+import { scaleTextStyle } from '@/features/text-size/logic';
+import { useTextScale } from '@/features/text-size/store';
 import { useTheme } from '@/hooks/use-theme';
 import { useToday } from '@/lib/clock';
 import { formatDayLong, type DayKey } from '@/lib/dates';
@@ -10,14 +13,17 @@ import { formatDayLong, type DayKey } from '@/lib/dates';
 import { currentStreak, hasEntry, reflectionDateFor } from '../logic';
 import { useGratitudeStore } from '../store';
 
+/** Room for five lines of the entry at 100%; it grows with the text size. */
+const INPUT_MIN_HEIGHT = 140;
+
 /**
  * The morning ritual card: written today, about yesterday — exactly like
- * writing on the previous day's pad page. Fully controlled by the store, so
- * every mount of the same reflection date (Today page + Journal) shares one
- * source of truth and stays in live sync; zustand persist saves each edit.
+ * writing on the previous day's pad page. Fully controlled by the store;
+ * zustand persist saves each edit.
  */
 export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) {
   const theme = useTheme();
+  const scale = useTextScale();
   const today = useToday();
   const entries = useGratitudeStore((s) => s.entries);
   const saveEntry = useGratitudeStore((s) => s.saveEntry);
@@ -48,13 +54,15 @@ export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) 
         Reflecting on {formatDayLong(reflectionDate)}
       </ThemedText>
 
-      <TextInput
+      <ListTextInput
         value={text}
         onChangeText={(next) => saveEntry(reflectionDate, next)}
-        multiline
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
-        style={[styles.input, { color: theme.text }]}
+        style={[
+          scaleTextStyle(styles.input, scale),
+          { minHeight: INPUT_MIN_HEIGHT * scale, color: theme.text },
+        ]}
         accessibilityLabel="Gratitude journal entry"
       />
 
@@ -87,7 +95,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.five,
   },
   input: {
-    minHeight: 140,
     fontSize: 17,
     lineHeight: 26,
     textAlignVertical: 'top',

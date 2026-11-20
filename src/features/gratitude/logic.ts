@@ -1,5 +1,14 @@
+import { stripBullets } from '@/components/ui/list-text';
 import { addDays, type DayKey } from '@/lib/dates';
-import { mergeKeyed, withoutTombstone, withTombstone, type KeyOf, type Stamp } from '@/lib/merge';
+import { isRecord, isString, isTimestamp } from '@/lib/guards';
+import {
+  isTombstones,
+  mergeKeyed,
+  withoutTombstone,
+  withTombstone,
+  type KeyOf,
+  type Stamp,
+} from '@/lib/merge';
 
 import type { Gratitude, GratitudeEntries, GratitudeEntry } from './types';
 
@@ -13,8 +22,8 @@ export function reflectionDateFor(today: DayKey): DayKey {
 /**
  * Write (or rewrite) a morning's entry; emptying the text tears the page out,
  * leaving a tombstone. Only the empty string counts as emptied: a leading
- * space or newline is a draft in progress, and the written queries already
- * ignore whitespace-only text.
+ * space, newline or lone bullet is a draft in progress, and the written
+ * queries already ignore text that is only whitespace and bullets.
  */
 export function saveEntry(
   gratitude: Gratitude,
@@ -74,13 +83,28 @@ export function currentStreak(entries: GratitudeEntries, reflectionDate: DayKey)
   return streak;
 }
 
-/** Written entries newest-first for the history list. */
-export function sortedEntries(entries: GratitudeEntries): GratitudeEntry[] {
-  return Object.values(entries)
-    .filter(isWritten)
-    .sort((a, b) => (a.forDate < b.forDate ? 1 : -1));
+function isWritten(entry: GratitudeEntry | undefined): entry is GratitudeEntry {
+  return Boolean(entry && stripBullets(entry.text).trim());
 }
 
-function isWritten(entry: GratitudeEntry | undefined): entry is GratitudeEntry {
-  return Boolean(entry?.text.trim());
+export function isGratitudeEntry(value: unknown): value is GratitudeEntry {
+  return (
+    isRecord(value) &&
+    isString(value.forDate) &&
+    isTimestamp(value.writtenAt) &&
+    isString(value.text)
+  );
+}
+
+/** Entries are keyed by reflection date, so every key must match its entry's `forDate`. */
+export function isGratitudeEntries(value: unknown): value is GratitudeEntries {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(([day, entry]) => isGratitudeEntry(entry) && entry.forDate === day)
+  );
+}
+
+/** The journal as it arrives from a file — a pad file, a cloud file. */
+export function isGratitude(value: unknown): value is Gratitude {
+  return isRecord(value) && isGratitudeEntries(value.entries) && isTombstones(value.tombstones);
 }

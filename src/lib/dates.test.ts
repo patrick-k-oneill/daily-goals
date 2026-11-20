@@ -2,17 +2,14 @@ import {
   addDays,
   addMonths,
   dayKeyOf,
-  daysOfWeek,
   formatDayWithWeekday,
   formatMonth,
   formatPadDate,
-  formatWeekRange,
   monthGrid,
   monthStart,
   parseDayKey,
   weekdayOf,
   weekKeyOf,
-  weekStart,
   yearKeyOf,
 } from './dates';
 
@@ -39,12 +36,6 @@ describe('ISO weeks', () => {
   it('assigns early January to the prior ISO year when applicable', () => {
     // Jan 1 2027 is a Friday, so it belongs to 2026's final week.
     expect(weekKeyOf('2027-01-01')).toBe('2026-W53');
-  });
-
-  it('weeks start on Monday', () => {
-    expect(weekStart('2026-08-21')).toBe('2026-08-17');
-    expect(daysOfWeek('2026-08-21')).toHaveLength(7);
-    expect(daysOfWeek('2026-08-21')[6]).toBe('2026-08-23');
   });
 
   it('numbers weekdays Monday 1 through Sunday 7', () => {
@@ -89,11 +80,6 @@ describe('formatting', () => {
   it('writes the date the way the pad does', () => {
     expect(formatPadDate('2026-08-21')).toBe('Fri 8/21/26');
     expect(formatDayWithWeekday('2026-08-23')).toBe('Sun 8/23');
-  });
-
-  it('formats week ranges within and across months', () => {
-    expect(formatWeekRange('2026-08-21')).toBe('Aug 17 – 23');
-    expect(formatWeekRange('2026-09-01')).toBe('Aug 31 – Sep 6');
   });
 
   it('extracts the year key', () => {

@@ -1,9 +1,11 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
 import { HandwritingFont, ThemeColor } from '@/constants/theme';
+import { scaleTextStyle } from '@/features/text-size/logic';
+import { useTextScale } from '@/features/text-size/store';
 import { useTheme } from '@/hooks/use-theme';
 
-/** One line of body text; rows anchor marginalia to it. */
+/** One line of body text at 100%. */
 export const BODY_LINE_HEIGHT = 24;
 
 /**
@@ -26,14 +28,21 @@ function handwriting(fontSize: number, lineHeight: number) {
 }
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'subtitle' | 'small' | 'smallBold' | 'hand' | 'handSmall';
+  type?: 'default' | 'subtitle' | 'small' | 'smallBold' | 'hand' | 'handSmall' | 'handGlyph';
   themeColor?: ThemeColor;
 };
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  const scale = useTextScale();
 
-  return <Text style={[{ color: theme[themeColor ?? 'text'] }, styles[type], style]} {...rest} />;
+  return (
+    <Text
+      allowFontScaling={false}
+      style={[{ color: theme[themeColor ?? 'text'] }, scaleTextStyle(styles[type], scale), style]}
+      {...rest}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
@@ -59,4 +68,5 @@ const styles = StyleSheet.create({
   },
   hand: handwriting(34, 42),
   handSmall: handwriting(24, 30),
+  handGlyph: handwriting(31, 32),
 });

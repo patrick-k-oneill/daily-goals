@@ -43,7 +43,7 @@ The last line is the run's verdict: `PASS` when every step passed, `FAIL` when a
 
 ## Getting the build on device
 
-A JS-only change reaches an installed dev client through Metro. A change under `modules/`, to `app.json` or to a native dependency needs a fresh build from a clean prebuild (`npx expo prebuild --clean`). Before installing anything over the daily-use iPhone, export the pad (Journal tab → Pad footer → Export pad…).
+A JS-only change reaches an installed dev client through Metro. A change under `modules/`, to `app.json` or to a native dependency needs a fresh build from a clean prebuild (`npx expo prebuild --clean`). Before installing anything over the daily-use iPhone, export the pad (bottom of the page → Export data).
 
 Build from a checkout of the PR's branch; if the main checkout is on another branch, use a worktree.
 
