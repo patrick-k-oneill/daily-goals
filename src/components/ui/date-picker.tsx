@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { PrimaryButton } from '@/components/ui/form';
-import { Layout, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -175,15 +175,10 @@ function DayCell({
           { width: markSize, height: markSize, borderRadius: markSize / 2 },
           hovered && { backgroundColor: theme.backgroundElement },
           isSelected && { backgroundColor: theme.backgroundSelected },
-          isToday && {
-            backgroundColor: hovered ? theme.primaryPressed : theme.primary,
-            borderColor: theme.primaryEdge,
-            borderWidth: Layout.primaryEdgeWidth,
-          },
         ]}>
         <ThemedText
           type={isToday ? 'smallBold' : 'small'}
-          themeColor={isToday ? 'onPrimary' : isPickable ? 'text' : 'border'}>
+          themeColor={isToday ? 'primaryEdge' : isPickable ? 'text' : 'border'}>
           {parseDayKey(day).getDate()}
         </ThemedText>
       </View>
