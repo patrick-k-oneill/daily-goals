@@ -1,6 +1,7 @@
 import {
   buildIssue,
   canSend,
+  EMPTY_DRAFT,
   filedOutcome,
   issueRequest,
   MAX_PREFILL_URL_LENGTH,
@@ -24,17 +25,23 @@ const ISSUE: FeedbackIssue = {
 };
 
 describe('canSend', () => {
-  it('refuses a note with nothing written in it', () => {
-    expect(canSend('')).toBe(false);
-    expect(canSend('  \n ')).toBe(false);
-    expect(canSend(' a ')).toBe(true);
+  it('refuses a note without a title', () => {
+    expect(canSend(EMPTY_DRAFT)).toBe(false);
+    expect(canSend({ title: '  ', description: 'On the weekly row.' })).toBe(false);
+    expect(canSend({ title: ' a ', description: '' })).toBe(true);
   });
 });
 
 describe('buildIssue', () => {
-  it('titles the issue with the first line and puts the rest above the context footer', () => {
+  it('files the title as the issue title and the description above the context footer', () => {
     expect(
-      buildIssue('  Checks overlap \nOn the weekly row.\n\nOnly at phone width.\n', CONTEXT),
+      buildIssue(
+        {
+          title: '  Checks overlap ',
+          description: 'On the weekly row.\n\nOnly at phone width.\n',
+        },
+        CONTEXT,
+      ),
     ).toEqual({
       title: 'Checks overlap',
       body: `On the weekly row.\n\nOnly at phone width.\n\n${FOOTER}`,
@@ -42,42 +49,48 @@ describe('buildIssue', () => {
     });
   });
 
-  it('files a one-line note with the footer alone as its body', () => {
-    expect(buildIssue('Checks overlap', CONTEXT)).toMatchObject({
+  it('files a note without a description with the footer alone as its body', () => {
+    expect(buildIssue({ title: 'Checks overlap', description: ' \n' }, CONTEXT)).toMatchObject({
       title: 'Checks overlap',
       body: FOOTER,
     });
   });
 
-  it('cuts a first line too long for a title and keeps the whole note in the body', () => {
-    const longLine = 'word '.repeat(20).trim();
-    const issue = buildIssue(`${longLine}\nSecond line.`, CONTEXT);
+  it('cuts a title too long for an issue and keeps it whole above the description', () => {
+    const longTitle = 'word '.repeat(20).trim();
+    const issue = buildIssue({ title: longTitle, description: 'Second line.' }, CONTEXT);
     expect(issue?.title).toHaveLength(MAX_TITLE_LENGTH);
     expect(issue?.title.endsWith('…')).toBe(true);
-    expect(longLine.startsWith(issue?.title.slice(0, -1) ?? 'x')).toBe(true);
-    expect(issue?.body).toBe(`${longLine}\nSecond line.\n\n${FOOTER}`);
+    expect(longTitle.startsWith(issue?.title.slice(0, -1) ?? 'x')).toBe(true);
+    expect(issue?.body).toBe(`${longTitle}\n\nSecond line.\n\n${FOOTER}`);
+    expect(buildIssue({ title: longTitle, description: '' }, CONTEXT)?.body).toBe(
+      `${longTitle}\n\n${FOOTER}`,
+    );
   });
 
   it('never cuts a title through the middle of an emoji', () => {
-    const issue = buildIssue(`${'a'.repeat(MAX_TITLE_LENGTH - 2)}😀😀😀`, CONTEXT);
+    const issue = buildIssue(
+      { title: `${'a'.repeat(MAX_TITLE_LENGTH - 2)}😀😀😀`, description: '' },
+      CONTEXT,
+    );
     expect(issue?.title).toBe(`${'a'.repeat(MAX_TITLE_LENGTH - 2)}😀…`);
     expect(() => encodeURIComponent(issue?.title ?? '')).not.toThrow();
   });
 
-  it('keeps a first line of exactly the title length whole', () => {
-    const line = 'a'.repeat(MAX_TITLE_LENGTH);
-    expect(buildIssue(line, CONTEXT)).toMatchObject({ title: line, body: FOOTER });
+  it('keeps a title of exactly the title length whole', () => {
+    const title = 'a'.repeat(MAX_TITLE_LENGTH);
+    expect(buildIssue({ title, description: '' }, CONTEXT)).toMatchObject({ title, body: FOOTER });
   });
 
   it('leaves the OS version out of the footer where there is none', () => {
     const web = { ...CONTEXT, platform: 'web', osVersion: undefined };
-    expect(buildIssue('Checks overlap', web)?.body).toBe(
+    expect(buildIssue({ title: 'Checks overlap', description: '' }, web)?.body).toBe(
       '---\nDaily Goals 1.0.0 · web · 2026-11-13',
     );
   });
 
-  it('shapes nothing from a blank note', () => {
-    expect(buildIssue(' \n ', CONTEXT)).toBeNull();
+  it('shapes nothing from a note without a title', () => {
+    expect(buildIssue({ title: ' ', description: 'On the weekly row.' }, CONTEXT)).toBeNull();
   });
 });
 

@@ -201,7 +201,7 @@ describe('joinPad', () => {
     pad.goals.templates[1] = { ...pad.goals.templates[1], sortOrder: 1.5 };
     pad.goals.entries[0] = { ...pad.goals.entries[0], sortOrder: 2.25 };
     pad.gratitude.entries['2026-01-01'].text =
-      '● Good coffee\n  ○ with an old friend\n● A long walk';
+      '\u26AB\uFE0E Good coffee\n  \u26AA\uFE0E with an old friend\n\u26AB\uFE0E A long walk';
 
     const files = splitPad(pad);
     const { pad: joined } = joinPad(files);

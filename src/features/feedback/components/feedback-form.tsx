@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, View, type TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FormActions, FormInput, InlineForm } from '@/components/ui/form';
+import { FormActions, FormField, FormInput, InlineForm } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -10,11 +10,11 @@ import { confirmAction } from '@/lib/confirm';
 import { canSend } from '../logic';
 import { sendFeedback } from '../send';
 import { forgetToken, readToken, saveToken } from '../token';
-import type { SendOutcome } from '../types';
+import type { FeedbackDraft, SendOutcome } from '../types';
 
 interface FeedbackFormProps {
-  draft: string;
-  onChangeDraft: (draft: string) => void;
+  draft: FeedbackDraft;
+  onChangeDraft: (draft: FeedbackDraft) => void;
   onSettled: (outcome: SendOutcome) => void;
   onCancel: () => void;
 }
@@ -26,6 +26,7 @@ interface FeedbackFormProps {
  */
 export function FeedbackForm({ draft, onChangeDraft, onSettled, onCancel }: FeedbackFormProps) {
   const today = useToday();
+  const description = useRef<TextInput>(null);
   const [hasToken, setHasToken] = useState(() => readToken() !== null);
   const [isAddingToken, setIsAddingToken] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -69,16 +70,31 @@ export function FeedbackForm({ draft, onChangeDraft, onSettled, onCancel }: Feed
 
   return (
     <InlineForm>
-      <FormInput
-        value={draft}
-        onChangeText={onChangeDraft}
-        placeholder="What did you notice?"
-        accessibilityLabel="Feedback note"
-        multiline
-        autoFocus
-        onEscape={onCancel}
-        style={styles.note}
-      />
+      <FormField label="Title">
+        <FormInput
+          value={draft.title}
+          onChangeText={(title) => onChangeDraft({ ...draft, title })}
+          placeholder="What did you notice?"
+          accessibilityLabel="Feedback title"
+          autoFocus
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => description.current?.focus()}
+          onEscape={onCancel}
+        />
+      </FormField>
+      <FormField label="Description">
+        <FormInput
+          ref={description}
+          value={draft.description}
+          onChangeText={(text) => onChangeDraft({ ...draft, description: text })}
+          placeholder="More about it, if that helps"
+          accessibilityLabel="Feedback description"
+          multiline
+          onEscape={onCancel}
+          style={styles.description}
+        />
+      </FormField>
       <FormActions
         submitLabel="Send"
         canSubmit={canSend(draft) && !isSending}
@@ -159,7 +175,7 @@ function TokenForm({ onSaved, onCancel }: { onSaved: () => void; onCancel: () =>
 }
 
 const styles = StyleSheet.create({
-  note: {
+  description: {
     minHeight: 88,
     textAlignVertical: 'top',
   },

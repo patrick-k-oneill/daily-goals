@@ -8,6 +8,7 @@ import {
   type Notice,
 } from '@/components/ui/settings-list';
 
+import { EMPTY_DRAFT } from '../logic';
 import { useFeedbackDraftStore } from '../store';
 import type { SendOutcome } from '../types';
 
@@ -27,7 +28,7 @@ export function FeedbackSettings() {
   const settle = (outcome: SendOutcome) => {
     setNotice({ tone: outcome.ok ? 'ok' : 'error', text: outcome.message });
     if (!outcome.ok) return;
-    writeDraft('');
+    writeDraft(EMPTY_DRAFT);
     setIsFormOpen(false);
   };
 

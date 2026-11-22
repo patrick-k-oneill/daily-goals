@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -14,7 +14,7 @@ import { Layout, Spacing } from '@/constants/theme';
 import { useKeyboardDock } from '@/hooks/use-keyboard-dock';
 import { useTheme } from '@/hooks/use-theme';
 
-import { PageScrollContext } from './page-scroll';
+import { PageContentContext, PageScrollContext } from './page-scroll';
 
 const MARGIN_LINE_WIDTH = 2;
 const HEADER_SHADOW_FADE_DISTANCE = 12;
@@ -34,6 +34,7 @@ export function Screen({ header, children }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const keyboardDock = useKeyboardDock();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const pageRef = useRef<View>(null);
   const scrollOffset = useSharedValue(0);
   const contentHeight = useSharedValue(0);
   const headerShadow = useAnimatedStyle(() => ({
@@ -84,6 +85,7 @@ export function Screen({ header, children }: ScreenProps) {
               onScroll={(e) => scrollOffset.set(e.nativeEvent.contentOffset.y)}
               onContentSizeChange={(_width, height) => contentHeight.set(height)}>
               <View
+                ref={pageRef}
                 style={[
                   styles.column,
                   styles.columnPadding,
@@ -97,7 +99,7 @@ export function Screen({ header, children }: ScreenProps) {
                     contentHeight,
                     insetBottom: insets.bottom,
                   }}>
-                  {children}
+                  <PageContentContext value={pageRef}>{children}</PageContentContext>
                 </PageScrollContext>
               </View>
             </Animated.ScrollView>

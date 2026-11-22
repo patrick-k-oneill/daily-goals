@@ -5,7 +5,7 @@ import type { DayKey } from '@/lib/dates';
 
 import { buildIssue, filedOutcome, issueRequest, newIssueUrl } from './logic';
 import { readToken } from './token';
-import type { SendOutcome } from './types';
+import type { FeedbackDraft, SendOutcome } from './types';
 
 const TOO_LONG_FOR_THE_BROWSER =
   'This note is too long to hand to the browser. Shorten it, or add a GitHub token.';
@@ -16,14 +16,14 @@ const TOO_LONG_FOR_THE_BROWSER =
  * web that page opens in a new tab; nothing is awaited before it opens, so
  * the browser counts it as the user's own tap and doesn't block it.
  */
-export async function sendFeedback(text: string, day: DayKey): Promise<SendOutcome> {
-  const issue = buildIssue(text, {
+export async function sendFeedback(draft: FeedbackDraft, day: DayKey): Promise<SendOutcome> {
+  const issue = buildIssue(draft, {
     platform: Platform.OS,
     osVersion: Platform.OS === 'web' ? undefined : String(Platform.Version),
     appVersion: Constants.expoConfig?.version ?? 'unknown',
     day,
   });
-  if (!issue) return { ok: false, message: 'Write a note first.' };
+  if (!issue) return { ok: false, message: 'Give the note a title first.' };
 
   const token = readToken();
   try {

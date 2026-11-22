@@ -9,6 +9,12 @@ export interface FeedbackContext {
   day: DayKey;
 }
 
+/** A feedback note as it is written: a one-line title and the detail under it. */
+export interface FeedbackDraft {
+  title: string;
+  description: string;
+}
+
 /** A feedback note shaped as a GitHub issue. */
 export interface FeedbackIssue {
   title: string;

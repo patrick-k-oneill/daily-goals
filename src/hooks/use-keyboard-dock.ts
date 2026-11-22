@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Dimensions, Keyboard, Platform, type KeyboardEvent } from 'react-native';
+import {
+  Dimensions,
+  Keyboard,
+  Platform,
+  type KeyboardEvent,
+  type KeyboardMetrics,
+} from 'react-native';
 
 interface KeyboardDock {
   /** False while an iPad keyboard floats or is split over the page. */
@@ -33,13 +39,20 @@ export function useKeyboardDock(): KeyboardDock {
   return dock;
 }
 
+export function isKeyboardDocked({ screenY, width, height }: KeyboardMetrics): boolean {
+  const window = windowSize();
+  return screenY < window.height && width >= window.width && screenY + height >= window.height;
+}
+
 function nextDock(prev: KeyboardDock, { endCoordinates }: KeyboardEvent): KeyboardDock {
+  const window = windowSize();
+  if (endCoordinates.screenY >= window.height) return AT_REST;
+  if (!isKeyboardDocked(endCoordinates)) return UNDOCKED;
+  return prev.isDocked ? prev : { isDocked: true, inset: window.height - endCoordinates.screenY };
+}
+
+function windowSize() {
   // Read when the frame changes: a rendered window size can lag a rotation.
   // react-doctor-disable-next-line react-doctor/rn-no-dimensions-get
-  const window = Dimensions.get('window');
-  const { screenY, width, height } = endCoordinates;
-  if (screenY >= window.height) return AT_REST;
-  const isDocked = width >= window.width && screenY + height >= window.height;
-  if (!isDocked) return UNDOCKED;
-  return prev.isDocked ? prev : { isDocked: true, inset: window.height - screenY };
+  return Dimensions.get('window');
 }

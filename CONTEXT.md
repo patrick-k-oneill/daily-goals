@@ -98,7 +98,7 @@ The day a gratitude entry is about — the day before it is written. Entries are
 _Avoid_: entry date, journal date
 
 **Gratitude entry**:
-The morning's text about one reflection date, stored as plain text. Lines may be bullets: `● ` at the top tier, or `○ ` indented two spaces for the one tier below. Only text beyond bullets and whitespace counts as written; emptying the text removes the entry.
+The morning's text about one reflection date, stored as plain text. Lines may be bullets: a medium filled circle and a space at the top tier, or a medium hollow circle indented two spaces for the one tier below (U+26AB and U+26AA, each followed by U+FE0E so it draws as text). Only text beyond bullets and whitespace counts as written; emptying the text removes the entry.
 _Avoid_: journal post, note
 
 **Streak**:
@@ -117,7 +117,7 @@ _Avoid_: storage usage, disk size, quota
 ### Feedback
 
 **Feedback note**:
-An unshaped note to self written from Settings and filed as a GitHub issue labelled `needs-triage`: its first line is the title, the rest the body, closed by a footer saying where it was written. It is never part of the pad.
+An unshaped note to self written from Settings and filed as a GitHub issue labelled `needs-triage`: a one-line title and a description that becomes the body, closed by a footer saying where it was written. It is never part of the pad.
 _Avoid_: bug report, ticket, comment
 
 ### Device

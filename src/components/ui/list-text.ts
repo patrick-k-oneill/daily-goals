@@ -1,10 +1,19 @@
+const MEDIUM_BLACK_CIRCLE = '\u26AB';
+const MEDIUM_WHITE_CIRCLE = '\u26AA';
+const TEXT_PRESENTATION = '\uFE0E';
+
 /**
  * The marker a list line starts with, by tier: a filled bullet, then one
  * indented hollow tier. Stored as-is so the text reads right wherever it is shown.
  */
-export const MARKERS = ['● ', '  ○ '] as const;
+export const MARKERS = [
+  `${MEDIUM_BLACK_CIRCLE}${TEXT_PRESENTATION} `,
+  `  ${MEDIUM_WHITE_CIRCLE}${TEXT_PRESENTATION} `,
+] as const;
 
 type Marker = (typeof MARKERS)[number];
+
+const MARKER_GLYPHS: string[] = MARKERS.map((marker) => marker.trim());
 
 /** Line starts a person types for a bullet, Apple Notes style. */
 const TYPED_MARKERS = ['- ', '* '];
@@ -40,9 +49,15 @@ export function breakLine(text: string, { start, end }: TextSelection): ListEdit
 export function indentLine(text: string, caret: number): ListEdit | undefined {
   const lineStart = lineStartAt(text, caret);
   if (markerAt(text, lineStart) !== MARKERS[0]) return undefined;
-  const edit = replaceMarker(text, lineStart, MARKERS[0], MARKERS[1]);
-  const shifted = caret + MARKERS[1].length - MARKERS[0].length;
-  return { text: edit.text, selection: caretAt(Math.max(shifted, edit.selection.start)) };
+  return retier(text, caret, lineStart, MARKERS[0], MARKERS[1]);
+}
+
+/** Shift+Tab pressed on a bullet outdents it one tier, off the list from the top tier. */
+export function outdentLine(text: string, caret: number): ListEdit | undefined {
+  const lineStart = lineStartAt(text, caret);
+  const marker = markerAt(text, lineStart);
+  if (marker === undefined) return undefined;
+  return retier(text, caret, lineStart, marker, outdented(marker));
 }
 
 /**
@@ -57,7 +72,8 @@ export function applyListEdit(prev: string, next: string): ListEdit {
   const typed = { text: next, selection: caretAt(start + inserted.length) };
   if (removed === '' && inserted === '\n') return typedBreak(prev, start) ?? typed;
   if (removed === '' && inserted === '\t') return typedTab(prev, start) ?? typed;
-  if (removed.length === 1 && inserted === '') return deleteChar(prev, start) ?? typed;
+  const isOneCharacter = removed.length === 1 || MARKER_GLYPHS.includes(removed);
+  if (isOneCharacter && inserted === '') return deleteChar(prev, start) ?? typed;
   if (inserted !== '' && !inserted.includes('\n')) {
     return recognizeBullet(next, start + inserted.length) ?? typed;
   }
@@ -148,6 +164,18 @@ function outdented(marker: Marker): string {
 
 function replaceMarker(text: string, lineStart: number, from: string, to: string): ListEdit {
   return splice(text, lineStart, lineStart + from.length, to);
+}
+
+function retier(
+  text: string,
+  caret: number,
+  lineStart: number,
+  from: string,
+  to: string,
+): ListEdit {
+  const edit = replaceMarker(text, lineStart, from, to);
+  const shifted = caret + to.length - from.length;
+  return { text: edit.text, selection: caretAt(Math.max(shifted, edit.selection.start)) };
 }
 
 /** `text` with `start`..`end` replaced by `insert`, the caret after the insert. */

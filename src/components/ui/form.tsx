@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import { useRef, type ReactNode, type Ref } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -14,6 +14,7 @@ import { Layout, Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
+import { useKeyboardReveal } from '@/hooks/use-keyboard-reveal';
 import { useTheme } from '@/hooks/use-theme';
 
 /** The bordered card a pad line turns into while it's being written or edited. */
@@ -25,7 +26,27 @@ export function InlineForm({
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
-  return <View style={[styles.form, { borderColor: theme.border }, style]}>{children}</View>;
+  const form = useRef<View>(null);
+  const revealAboveKeyboard = useKeyboardReveal(form);
+  return (
+    <View
+      ref={form}
+      onLayout={revealAboveKeyboard}
+      style={[styles.form, { borderColor: theme.border }, style]}>
+      {children}
+    </View>
+  );
+}
+
+export function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <View style={styles.field}>
+      <ThemedText type="small" themeColor="textSecondary">
+        {label}
+      </ThemedText>
+      {children}
+    </View>
+  );
 }
 
 type FormInputProps = TextInputProps & {
@@ -145,6 +166,9 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderWidth: 1,
     borderRadius: Spacing.two,
+  },
+  field: {
+    gap: Spacing.one,
   },
   input: {
     fontSize: 16,

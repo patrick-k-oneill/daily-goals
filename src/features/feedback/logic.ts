@@ -1,4 +1,4 @@
-import type { FeedbackContext, FeedbackIssue, SendOutcome } from './types';
+import type { FeedbackContext, FeedbackDraft, FeedbackIssue, SendOutcome } from './types';
 
 const REPO = 'patrick-k-oneill/daily-goals';
 const TRIAGE_LABEL = 'needs-triage';
@@ -7,23 +7,24 @@ export const MAX_TITLE_LENGTH = 72;
 /** GitHub answers a longer address with an error page and no filled-in note. */
 export const MAX_PREFILL_URL_LENGTH = 6000;
 
-/** Whether a note has anything to send. */
-export function canSend(text: string): boolean {
-  return text.trim() !== '';
+export const EMPTY_DRAFT: FeedbackDraft = { title: '', description: '' };
+
+/** Whether a note has a title to send it under. */
+export function canSend(draft: FeedbackDraft): boolean {
+  return draft.title.trim() !== '';
 }
 
 /**
- * Shape a note as an issue: its first line is the title, the rest the body,
- * closed by a footer saying where it was written. A first line too long for a
- * title is cut with an ellipsis and the whole note becomes the body, so
+ * Shape a note as an issue: its title, and its description as the body,
+ * closed by a footer saying where it was written. A title too long for an
+ * issue is cut with an ellipsis and goes whole above the description, so
  * nothing is lost. The cut counts whole characters, never half of an emoji.
- * A blank note shapes nothing.
+ * A note without a title shapes nothing.
  */
-export function buildIssue(text: string, context: FeedbackContext): FeedbackIssue | null {
-  if (!canSend(text)) return null;
-  const note = text.trim();
-  const [firstLine, ...rest] = note.split('\n');
-  const heading = firstLine.trim();
+export function buildIssue(draft: FeedbackDraft, context: FeedbackContext): FeedbackIssue | null {
+  if (!canSend(draft)) return null;
+  const heading = draft.title.trim();
+  const description = draft.description.trim();
   const characters = Array.from(heading);
   const fits = characters.length <= MAX_TITLE_LENGTH;
   const title = fits
@@ -32,7 +33,7 @@ export function buildIssue(text: string, context: FeedbackContext): FeedbackIssu
         .slice(0, MAX_TITLE_LENGTH - 1)
         .join('')
         .trimEnd()}…`;
-  const detail = fits ? rest.join('\n').trim() : note;
+  const detail = fits ? description : [heading, description].filter(Boolean).join('\n\n');
   const footer = contextFooter(context);
   return { title, body: detail ? `${detail}\n\n${footer}` : footer, labels: [TRIAGE_LABEL] };
 }

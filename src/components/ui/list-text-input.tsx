@@ -1,4 +1,12 @@
-import { useId, useLayoutEffect, useReducer, useRef } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  useId,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import {
   InputAccessoryView,
   Platform,
@@ -12,10 +20,13 @@ import {
 
 import { getTextSelection, setTextSelection } from '@/lib/text-selection';
 
+import BackTab from '../../../modules/back-tab';
+
 import {
   applyListEdit,
   breakLine,
   indentLine,
+  outdentLine,
   rebaseEdit,
   type ListEdit,
   type TextSelection,
@@ -32,18 +43,23 @@ type ListTextInputProps = Omit<
 /**
  * A multiline input with list rules (./list-text). Return never reaches the
  * platform: native inputs report it through onSubmitEditing and the DOM
- * through onKeyPress, so the break and its bullet land in one update. Tab is
- * taken the same way on the DOM; every other edit is diffed against the text
- * and rewritten once it shows. The caret is steered after each rewrite renders.
+ * through onKeyPress, so the break and its bullet land in one update. Tab and
+ * Shift+Tab are taken the same way on the DOM. iOS types a tab for both, so
+ * Shift+Tab arrives there as a key command (modules/back-tab) while the input
+ * has focus. Every other edit is diffed against the text and rewritten once it
+ * shows. The caret is steered after each rewrite renders.
  */
 export function ListTextInput({
   value,
   onChangeText,
   onKeyPress,
   onSelectionChange,
+  onFocus,
+  onBlur,
   ...props
 }: ListTextInputProps) {
   const input = useRef<TextInput>(null);
+  const [isFocused, setIsFocused] = useState(false);
   const accessoryID = useId();
   // React Native sizes a native input from the text it last reported, so a
   // line a rewrite adds is measured one commit late; a commit that changes any
@@ -82,6 +98,17 @@ export function ListTextInput({
     if (edit.text !== typed) pendingCaret.current = edit;
     if (hasChanged) onChangeText(edit.text);
   };
+
+  const outdent = useEffectEvent(() => {
+    const edit = outdentLine(latest.current.text, latest.current.caret.start);
+    if (edit) commit(edit);
+  });
+
+  useEffect(() => {
+    if (!isFocused || !BackTab) return undefined;
+    const subscription = BackTab.addListener('press', outdent);
+    return () => subscription.remove();
+  }, [isFocused]);
 
   return (
     <>
@@ -127,6 +154,14 @@ export function ListTextInput({
           }
           onSelectionChange?.(e);
         }}
+        onFocus={(e) => {
+          setIsFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setIsFocused(false);
+          onBlur?.(e);
+        }}
         onKeyPress={(e) => {
           const selection = input.current ? getTextSelection(input.current) : undefined;
           const edit = selection && keyEdit(e.nativeEvent, latest.current.text, selection);
@@ -164,9 +199,9 @@ type SelectionEvent = TextInputSelectionChangeEventData & { text?: string };
 type KeyEvent = TextInputKeyPressEventData & { isComposing?: boolean; shiftKey?: boolean };
 
 function keyEdit(event: KeyEvent, text: string, selection: TextSelection): ListEdit | undefined {
-  // Enter mid IME composition confirms the composition; Shift+Tab stays focus traversal.
+  // Enter mid IME composition confirms the composition.
   if (event.isComposing) return undefined;
   if (event.key === 'Enter') return breakLine(text, selection);
-  if (event.key === 'Tab' && !event.shiftKey) return indentLine(text, selection.start);
-  return undefined;
+  if (event.key !== 'Tab') return undefined;
+  return event.shiftKey ? outdentLine(text, selection.start) : indentLine(text, selection.start);
 }
