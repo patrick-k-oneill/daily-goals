@@ -129,25 +129,32 @@ export function changedPaths(
     .sort();
 }
 
-/** The Settings line on where sync stands. */
+/** The Settings line on where sync stands: its wording, and the time of day it ends on once the pad has synced. */
+export interface SyncLine {
+  text: string;
+  time?: string;
+}
+
+/**
+ * Where sync stands, for Settings. Once the pad has synced the line keeps
+ * saying when, through every later run: only its time changes.
+ */
 export function describeSync(
   phase: SyncPhase,
   lastSyncedAt: Stamp | null,
   problem: string | null,
-): string {
+): SyncLine {
   switch (phase) {
     case 'starting':
-      return 'Checking iCloud…';
+      return { text: 'Checking iCloud…' };
     case 'syncing':
-      return 'Syncing with iCloud…';
     case 'synced':
-      return lastSyncedAt
-        ? `Synced with iCloud at ${formatTime(lastSyncedAt)}`
-        : 'Synced with iCloud';
+      if (lastSyncedAt) return { text: 'Synced with iCloud at', time: formatTime(lastSyncedAt) };
+      return { text: phase === 'syncing' ? 'Syncing with iCloud…' : 'Synced with iCloud' };
     case 'unavailable':
-      return 'Not synced. Sign in to iCloud to keep this pad on every device.';
+      return { text: 'Not synced. Sign in to iCloud to keep this pad on every device.' };
     case 'error':
-      return `Couldn’t sync with iCloud: ${problem ?? 'unknown problem'}`;
+      return { text: `Couldn’t sync with iCloud: ${problem ?? 'unknown problem'}` };
   }
 }
 

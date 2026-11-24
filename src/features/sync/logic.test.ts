@@ -394,12 +394,23 @@ describe('two devices through the cloud', () => {
 
 describe('describeSync', () => {
   it('says where sync stands in Settings', () => {
-    expect(describeSync('starting', null, null)).toBe('Checking iCloud…');
-    expect(describeSync('syncing', null, null)).toBe('Syncing with iCloud…');
-    expect(describeSync('synced', NOW, null)).toMatch(/^Synced with iCloud at \d/);
-    expect(describeSync('unavailable', null, null)).toMatch(/^Not synced\./);
-    expect(describeSync('error', null, 'the container is missing')).toBe(
-      'Couldn’t sync with iCloud: the container is missing',
-    );
+    expect(describeSync('starting', null, null)).toEqual({ text: 'Checking iCloud…' });
+    expect(describeSync('syncing', null, null)).toEqual({ text: 'Syncing with iCloud…' });
+    expect(describeSync('synced', NOW, null)).toEqual({
+      text: 'Synced with iCloud at',
+      time: expect.stringMatching(/^\d/),
+    });
+    expect(describeSync('unavailable', null, null).text).toMatch(/^Not synced\./);
+    expect(describeSync('error', null, 'the container is missing')).toEqual({
+      text: 'Couldn’t sync with iCloud: the container is missing',
+    });
+  });
+
+  it('keeps saying when the pad last synced while a later run is under way', () => {
+    expect(describeSync('syncing', NOW, null)).toEqual(describeSync('synced', NOW, null));
+  });
+
+  it('still reports a failure after an earlier sync', () => {
+    expect(describeSync('error', NOW, 'offline').text).toBe('Couldn’t sync with iCloud: offline');
   });
 });

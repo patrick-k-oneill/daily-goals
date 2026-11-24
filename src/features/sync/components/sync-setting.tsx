@@ -13,11 +13,14 @@ export function SyncSetting() {
   // Web has no iCloud; export and import are its bridge.
   if (Platform.OS === 'web') return null;
 
+  const { text, time } = describeSync(phase, lastSyncedAt, problem);
+
   return (
     <SettingsGroup title="iCloud">
       <SettingsRow
         label="iCloud sync"
-        detail={describeSync(phase, lastSyncedAt, problem)}
+        detail={text}
+        detailTail={time}
         detailColor={phase === 'error' ? 'missed' : 'textSecondary'}
       />
     </SettingsGroup>

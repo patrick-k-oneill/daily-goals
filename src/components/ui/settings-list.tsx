@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, LayoutAnimationConfig } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing, type ThemeColor } from '@/constants/theme';
@@ -8,6 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 const ROW_HEIGHT = 52;
 const MIN_LABEL_WIDTH = 160;
+const DETAIL_TAIL_FADE_MS = 350;
 
 interface SettingsGroupProps {
   title: string;
@@ -33,6 +35,7 @@ export function SettingsGroup({ title, footer, children }: SettingsGroupProps) {
 interface SettingsRowProps {
   label: string;
   detail?: string;
+  detailTail?: string;
   detailColor?: ThemeColor;
   children?: ReactNode;
 }
@@ -40,6 +43,7 @@ interface SettingsRowProps {
 export function SettingsRow({
   label,
   detail,
+  detailTail,
   detailColor = 'textSecondary',
   children,
 }: SettingsRowProps) {
@@ -54,9 +58,27 @@ export function SettingsRow({
       <View style={[styles.rowText, { flexBasis: MIN_LABEL_WIDTH * scale }]}>
         <ThemedText>{label}</ThemedText>
         {detail ? (
-          <ThemedText type="small" themeColor={detailColor} accessibilityLiveRegion="polite">
-            {detail}
-          </ThemedText>
+          <View
+            accessible
+            accessibilityLabel={detailTail ? `${detail} ${detailTail}` : detail}
+            accessibilityLiveRegion="polite"
+            style={styles.detail}>
+            <ThemedText type="small" themeColor={detailColor} style={styles.detailText}>
+              {detail}
+            </ThemedText>
+            {detailTail ? (
+              <LayoutAnimationConfig skipEntering skipExiting>
+                <Animated.View
+                  key={detailTail}
+                  entering={FadeIn.duration(DETAIL_TAIL_FADE_MS)}
+                  exiting={FadeOut.duration(DETAIL_TAIL_FADE_MS)}>
+                  <ThemedText type="small" themeColor={detailColor}>
+                    {detailTail}
+                  </ThemedText>
+                </Animated.View>
+              </LayoutAnimationConfig>
+            ) : null}
+          </View>
         ) : null}
       </View>
       {children}
@@ -106,6 +128,14 @@ const styles = StyleSheet.create({
   },
   rowText: {
     flexGrow: 1,
+    flexShrink: 1,
+  },
+  detail: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: Spacing.one,
+  },
+  detailText: {
     flexShrink: 1,
   },
   notice: {
