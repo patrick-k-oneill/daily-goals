@@ -8,11 +8,14 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "autoIncrement": true
+      "channel": "preview",
+      "ios": {
+        "simulator": true
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {

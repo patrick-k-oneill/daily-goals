@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  check_tag:
+    name: Check the tag against app.json
+    steps:
+      - uses: eas/checkout
+      - name: Fail unless the tag is v<expo.version>
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(node -p "require('./app.json').expo.version")"
+          if [ "$TAG" != "v$version" ]; then
+            echo "Tag $TAG does not match app.json version $version"
+            exit 1
+          fi
+          echo "Tag $TAG matches app.json version $version"
+  fingerprint:
+    name: Fingerprint
+    needs: [check_tag]
+    type: fingerprint
+  get_build:
+    name: Find a production build for this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+  update:
+    name: Publish an update to production
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id }}
+    type: update
+    params:
+      branch: production
+      platform: ios
+  build:
+    name: Build production
+    needs: [get_build]
+    if: ${{ !needs.get_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: production
+  submit:
+    name: Submit to App Store Connect
+    needs: [build]
+    type: submit
+    params:
+      build_id: ${{ needs.build.outputs.build_id }}
+      profile: production

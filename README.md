@@ -60,6 +60,21 @@ Every push to `main` deploys the web build to <https://patrick-k-oneill.github.i
 
 The web build has no iCloud. To move a pad between the phone and the Mac, use **Export data** / **Import data** in Settings.
 
+## Release
+
+Native releases run as [EAS Workflows](https://docs.expo.dev/eas/workflows/get-started/) in `.eas/workflows/`, iOS only. Each run fingerprints the project and looks for a build with that fingerprint: found, it publishes an EAS Update to it; not found (a native dependency, a config plugin, a change to `app.json` or `eas.json`), it builds.
+
+- **preview**: every push to `main` publishes an update on the `preview` channel, or builds a new preview. A preview is a simulator build: no device listens on this channel, since every build shares one bundle id and one iCloud pad.
+- **production**: every `v*` tag publishes an update on the `production` channel, or builds for production and submits to TestFlight. The run fails first if the tag is not `v` + `version` from `app.json`.
+
+To cut a release, merge the `version` bump to `main` and tag that commit:
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1
+```
+
+`version` is left out of the fingerprint (`fingerprint.config.js`), so a tag whose only native change is the version ships as an update to the build already installed.
+
 ## Quality
 
 ```bash
