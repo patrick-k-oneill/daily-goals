@@ -44,10 +44,10 @@ const TodayGoals = (props: Partial<TodaySnapshot>, environment: WidgetEnvironmen
       {lines.map((line) => (
         <HStack key={line.id} spacing={5}>
           <Image systemName={symbolOf(line.done, line.total)} size={12} color={colors.ink} />
-          <Text modifiers={[font({ size: 13 }), foregroundStyle(colors.ink), lineLimit(1)]}>
+          <Text modifiers={[font({ size: 12 }), foregroundStyle(colors.ink), lineLimit(1)]}>
             {line.title}
           </Text>
-          <Spacer />
+          <Spacer minLength={0} />
           {line.total > 1 ? (
             <Text modifiers={[font({ size: 11 }), foregroundStyle(colors.faded)]}>
               {line.done}/{line.total}
