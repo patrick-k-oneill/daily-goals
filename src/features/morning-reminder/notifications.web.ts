@@ -14,7 +14,9 @@ export async function readNotificationsAccess(): Promise<NotificationsAccess> {
   return 'unavailable';
 }
 
-export async function scheduleReminder(_reminder: ScheduledReminder | null): Promise<void> {}
+export async function scheduleReminder(reminder: ScheduledReminder | null): Promise<boolean> {
+  return reminder === null;
+}
 
 export function onReminderTap(_listener: () => void): () => void {
   return () => {};

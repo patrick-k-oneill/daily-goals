@@ -40,8 +40,22 @@ export const useMorningReminderStore = create<MorningReminderState>()(
 /** How turning the reminder on ended: on, or refused. */
 export type EnableOutcome = 'on' | 'denied' | 'unavailable';
 
-function scheduleHeld(): Promise<void> {
-  return scheduleReminder(logic.scheduledReminder(useMorningReminderStore.getState()));
+let scheduling: Promise<boolean> = Promise.resolve(true);
+
+/**
+ * Bring the device's schedule to what the store holds when its turn comes, one
+ * change at a time, so an earlier change cannot land after a later one. A
+ * reminder that could not be scheduled turns the switch back off.
+ */
+function scheduleHeld(): Promise<boolean> {
+  scheduling = scheduling.then(async () => {
+    const isScheduled = await scheduleReminder(
+      logic.scheduledReminder(useMorningReminderStore.getState()),
+    );
+    if (!isScheduled) useMorningReminderStore.getState().setOn(false);
+    return isScheduled;
+  });
+  return scheduling;
 }
 
 /** Turn the reminder on: ask to notify, and on a yes schedule it. */
@@ -50,8 +64,7 @@ export async function enableMorningReminder(): Promise<EnableOutcome> {
   if (access !== 'granted') return access;
 
   useMorningReminderStore.getState().setOn(true);
-  await scheduleHeld();
-  return 'on';
+  return (await scheduleHeld()) ? 'on' : 'unavailable';
 }
 
 export async function disableMorningReminder(): Promise<void> {
@@ -59,9 +72,9 @@ export async function disableMorningReminder(): Promise<void> {
   await scheduleHeld();
 }
 
-export async function moveMorningReminder(time: ReminderTime): Promise<void> {
+export async function moveMorningReminder(time: ReminderTime): Promise<EnableOutcome> {
   useMorningReminderStore.getState().setTime(time);
-  await scheduleHeld();
+  return (await scheduleHeld()) ? 'on' : 'unavailable';
 }
 
 /**
@@ -73,7 +86,7 @@ export function useMorningReminderSchedule(ready: boolean) {
   useEffect(() => {
     if (!ready || !useMorningReminderStore.getState().isOn) return;
     readNotificationsAccess()
-      .then((access) => (access === 'granted' ? scheduleHeld() : disableMorningReminder()))
+      .then<unknown>((access) => (access === 'granted' ? scheduleHeld() : disableMorningReminder()))
       .catch(() => {});
   }, [ready]);
 }

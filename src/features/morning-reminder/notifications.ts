@@ -39,14 +39,14 @@ export async function readNotificationsAccess(): Promise<NotificationsAccess> {
 
 /**
  * Make the device's schedule match: the one daily notification at its time, or
- * none. Scheduling under the same identifier replaces what was there.
+ * none. Resolves false when the reminder asked for could not be scheduled.
  */
-export async function scheduleReminder(reminder: ScheduledReminder | null): Promise<void> {
-  if (!hasNotifications) return;
+export async function scheduleReminder(reminder: ScheduledReminder | null): Promise<boolean> {
+  if (!hasNotifications) return reminder === null;
   try {
     const Notifications = await loadNotifications();
     await Notifications.cancelScheduledNotificationAsync(REMINDER_ID);
-    if (!reminder) return;
+    if (!reminder) return true;
     await Notifications.scheduleNotificationAsync({
       identifier: REMINDER_ID,
       content: { body: reminder.body, sound: true },
@@ -56,8 +56,9 @@ export async function scheduleReminder(reminder: ScheduledReminder | null): Prom
         minute: reminder.minute,
       },
     });
+    return true;
   } catch {
-    return;
+    return false;
   }
 }
 

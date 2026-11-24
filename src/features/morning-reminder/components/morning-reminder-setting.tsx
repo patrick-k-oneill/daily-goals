@@ -82,7 +82,7 @@ function ReminderTimePicker({ time }: { time: ReminderTime }) {
   const theme = useTheme();
   const dark = useColorScheme() === 'dark';
   const value = dateAt(time, new Date());
-  const pick = (picked: Date) => void moveMorningReminder(timeOfDay(picked));
+  const pick = (picked: Date) => void moveMorningReminder(timeOfDay(picked)).then(explain);
   const accessibilityLabel = `${TIME_LABEL} ${formatReminderTime(time)}`;
 
   if (Platform.OS === 'android') {
