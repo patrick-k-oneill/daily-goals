@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, View, type TextInput } from 'react-native';
+import { StyleSheet, View, type TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FormActions, FormField, FormInput, InlineForm } from '@/components/ui/form';
+import { FormActions, FormField, FormInput, InlineForm, TextButton } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
 import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
@@ -107,12 +107,12 @@ export function FeedbackForm({ draft, onChangeDraft, onSettled, onCancel }: Feed
             Send files the note on GitHub with the saved token.
           </ThemedText>
         )}
-        <Pressable
-          accessibilityRole="button"
+        <TextButton
+          label={hasToken ? 'Remove token' : 'Add a GitHub token'}
+          themeColor="text"
           onPress={hasToken ? confirmForget : () => setIsAddingToken(true)}
-          style={styles.tokenAction}>
-          <ThemedText type="small">{hasToken ? 'Remove token' : 'Add a GitHub token'}</ThemedText>
-        </Pressable>
+          style={styles.tokenAction}
+        />
       </View>
       {hasRemovalFailed && (
         <ThemedText type="small" themeColor="missed" accessibilityLiveRegion="polite">

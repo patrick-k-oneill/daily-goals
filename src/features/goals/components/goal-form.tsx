@@ -1,15 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  View,
-  type StyleProp,
-  type TextInput,
-  type ViewStyle,
-} from 'react-native';
+import { StyleSheet, View, type StyleProp, type TextInput, type ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { FormActions, FormInput, InlineForm } from '@/components/ui/form';
+import { FormActions, FormInput, InlineForm, TextButton } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
@@ -118,15 +111,12 @@ export function GoalForm({
       )}
 
       {canLabel && !labelsOpen && (
-        <Pressable
-          accessibilityRole="button"
+        <TextButton
+          label="Label the checks"
           onPress={() => setLabelsOpen(true)}
           hitSlop={4}
-          style={styles.labelLink}>
-          <ThemedText type="small" themeColor="textSecondary">
-            Label the checks
-          </ThemedText>
-        </Pressable>
+          style={styles.labelLink}
+        />
       )}
       {labelsShown && (
         <CheckLabelInputs
@@ -148,27 +138,23 @@ export function GoalForm({
 function CheckCountStepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
     <View style={styles.stepper}>
-      <Pressable
-        accessibilityRole="button"
+      <TextButton
+        label="−"
+        type="subtitle"
         accessibilityLabel="Fewer checks"
         style={styles.stepperButton}
-        onPress={() => onChange(Math.max(1, value - 1))}>
-        <ThemedText type="subtitle" themeColor="textSecondary">
-          −
-        </ThemedText>
-      </Pressable>
+        onPress={() => onChange(Math.max(1, value - 1))}
+      />
       <ThemedText type="smallBold">
         {value} {value === 1 ? 'check' : 'checks'}
       </ThemedText>
-      <Pressable
-        accessibilityRole="button"
+      <TextButton
+        label="+"
+        type="subtitle"
         accessibilityLabel="More checks"
         style={styles.stepperButton}
-        onPress={() => onChange(Math.min(MAX_CHECKS, value + 1))}>
-        <ThemedText type="subtitle" themeColor="textSecondary">
-          +
-        </ThemedText>
-      </Pressable>
+        onPress={() => onChange(Math.min(MAX_CHECKS, value + 1))}
+      />
     </View>
   );
 }

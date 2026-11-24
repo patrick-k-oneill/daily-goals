@@ -30,11 +30,35 @@ npx eas-cli build -p ios --profile preview  # installable internal build via EAS
 npx eas-cli build -p ios --profile production --auto-submit  # TestFlight build; installs from the TestFlight app and updates in place
 ```
 
-## On the Mac (desktop web app)
+## On the Mac
+
+Two ways to run the pad on a Mac.
+
+### The iPad app (Apple silicon)
+
+The iPad build runs on an Apple silicon Mac as a Designed for iPad app, installed from TestFlight like the iPhone and iPad builds. It keeps the same iCloud pad.
+
+Supported:
+
+- **Window.** Resizes from the narrowest window to full screen; the page stays a pad-width column, centred.
+- **Appearance.** Follows the macOS Light and Dark setting as it changes, with no relaunch.
+- **Pointer.** Goal lines, checks, switches, buttons and text controls respond under the pointer.
+- **Keyboard.** Return saves a form, or moves to the next check label. In the gratitude entry, Tab indents a bullet and Shift+Tab steps it back. **View → Zoom In** (⌘+) and **Zoom Out** (⌘−) set the text size from 100% to 200%, kept across launches.
+- **Data.** iCloud sync, Reminders suggestions, export and import.
+
+Not supported:
+
+- **⌘1 / ⌘2.** The app is one page, so there are no tabs to switch.
+- **⌘0.** Zoom has no reset; step back with ⌘−.
+- **Esc.** It cancels a form only in the web app; here, click Cancel.
+- **A hand cursor.** The pointer stays an arrow over controls, as in other Mac apps.
+- **Haptics.** Silent on a Mac.
+
+### The web app
 
 Every push to `main` deploys the web build to <https://patrick-k-oneill.github.io/daily-goals/>. Open it in Safari and choose **File → Add to Dock**: the pad launches as a standalone window with the app icon and the paper theme color, and the pad survives reload and relaunch.
 
-The web build has no iCloud. To move a pad between the phone and the Mac, use **Export data** / **Import data** at the bottom of the page.
+The web build has no iCloud. To move a pad between the phone and the Mac, use **Export data** / **Import data** in Settings.
 
 ## Quality
 

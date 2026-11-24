@@ -9,8 +9,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Layout, Spacing } from '@/constants/theme';
+import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
+import { Layout, Spacing, type ThemeColor } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
@@ -130,12 +130,51 @@ export function FormActions({ submitLabel, canSubmit, onSubmit, onCancel }: Form
   return (
     <View style={styles.actions}>
       <PrimaryButton label={submitLabel} isDisabled={!canSubmit} onPress={onSubmit} />
-      <Pressable accessibilityRole="button" onPress={onCancel} hitSlop={8}>
-        <ThemedText type="small" themeColor="textSecondary">
-          Cancel
-        </ThemedText>
-      </Pressable>
+      <TextButton label="Cancel" onPress={onCancel} hitSlop={8} />
     </View>
+  );
+}
+
+interface TextButtonProps {
+  label: string;
+  onPress: () => void;
+  themeColor?: ThemeColor;
+  type?: ThemedTextProps['type'];
+  accessibilityLabel?: string;
+  hitSlop?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+/**
+ * A control drawn as text alone. Under the pointer a grey one darkens, like
+ * the add line; one whose color carries meaning keeps it and underlines.
+ */
+export function TextButton({
+  label,
+  onPress,
+  themeColor = 'textSecondary',
+  type = 'small',
+  accessibilityLabel,
+  hitSlop,
+  style,
+}: TextButtonProps) {
+  const { hovered, hoverProps } = useHover();
+  const isQuiet = themeColor === 'textSecondary';
+  return (
+    <Pressable
+      {...hoverProps}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={hitSlop}
+      onPress={onPress}
+      style={style}>
+      <ThemedText
+        type={type}
+        themeColor={hovered && isQuiet ? 'text' : themeColor}
+        style={hovered && !isQuiet && styles.underlined}>
+        {label}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -192,5 +231,8 @@ const styles = StyleSheet.create({
   },
   addLine: {
     paddingVertical: Spacing.two,
+  },
+  underlined: {
+    textDecorationLine: 'underline',
   },
 });

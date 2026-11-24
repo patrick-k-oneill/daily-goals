@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'rea
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { ThemedText } from '@/components/themed-text';
+import { TextButton } from '@/components/ui/form';
 import { useReorderHandle } from '@/components/ui/reorderable';
 import { Spacing } from '@/constants/theme';
 import { useHover } from '@/hooks/use-hover';
@@ -150,15 +151,13 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
       onCancel={onDone}
       accessory={<RepeatsToggle value={repeats} onValueChange={setRepeatsChoice} />}
       footer={
-        <Pressable
-          accessibilityRole="button"
+        <TextButton
+          label={recurring ? 'Remove & stop repeating' : 'Remove'}
+          themeColor="missed"
           onPress={remove}
           hitSlop={4}
-          style={styles.removePress}>
-          <ThemedText type="small" themeColor="missed">
-            Remove{recurring ? ' & stop repeating' : ''}
-          </ThemedText>
-        </Pressable>
+          style={styles.removePress}
+        />
       }
     />
   );
