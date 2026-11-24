@@ -1,4 +1,10 @@
-import { isGoals, isLegacyGoals, retireStars, upgradeLegacyGoals } from '@/features/goals/logic';
+import {
+  isGoals,
+  isLegacyGoals,
+  retireStars,
+  stampCounts,
+  upgradeLegacyGoals,
+} from '@/features/goals/logic';
 import { isGratitude, isGratitudeEntries } from '@/features/gratitude/logic';
 import type { DayKey } from '@/lib/dates';
 import { isNumber, isRecord, isTimestamp, parseJson } from '@/lib/guards';
@@ -6,16 +12,26 @@ import { isNumber, isRecord, isTimestamp, parseJson } from '@/lib/guards';
 import type { LegacyPadData, PadData, PadFile } from './types';
 
 /** Bump when the file shape changes; an older app refuses a newer file. */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 /** The last schema whose entries carry a star; 2 and 3 differ only by a template's optional weekdays. */
 const LAST_STARRED_SCHEMA_VERSION = 3;
+/** The last schema whose check counts carry no stamp of their own. */
+const LAST_UNCOUNTED_SCHEMA_VERSION = 6;
 /**
  * Every shape this app still reads. A file up to schema 4 also holds upcoming
  * events, which are left unread; 5 adds an entry's optional `carriedFrom` and
  * the goals' optional `declinedSuggestions`; 6 adds an entry's optional
- * `reminderId`.
+ * `reminderId`; 7 adds the count's stamp and a retirement's day.
  */
-const READABLE_SCHEMA_VERSIONS = [1, 2, LAST_STARRED_SCHEMA_VERSION, 4, 5, SCHEMA_VERSION];
+const READABLE_SCHEMA_VERSIONS = [
+  1,
+  2,
+  LAST_STARRED_SCHEMA_VERSION,
+  4,
+  5,
+  LAST_UNCOUNTED_SCHEMA_VERSION,
+  SCHEMA_VERSION,
+];
 
 /** What a readable pad file holds. */
 export interface PadFileContents {
@@ -77,7 +93,9 @@ export function describePad(pad: PadData): string {
 function readPad(file: Record<string, unknown>, schemaVersion: number): PadData | string {
   if (!isGoals(file.goals)) return damaged('goals');
   if (!isGratitude(file.gratitude)) return damaged('gratitude entries');
-  const goals = schemaVersion <= LAST_STARRED_SCHEMA_VERSION ? retireStars(file.goals) : file.goals;
+  const unstarred =
+    schemaVersion <= LAST_STARRED_SCHEMA_VERSION ? retireStars(file.goals) : file.goals;
+  const goals = schemaVersion <= LAST_UNCOUNTED_SCHEMA_VERSION ? stampCounts(unstarred) : unstarred;
   return { goals, gratitude: file.gratitude };
 }
 

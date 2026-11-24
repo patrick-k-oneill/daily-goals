@@ -71,16 +71,16 @@ export const useGoalsStore = create<GoalsState>()(
         set((goals) => logic.materializeToday(logic.mergeGoals(goals, remote), todayKey())),
     }),
     persistOptions<GoalsState>('goals', {
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         // v1 persisted a `seeded` flag alongside the data; the seed is now the initial state.
         const { seeded: _seeded, ...legacy } = persisted as LegacyGoals & { seeded?: boolean };
-        // v2 had no stamps, tombstones or shared ids (ADR 0005); v3 ranked a starred line first.
-        const goals =
-          version < 3
-            ? logic.upgradeLegacyGoals(legacy)
-            : logic.retireStars(persisted as StarredGoals);
-        return goals as GoalsState;
+        // v2 had no stamps, tombstones or shared ids (ADR 0005).
+        if (version < 3) return logic.upgradeLegacyGoals(legacy) as GoalsState;
+        // v3 ranked a starred line first; v4 held no stamp for a check count.
+        const unstarred =
+          version < 4 ? logic.retireStars(persisted as StarredGoals) : (persisted as Goals);
+        return logic.stampCounts(unstarred) as GoalsState;
       },
       // The saved pad may be from an earlier day; today is written before the first render.
       merge: (persisted, current) => ({

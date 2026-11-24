@@ -213,6 +213,24 @@ describe('joinPad', () => {
     expect(splitPad(joined)).toEqual(files);
   });
 
+  it('credits each written row of a layout from before counts were stamped with its count', () => {
+    const { templates } = samplePad().goals;
+    const files: CloudFiles = {
+      'goals/index.json': JSON.stringify({ schemaVersion: 3, templates, tombstones: {} }),
+      'goals/entries-2026.json': JSON.stringify({
+        schemaVersion: 3,
+        entries: [line('t1:2026-01-02', '2026-01-02', NOW), line('t1:2026-01-03', '2026-01-03')],
+      }),
+    };
+
+    const { pad } = joinPad(files);
+    expect(pad.goals.templates.map((t) => t.countAt)).toEqual([NOW, NOW]);
+    expect(pad.goals.entries.map((e) => e.countAt)).toEqual([NOW, undefined]);
+
+    const current = joinPad(splitPad(samplePad())).pad;
+    expect(current.goals.templates.some((t) => 'countAt' in t)).toBe(false);
+  });
+
   it('reads an empty cloud as an empty pad', () => {
     expect(joinPad({})).toEqual({ pad: emptyPad(), unreadable: [] });
   });
@@ -234,7 +252,7 @@ describe('joinPad', () => {
 
     const { pad, unreadable } = joinPad(files);
     expect(unreadable).toEqual([]);
-    expect(pad.goals.templates).toEqual(unscheduled);
+    expect(pad.goals.templates).toEqual(unscheduled.map((t) => ({ ...t, countAt: NOW })));
     expect(pad.goals.entries.map((e) => [e.id, e.sortOrder])).toEqual([
       ['a', 2],
       ['b', 1],
@@ -391,36 +409,32 @@ describe('two devices through the cloud', () => {
     expect(ipadAgain.cloud).toEqual(phoneAgain.cloud);
   });
 
-  // Reproduces a line gaining a check: the iPad's row, written from its old template, wins whole.
-  it.failing(
-    'keep a lowered check count when a device that has not heard taps its line first',
-    () => {
-      const YESTERDAY = '2026-08-20';
-      const prod = `seed:daily:2:${TODAY}`;
-      const yesterday = (): PadData => ({
-        ...emptyPad(),
-        goals: materializeToday(seedGoals(), YESTERDAY),
-      });
-      const phone: PadData = {
-        ...yesterday(),
-        goals: updateGoal(
-          yesterday().goals,
-          `seed:daily:2:${YESTERDAY}`,
-          { targetCount: 7 },
-          '2026-08-20T20:00:00.000Z',
-        ),
-      };
-      const phonePushed = reconcile(phone, {});
-      expect(phonePushed.pad.goals.entries.find((e) => e.id === prod)?.checks).toHaveLength(7);
+  it('keep a lowered check count when a device that has not heard taps its line first', () => {
+    const YESTERDAY = '2026-08-20';
+    const prod = `seed:daily:2:${TODAY}`;
+    const yesterday = (): PadData => ({
+      ...emptyPad(),
+      goals: materializeToday(seedGoals(), YESTERDAY),
+    });
+    const phone: PadData = {
+      ...yesterday(),
+      goals: updateGoal(
+        yesterday().goals,
+        `seed:daily:2:${YESTERDAY}`,
+        { targetCount: 7 },
+        '2026-08-20T20:00:00.000Z',
+      ),
+    };
+    const phonePushed = reconcile(phone, {});
+    expect(phonePushed.pad.goals.entries.find((e) => e.id === prod)?.checks).toHaveLength(7);
 
-      const ipadOpened = materializeToday(yesterday().goals, TODAY);
-      const ipad: PadData = { ...emptyPad(), goals: cycleCheck(ipadOpened, prod, 0, NOW) };
-      const ipadSynced = reconcile(ipad, phonePushed.cloud);
-      const phoneAgain = reconcile(phonePushed.pad, ipadSynced.cloud);
+    const ipadOpened = materializeToday(yesterday().goals, TODAY);
+    const ipad: PadData = { ...emptyPad(), goals: cycleCheck(ipadOpened, prod, 0, NOW) };
+    const ipadSynced = reconcile(ipad, phonePushed.cloud);
+    const phoneAgain = reconcile(phonePushed.pad, ipadSynced.cloud);
 
-      expect(phoneAgain.pad.goals.entries.find((e) => e.id === prod)?.checks).toHaveLength(7);
-    },
-  );
+    expect(phoneAgain.pad.goals.entries.find((e) => e.id === prod)?.checks).toHaveLength(7);
+  });
 });
 
 describe('describeSync', () => {

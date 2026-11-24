@@ -131,8 +131,9 @@ export function seedGoals(): Goals {
  * Materialize active templates onto a period's section — but only the period
  * containing `today`: a past page renders exactly what was written on it, like
  * paper. A daily template is written only on the weekdays it names. A line
- * crossed off stays off. Idempotent; returns the same `goals` when nothing is
- * missing.
+ * crossed off stays off. A line already written takes its template's check
+ * count when that count was set after the line's own: a device that had not
+ * heard wrote it. Idempotent; returns the same `goals` when nothing is missing.
  */
 export function ensurePeriod(
   goals: Goals,
@@ -150,9 +151,12 @@ export function ensurePeriod(
     if (e.templateId) instantiated.add(e.templateId);
   }
 
+  const live = new Map<string, GoalTemplate>();
   const additions: GoalEntry[] = [];
   for (const t of goals.templates) {
-    if (t.retiredAt || t.cadence !== cadence || instantiated.has(t.id)) continue;
+    if (t.retiredAt || t.cadence !== cadence) continue;
+    live.set(t.id, t);
+    if (instantiated.has(t.id)) continue;
     if (isWrittenFromSource(t, periodKey, written)) continue;
     if (!repeatsOn(t, periodKey)) continue;
     const id = materializedEntryId(t.id, periodKey);
@@ -164,13 +168,22 @@ export function ensurePeriod(
       periodKey,
       title: t.title,
       checks: emptyChecks(t.targetCount),
+      countAt: t.countAt,
       checkLabels: t.checkLabels,
       sortOrder: t.sortOrder,
       updatedAt: EPOCH,
     });
   }
-  if (additions.length === 0) return goals;
-  return { ...goals, entries: [...goals.entries, ...additions] };
+
+  let isRecounted = false;
+  const entries = goals.entries.map((e) => {
+    const template = e.periodKey === periodKey ? live.get(e.templateId ?? '') : undefined;
+    if (!template || !isCountedLater(template, e)) return e;
+    isRecounted = true;
+    return recounted(e, template.targetCount, template.countAt);
+  });
+  if (additions.length === 0 && !isRecounted) return goals;
+  return { ...goals, entries: [...(isRecounted ? entries : goals.entries), ...additions] };
 }
 
 /**
@@ -369,11 +382,20 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, 
   const targetCount = clampChecks(patch.targetCount ?? entry.checks.length);
   const checkLabels = fitCheckLabels(patch.checkLabels ?? entry.checkLabels, targetCount);
 
+  const isResized = targetCount !== entry.checks.length;
+
   return {
     ...goals,
     entries: goals.entries.map((e) =>
       e.id === entryId
-        ? { ...e, title, checks: resizeChecks(e.checks, targetCount), checkLabels, updatedAt: now }
+        ? {
+            ...e,
+            title,
+            checks: resizeChecks(e.checks, targetCount),
+            ...(isResized ? { countAt: now } : {}),
+            checkLabels,
+            updatedAt: now,
+          }
         : e,
     ),
     templates: entry.templateId
@@ -418,7 +440,9 @@ function editedTemplate(
     edited.targetCount === template.targetCount &&
     isSameJson(edited.checkLabels, template.checkLabels) &&
     isSameJson(edited.weekdays, template.weekdays);
-  return isUnchanged ? template : { ...template, ...edited, updatedAt: now };
+  if (isUnchanged) return template;
+  const isRecounted = edited.targetCount !== template.targetCount;
+  return { ...template, ...edited, ...(isRecounted ? { countAt: now } : {}), updatedAt: now };
 }
 
 function isSameJson(a: unknown, b: unknown): boolean {
@@ -516,6 +540,7 @@ export function startRepeating(
     cadence: entry.cadence,
     title: entry.title,
     targetCount: entry.checks.length,
+    countAt: entry.countAt,
     checkLabels: entry.checkLabels,
     weekdays: fitWeekdays(entry.cadence, weekdays),
     sortOrder: live?.sortOrder ?? entry.sortOrder,
@@ -757,22 +782,29 @@ const EPOCH_DAY: DayKey = EPOCH.slice(0, 10);
 /**
  * Reconcile two copies of the goals, item by item (ADR 0005): templates and
  * entries each by id, the later write winning, crossed-off lines staying off.
- * A template retired on either copy stays retired from its first retirement,
- * the moment and the day it fell on, whichever write is later (ADR 0008). A
- * line a stale device wrote for a template after it was retired is dropped. A
- * suggestion declined on either device stays declined.
+ * A check count merges by its own stamp, whichever write is later, so a tap or
+ * a rename from a copy that had not heard the count changed keeps its marks
+ * and its title and loses only the old count. A template retired on either
+ * copy stays retired from its first retirement, the moment and the day it fell
+ * on, whichever write is later (ADR 0008). A line a stale device wrote for a
+ * template after it was retired is dropped. A suggestion declined on either
+ * device stays declined.
  */
 export function mergeGoals(local: Goals, remote: Goals): Goals {
   const retired = firstRetirements([...local.templates, ...remote.templates]);
+  const templateCopies = [byIdOf(local.templates), byIdOf(remote.templates)];
   const templates = mergeKeyed(
     { items: local.templates, tombstones: {} },
     { items: remote.templates, tombstones: {} },
     byId,
-  ).items.map((t) => {
+  ).items.map((merged) => {
+    const counted = latestCounted(merged, templateCopies);
+    const t = counted ? recountedTemplate(merged, counted.targetCount, counted.countAt) : merged;
     const first = retired.get(t.id);
     if (first?.at === t.retiredAt && first?.on === t.retiredOn) return t;
     return { ...t, retiredAt: first?.at, retiredOn: first?.on };
   });
+  const entryCopies = [byIdOf(local.entries), byIdOf(remote.entries)];
   const entries = mergeKeyed(
     { items: local.entries, tombstones: local.tombstones },
     { items: remote.entries, tombstones: remote.tombstones },
@@ -783,17 +815,39 @@ export function mergeGoals(local: Goals, remote: Goals): Goals {
   ].sort();
   return {
     templates,
-    entries: entries.items.filter((e) => !isGhost(e, retired)),
+    entries: entries.items
+      .filter((e) => !isGhost(e, retired))
+      .map((merged) => {
+        const counted = latestCounted(merged, entryCopies);
+        return counted ? recounted(merged, counted.checks.length, counted.countAt) : merged;
+      }),
     tombstones: entries.tombstones,
     ...(declinedSuggestions.length > 0 ? { declinedSuggestions } : {}),
   };
 }
 
 /**
+ * The pad as stored before a count carried its own stamp (store v4, pad file
+ * 2 to 6, cloud layout 3 and earlier): each count is credited to its row's
+ * last write, the latest it can have been set, so it stands against a copy
+ * written earlier and yields to a count set since. An untouched row gains
+ * nothing.
+ */
+export function stampCounts(goals: Goals): Goals {
+  const stamped = <T extends Counted & { updatedAt: Stamp }>(row: T): T =>
+    row.countAt !== undefined || row.updatedAt === EPOCH ? row : { ...row, countAt: row.updatedAt };
+  return {
+    ...goals,
+    templates: goals.templates.map(stamped),
+    entries: goals.entries.map(stamped),
+  };
+}
+
+/**
  * The pad as persisted before stamps, brought into shape: everything stamped
- * legacy (ahead of a fresh seed, behind any real write), seed templates and
- * materialized lines given the ids every device shares, retirements marked at
- * the epoch, and its stars retired.
+ * legacy, counts included (ahead of a fresh seed, behind any real write), seed
+ * templates and materialized lines given the ids every device shares,
+ * retirements marked at the epoch, and its stars retired.
  */
 export function upgradeLegacyGoals(legacy: LegacyGoals): Goals {
   const seedIds = new Set(seedGoals().templates.map((t) => t.id));
@@ -820,7 +874,7 @@ export function upgradeLegacyGoals(legacy: LegacyGoals): Goals {
       updatedAt: LEGACY,
     };
   });
-  return retireStars({ templates, entries, tombstones: {} });
+  return stampCounts(retireStars({ templates, entries, tombstones: {} }));
 }
 
 /**
@@ -890,6 +944,54 @@ function retirementOf({ retiredAt, retiredOn }: GoalTemplate): Retirement | unde
 function earlierRetirement(a: Retirement, b: Retirement): Retirement {
   if (a.at !== b.at) return isEarlier(a.at, b.at) ? a : b;
   return a.on <= b.on ? a : b;
+}
+
+interface Counted {
+  countAt?: Stamp;
+}
+
+function byIdOf<T extends { id: string }>(rows: T[]): Map<string, T> {
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** Whether `a`'s count was set after `b`'s; a count with no stamp stands from the epoch. */
+function isCountedLater(a: Counted, b: Counted): boolean {
+  return isEarlier(b.countAt ?? EPOCH, a.countAt ?? EPOCH);
+}
+
+/** The copy of a merged row whose count was set after the merged row's own, when one was. */
+function latestCounted<T extends Counted & { id: string }>(
+  merged: T,
+  copies: Map<string, T>[],
+): T | undefined {
+  let latest: T | undefined;
+  for (const copy of copies.map((rows) => rows.get(merged.id))) {
+    if (copy && isCountedLater(copy, latest ?? merged)) latest = copy;
+  }
+  return latest;
+}
+
+/** A line with the count another copy set: its marks kept as far as they fit, its labels fitted. */
+function recounted(entry: GoalEntry, count: number, countAt: Stamp | undefined): GoalEntry {
+  return {
+    ...entry,
+    checks: resizeChecks(entry.checks, count),
+    countAt,
+    checkLabels: fitCheckLabels(entry.checkLabels, count),
+  };
+}
+
+function recountedTemplate(
+  template: GoalTemplate,
+  targetCount: number,
+  countAt: Stamp | undefined,
+): GoalTemplate {
+  return {
+    ...template,
+    targetCount,
+    countAt,
+    checkLabels: fitCheckLabels(template.checkLabels, targetCount),
+  };
 }
 
 /** Whether stamp `a` is before `b`; the same moment written two ways orders by its text. */
@@ -1106,6 +1208,7 @@ export function isGoalTemplate(value: unknown): value is GoalTemplate {
     isRecord(value) &&
     hasTemplateFields(value) &&
     isOptionalWeekdays(value.weekdays) &&
+    isOptionalTimestamp(value.countAt) &&
     isOptionalTimestamp(value.retiredAt) &&
     isOptionalDayKey(value.retiredOn) &&
     isTimestamp(value.updatedAt)
@@ -1116,6 +1219,7 @@ export function isGoalEntry(value: unknown): value is GoalEntry {
   return (
     isRecord(value) &&
     hasEntryFields(value) &&
+    isOptionalTimestamp(value.countAt) &&
     isOptionalString(value.carriedFrom) &&
     isOptionalString(value.reminderId) &&
     isTimestamp(value.updatedAt)

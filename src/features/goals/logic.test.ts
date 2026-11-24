@@ -29,6 +29,7 @@ import {
   settleAfterTap,
   settleSection,
   seedGoals,
+  stampCounts,
   startedTemplateId,
   startRepeating,
   stopRepeating,
@@ -2058,9 +2059,9 @@ describe('mergeGoals', () => {
 });
 
 /**
- * How a line comes to show more checks than its goal is set to. Each
- * `it.failing` states what should hold and does not: every one is a write from
- * a copy that has not heard the count changed, winning its whole row.
+ * How a line came to show more checks than its goal is set to (#101): a write
+ * from a copy that had not heard the count changed won its whole row. The
+ * count now merges by its own stamp.
  */
 describe('the check count a line ends up with', () => {
   const YESTERDAY = '2026-08-20';
@@ -2108,37 +2109,34 @@ describe('the check count a line ends up with', () => {
       }
     });
 
-    it.failing('keeps the lowered count when the stale device tapped a check on its line', () => {
+    it('keeps the lowered count when the stale device tapped a check on its line', () => {
       const tapped = cycleCheck(stale(), TODAY_LINE, 0, NOW);
       for (const merged of mergedBothWays(materializeToday(lowered(), TODAY), tapped)) {
         expect(checkCount(merged, TODAY_LINE)).toBe(2);
       }
     });
 
-    it.failing('keeps the lowered count when only the stale device has written today', () => {
+    it('keeps the lowered count when only the stale device has written today', () => {
       for (const merged of mergedBothWays(lowered(), stale())) {
         expect(checkCount(merged, TODAY_LINE)).toBe(2);
       }
     });
 
-    it.failing(
-      'keeps the lowered count when only the stale device wrote today, and tapped it',
-      () => {
-        const tapped = cycleCheck(stale(), TODAY_LINE, 0, NOW);
-        for (const merged of mergedBothWays(lowered(), tapped)) {
-          expect(checkCount(merged, TODAY_LINE)).toBe(2);
-        }
-      },
-    );
+    it('keeps the lowered count when only the stale device wrote today, and tapped it', () => {
+      const tapped = cycleCheck(stale(), TODAY_LINE, 0, NOW);
+      for (const merged of mergedBothWays(lowered(), tapped)) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(2);
+      }
+    });
 
-    it.failing('keeps a raised count when both wrote today untouched', () => {
+    it('keeps a raised count when both wrote today untouched', () => {
       const raised = updateGoal(shared(), YESTERDAY_LINE, { targetCount: 4 }, LAST_NIGHT);
       for (const merged of mergedBothWays(materializeToday(raised, TODAY), stale())) {
         expect(checkCount(merged, TODAY_LINE)).toBe(4);
       }
     });
 
-    it.failing('keeps the lowered count when the stale device renames its line of today', () => {
+    it('keeps the lowered count when the stale device renames its line of today', () => {
       const renamed = updateGoal(stale(), TODAY_LINE, { title: 'Deep work' }, NOW);
       for (const merged of mergedBothWays(materializeToday(lowered(), TODAY), renamed)) {
         expect(targetCount(merged)).toBe(2);
@@ -2165,15 +2163,12 @@ describe('the check count a line ends up with', () => {
       }
     });
 
-    it.failing(
-      'keeps the lowered count over a check the other device tapped after, unheard',
-      () => {
-        const tappedAfter = cycleCheck(other(), TODAY_LINE, 0, LATER);
-        for (const merged of mergedBothWays(lowered(), tappedAfter)) {
-          expect(checkCount(merged, TODAY_LINE)).toBe(2);
-        }
-      },
-    );
+    it('keeps the lowered count over a check the other device tapped after, unheard', () => {
+      const tappedAfter = cycleCheck(other(), TODAY_LINE, 0, LATER);
+      for (const merged of mergedBothWays(lowered(), tappedAfter)) {
+        expect(checkCount(merged, TODAY_LINE)).toBe(2);
+      }
+    });
   });
 
   describe('when a device upgrades from before stamps holding the old count', () => {
@@ -2211,11 +2206,145 @@ describe('the check count a line ends up with', () => {
       }
     });
 
-    it.failing("keeps the lowered count on today's line against the upgraded device's", () => {
+    it("keeps the lowered count on today's line against the upgraded device's", () => {
       for (const merged of mergedBothWays(lowered(), upgradeLegacyGoals(legacy()))) {
         expect(checkCount(merged, TODAY_LINE)).toBe(2);
       }
     });
+  });
+});
+
+describe("a check count's own stamp", () => {
+  const TOMORROW = '2026-08-22';
+  const TODAY_LINE = `t1:${TODAY}`;
+  const written = () =>
+    materializeToday(goals({ templates: [template({ targetCount: 3 })] }), TODAY);
+
+  it('is set on the line and its template by an edit that changes the count, and by no other', () => {
+    const renamed = updateGoal(written(), TODAY_LINE, { title: 'Deep Work' }, NOW);
+    expect(byId(renamed, TODAY_LINE)?.countAt).toBeUndefined();
+    expect(renamed.templates[0].countAt).toBeUndefined();
+
+    const resized = updateGoal(renamed, TODAY_LINE, { targetCount: 2 }, LATER);
+    expect(byId(resized, TODAY_LINE)?.countAt).toBe(LATER);
+    expect(resized.templates[0]).toMatchObject({ targetCount: 2, countAt: LATER });
+
+    const tapped = cycleCheck(resized, TODAY_LINE, 0, '2026-08-21T11:00:00.000Z');
+    expect(byId(tapped, TODAY_LINE)?.countAt).toBe(LATER);
+  });
+
+  it('goes with the count onto each line the template writes, and onto a template started from a line', () => {
+    const resized = updateGoal(written(), TODAY_LINE, { targetCount: 2 }, NOW);
+    const tomorrow = materializeToday(resized, TOMORROW);
+    expect(byId(tomorrow, `t1:${TOMORROW}`)).toMatchObject({
+      checks: ['empty', 'empty'],
+      countAt: NOW,
+      updatedAt: EPOCH,
+    });
+
+    const oneOff = updateGoal(goals({ entries: [entry()] }), 'e1', { targetCount: 4 }, NOW);
+    const started = startRepeating(oneOff, 'e1', undefined, LATER);
+    expect(started.templates[0]).toMatchObject({ targetCount: 4, countAt: NOW });
+  });
+
+  it("gives today's line its template's count when that was set after the line's own", () => {
+    const stale = written();
+    const heard = {
+      ...stale,
+      templates: [template({ targetCount: 2, countAt: NOW, updatedAt: NOW })],
+    };
+
+    const today = materializeToday(heard, TODAY);
+    expect(byId(today, TODAY_LINE)).toMatchObject({ checks: ['empty', 'empty'], countAt: NOW });
+    expect(materializeToday(today, TODAY)).toBe(today);
+  });
+
+  it('leaves a past page as it was written, whatever its template counts now', () => {
+    const stale = written();
+    const heard = {
+      ...stale,
+      templates: [template({ targetCount: 2, countAt: NOW, updatedAt: NOW })],
+    };
+
+    const tomorrow = materializeToday(heard, TOMORROW);
+    expect(byId(tomorrow, TODAY_LINE)?.checks).toHaveLength(3);
+  });
+
+  it('keeps the marks and labels of the later write under the count set last', () => {
+    const labeled = updateGoal(
+      written(),
+      TODAY_LINE,
+      { checkLabels: ['Legs', 'Push', 'Pull'] },
+      '2026-08-21T08:00:00.000Z',
+    );
+    const lowered = updateGoal(labeled, TODAY_LINE, { targetCount: 2 }, NOW);
+    const tapped = cycleCheck(cycleCheck(labeled, TODAY_LINE, 0, LATER), TODAY_LINE, 2, LATER);
+
+    const merged = mergeGoals(lowered, tapped);
+    expect(byId(merged, TODAY_LINE)).toMatchObject({
+      checks: ['done', 'empty'],
+      checkLabels: ['Legs', 'Push'],
+      countAt: NOW,
+      updatedAt: LATER,
+    });
+    expect(mergeGoals(tapped, lowered)).toEqual(merged);
+    expect(mergeGoals(merged, tapped)).toEqual(merged);
+  });
+
+  it("leaves the later write's own count where neither copy set one since", () => {
+    const [phone, ipad] = [written(), written()];
+    const merged = mergeGoals(cycleCheck(phone, TODAY_LINE, 0, NOW), ipad);
+    expect(byId(merged, TODAY_LINE)?.checks).toEqual(['done', 'empty', 'empty']);
+    expect(byId(merged, TODAY_LINE)?.countAt).toBeUndefined();
+  });
+});
+
+describe('stampCounts', () => {
+  it("credits each written row's count to that write, and leaves untouched and stamped rows alone", () => {
+    const start = goals({
+      templates: [
+        template({ id: 'written', updatedAt: NOW }),
+        template({ id: 'untouched' }),
+        template({ id: 'stamped', countAt: NOW, updatedAt: LATER }),
+      ],
+      entries: [entry({ id: 'written', updatedAt: LATER }), entry({ id: 'untouched' })],
+    });
+
+    const stamped = stampCounts(start);
+    expect(stamped.templates.map((t) => t.countAt)).toEqual([NOW, undefined, NOW]);
+    expect(stamped.entries.map((e) => e.countAt)).toEqual([LATER, undefined]);
+    expect(stamped.templates[1]).toBe(start.templates[1]);
+    expect(stampCounts(stamped)).toEqual(stamped);
+  });
+
+  it('lets a count set before the upgrade stand against a later write that never touched it', () => {
+    const LAST_NIGHT = '2026-08-20T20:00:00.000Z';
+    const line = (count: number, updatedAt: string) =>
+      entry({
+        id: 't1:2026-08-20',
+        templateId: 't1',
+        periodKey: '2026-08-20',
+        checks: Array.from({ length: count }, () => 'empty' as const),
+        updatedAt,
+      });
+    const lowered = stampCounts(
+      goals({
+        templates: [template({ targetCount: 2, updatedAt: LAST_NIGHT })],
+        entries: [line(2, LAST_NIGHT)],
+      }),
+    );
+    const stale = stampCounts(
+      goals({
+        templates: [template({ targetCount: 3, updatedAt: '2026-08-19T09:00:00.000Z' })],
+        entries: [line(3, '2026-08-19T09:00:00.000Z')],
+      }),
+    );
+
+    const renamed = updateGoal(stale, 't1:2026-08-20', { title: 'Deep Work' }, NOW);
+    const merged = mergeGoals(lowered, renamed);
+    expect(merged.templates[0]).toMatchObject({ title: 'Deep Work', targetCount: 2 });
+    expect(byId(merged, 't1:2026-08-20')).toMatchObject({ title: 'Deep Work' });
+    expect(byId(merged, 't1:2026-08-20')?.checks).toHaveLength(2);
   });
 });
 
