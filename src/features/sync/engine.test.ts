@@ -90,7 +90,7 @@ describe('startSync', () => {
       ),
     );
     const { phases, reporter } = recorder();
-    stop = startSync(cloud.binding, reporter, { pushDelayMs: 5, pullDelayMs: 5 });
+    stop = startSync(cloud.binding, reporter, { pushDelayMs: 5, pullDelayMs: 5 }).stop;
     await settle();
 
     expect(useGoalsStore.getState().templates.map((t) => t.title)).toContain('Cloud');
@@ -100,7 +100,10 @@ describe('startSync', () => {
 
   it('pushes a local write after a pause, and only the file it changed', async () => {
     const cloud = fakeCloud();
-    stop = startSync(cloud.binding, recorder().reporter, { pushDelayMs: 5, pullDelayMs: 5 });
+    stop = startSync(cloud.binding, recorder().reporter, {
+      pushDelayMs: 5,
+      pullDelayMs: 5,
+    }).stop;
     await settle();
     cloud.writes.length = 0;
 
@@ -111,7 +114,10 @@ describe('startSync', () => {
 
   it("pulls another device's write when the cloud says something changed", async () => {
     const cloud = fakeCloud();
-    stop = startSync(cloud.binding, recorder().reporter, { pushDelayMs: 5, pullDelayMs: 5 });
+    stop = startSync(cloud.binding, recorder().reporter, {
+      pushDelayMs: 5,
+      pullDelayMs: 5,
+    }).stop;
     await settle();
 
     Object.assign(
@@ -130,11 +136,35 @@ describe('startSync', () => {
     expect(useGratitudeStore.getState().entries['2026-08-20']?.text).toBe('Amy');
   });
 
+  it('pulls when asked, and says so only once the write it found is merged in', async () => {
+    const cloud = fakeCloud();
+    const engine = startSync(cloud.binding, recorder().reporter, {
+      pushDelayMs: 5,
+      pullDelayMs: 5,
+    });
+    stop = engine.stop;
+    await engine.pull();
+
+    Object.assign(
+      cloud.files,
+      splitPad(
+        padWith({
+          gratitude: {
+            entries: { '2026-08-20': { forDate: '2026-08-20', writtenAt: NOW, text: 'A walk' } },
+            tombstones: {},
+          },
+        }),
+      ),
+    );
+    await engine.pull();
+    expect(useGratitudeStore.getState().entries['2026-08-20']?.text).toBe('A walk');
+  });
+
   it('rests without writing while iCloud is unavailable', async () => {
     const cloud = fakeCloud();
     cloud.available = false;
     const { phases, reporter } = recorder();
-    stop = startSync(cloud.binding, reporter, { pushDelayMs: 5, pullDelayMs: 5 });
+    stop = startSync(cloud.binding, reporter, { pushDelayMs: 5, pullDelayMs: 5 }).stop;
     await settle();
     useGoalsStore.getState().cycleCheck(`seed:daily:1:${todayKey()}`, 0);
     await settle();

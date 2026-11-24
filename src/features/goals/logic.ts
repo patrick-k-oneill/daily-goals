@@ -2,6 +2,7 @@ import {
   addDays,
   dayKeyOf,
   formatDayWithWeekday,
+  isDayKey,
   weekdayOf,
   weekKeyOf,
   yearKeyOf,
@@ -130,8 +131,9 @@ export function seedGoals(): Goals {
  * Materialize active templates onto a period's section — but only the period
  * containing `today`: a past page renders exactly what was written on it, like
  * paper. A daily template is written only on the weekdays it names. A line
- * crossed off stays off. Idempotent; returns the same `goals` when nothing is
- * missing.
+ * crossed off stays off. A line already written takes its template's check
+ * count when that count was set after the line's own: a device that had not
+ * heard wrote it. Idempotent; returns the same `goals` when nothing is missing.
  */
 export function ensurePeriod(
   goals: Goals,
@@ -149,9 +151,12 @@ export function ensurePeriod(
     if (e.templateId) instantiated.add(e.templateId);
   }
 
+  const live = new Map<string, GoalTemplate>();
   const additions: GoalEntry[] = [];
   for (const t of goals.templates) {
-    if (t.retiredAt || t.cadence !== cadence || instantiated.has(t.id)) continue;
+    if (t.retiredAt || t.cadence !== cadence) continue;
+    live.set(t.id, t);
+    if (instantiated.has(t.id)) continue;
     if (isWrittenFromSource(t, periodKey, written)) continue;
     if (!repeatsOn(t, periodKey)) continue;
     const id = materializedEntryId(t.id, periodKey);
@@ -163,13 +168,22 @@ export function ensurePeriod(
       periodKey,
       title: t.title,
       checks: emptyChecks(t.targetCount),
+      countAt: t.countAt,
       checkLabels: t.checkLabels,
       sortOrder: t.sortOrder,
       updatedAt: EPOCH,
     });
   }
-  if (additions.length === 0) return goals;
-  return { ...goals, entries: [...goals.entries, ...additions] };
+
+  let isRecounted = false;
+  const entries = goals.entries.map((e) => {
+    const template = e.periodKey === periodKey ? live.get(e.templateId ?? '') : undefined;
+    if (!template || !isCountedLater(template, e)) return e;
+    isRecounted = true;
+    return recounted(e, template.targetCount, template.countAt);
+  });
+  if (additions.length === 0 && !isRecounted) return goals;
+  return { ...goals, entries: [...(isRecounted ? entries : goals.entries), ...additions] };
 }
 
 /**
@@ -282,6 +296,44 @@ export function sectionTitle(cadence: Cadence, status: SectionStatus): string {
   return status === 'achieved' ? `${name} Achieved!` : name;
 }
 
+const STREAK_UNITS: Partial<Record<Cadence, string>> = { daily: 'day', weekly: 'week' };
+
+/**
+ * A cadence's streak as of the page showing `day` (ADR 0014): its kept periods
+ * in a row, counted back from the one before `day`'s. A period is kept when
+ * every check on every one of its lines is done; a line left open or marked
+ * missed breaks the streak, and a period with no lines neither breaks it nor
+ * adds to it. The period holding `day` is still being written: it adds one
+ * once its section is achieved and never breaks the streak before then.
+ */
+export function goalStreak(
+  entries: GoalEntry[],
+  cadence: Cadence,
+  day: DayKey,
+  isCurrentAchieved: boolean,
+): number {
+  const current = periodKeyFor(cadence, day);
+  const kept = new Map<string, boolean>();
+  for (const e of entries) {
+    if (e.cadence !== cadence || e.periodKey >= current) continue;
+    const isDone = e.checks.every((c) => c === 'done');
+    kept.set(e.periodKey, (kept.get(e.periodKey) ?? true) && isDone);
+  }
+
+  let streak = isCurrentAchieved ? 1 : 0;
+  for (const periodKey of [...kept.keys()].sort().reverse()) {
+    if (!kept.get(periodKey)) break;
+    streak += 1;
+  }
+  return streak;
+}
+
+/** What a section's streak pill reads: "5-day streak". Nothing below two, or for a cadence that keeps no streak. */
+export function streakLabel(cadence: Cadence, streak: number): string | undefined {
+  const unit = STREAK_UNITS[cadence];
+  return unit && streak > 1 ? `${streak}-${unit} streak` : undefined;
+}
+
 /**
  * What a check tap does to its section's settling, given the lines as the tap
  * left them: a tap that completes the section starts it settling from `now`,
@@ -351,40 +403,121 @@ export interface GoalEditPatch {
   checkLabels?: string[];
   /** Replaces the template's weekdays; omit to keep them. Lines already written are never moved. */
   weekdays?: readonly number[];
+  /** Whether the goal repeats from here on; omit to leave it as it is. */
+  repeats?: boolean;
+}
+
+/** Whether a line is on the period of its cadence that holds `today`. */
+export function isOnCurrentPeriod(
+  entry: Pick<GoalEntry, 'cadence' | 'periodKey'>,
+  today: DayKey,
+): boolean {
+  return periodKeyFor(entry.cadence, today) === entry.periodKey;
+}
+
+/** Whether a line still repeats: it was written from a template that has not been retired. */
+export function isRecurring(goals: Pick<Goals, 'templates'>, entry: GoalEntry): boolean {
+  return liveTemplateOf(goals, entry) !== undefined;
 }
 
 /**
- * Edit a line in place. What an edit changes on a recurring goal's line also
- * goes to its template, so future pages inherit the new title, check count,
- * labels and weekdays; what it leaves alone on the line is left alone on the
- * template. A blank title keeps the old one; existing marks survive a resize
- * and labels follow it.
+ * Whether a line stands for its goal, so that editing or removing it reaches
+ * past the page it is on (ADR 0012): the line on the current period, or, for
+ * a recurring goal with no line there (a weekday it skips), its latest line.
+ * Every other line is a past page, changed alone.
  */
-export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, now: Stamp): Goals {
+export function managesGoal(
+  goals: Pick<Goals, 'templates' | 'entries'>,
+  entry: GoalEntry,
+  today: DayKey,
+): boolean {
+  if (isOnCurrentPeriod(entry, today)) return true;
+  if (!isRecurring(goals, entry)) return false;
+  return goals.entries.every(
+    (e) =>
+      e.templateId !== entry.templateId ||
+      (!isOnCurrentPeriod(e, today) && e.periodKey <= entry.periodKey),
+  );
+}
+
+function liveTemplateOf(
+  goals: Pick<Goals, 'templates'>,
+  entry: GoalEntry,
+): GoalTemplate | undefined {
+  if (!entry.templateId) return undefined;
+  const template = goals.templates.find((t) => t.id === entry.templateId);
+  return template?.retiredAt ? undefined : template;
+}
+
+/**
+ * Save a line's edit. The line takes the title, check count and labels: a
+ * blank title keeps the old one, existing marks survive a resize and labels
+ * follow it. Where the line stands for its goal (`managesGoal`) the edit
+ * reaches the goal too: what it changes on the line goes to the live template,
+ * so future pages inherit it, along with the weekdays, and `repeats` stops the
+ * goal or starts it. On any other line, a past page, the edit changes that
+ * line alone, and a line kept from a stopped goal never writes its retired
+ * template.
+ */
+export function updateGoal(
+  goals: Goals,
+  entryId: string,
+  patch: GoalEditPatch,
+  today: DayKey,
+  now: Stamp,
+): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
 
+  const isManaging = managesGoal(goals, entry, today);
+  const template = isManaging ? liveTemplateOf(goals, entry) : undefined;
+  const edited = editedGoals(goals, entry, template, patch, now);
+  if (!isManaging) return edited;
+
+  const isRepeating = template !== undefined;
+  if (patch.repeats === undefined || patch.repeats === isRepeating) return edited;
+  return patch.repeats
+    ? startRepeating(edited, entryId, patch.weekdays, now)
+    : stopRepeating(edited, entryId, today, now);
+}
+
+function editedGoals(
+  goals: Goals,
+  entry: GoalEntry,
+  template: GoalTemplate | undefined,
+  patch: GoalEditPatch,
+  now: Stamp,
+): Goals {
   const title = patch.title?.trim() || entry.title;
   const targetCount = clampChecks(patch.targetCount ?? entry.checks.length);
   const checkLabels = fitCheckLabels(patch.checkLabels ?? entry.checkLabels, targetCount);
 
+  const isResized = targetCount !== entry.checks.length;
+
   return {
     ...goals,
     entries: goals.entries.map((e) =>
-      e.id === entryId
-        ? { ...e, title, checks: resizeChecks(e.checks, targetCount), checkLabels, updatedAt: now }
+      e.id === entry.id
+        ? {
+            ...e,
+            title,
+            checks: resizeChecks(e.checks, targetCount),
+            ...(isResized ? { countAt: now } : {}),
+            checkLabels,
+            updatedAt: now,
+          }
         : e,
     ),
-    templates: entry.templateId
+    templates: template
       ? goals.templates.map((t) =>
-          t.id === entry.templateId ? editedTemplate(t, entry, patch, title, targetCount, now) : t,
+          t.id === template.id ? editedTemplate(t, entry, patch, title, targetCount, now) : t,
         )
       : goals.templates,
   };
 }
 
 /**
- * A template after an edit to one of its lines. It takes the title and count
+ * A template after an edit to the line that stands for it. It takes the title and count
  * only where the edit changed them on the line, and new labels fitted to its
  * own count: a line may differ from its template (an older page, a count
  * changed since), and saving it must not write that difference back. An edit
@@ -417,7 +550,9 @@ function editedTemplate(
     edited.targetCount === template.targetCount &&
     isSameJson(edited.checkLabels, template.checkLabels) &&
     isSameJson(edited.weekdays, template.weekdays);
-  return isUnchanged ? template : { ...template, ...edited, updatedAt: now };
+  if (isUnchanged) return template;
+  const isRecounted = edited.targetCount !== template.targetCount;
+  return { ...template, ...edited, ...(isRecounted ? { countAt: now } : {}), updatedAt: now };
 }
 
 function isSameJson(a: unknown, b: unknown): boolean {
@@ -431,22 +566,23 @@ export function hasCheckLabels(checkLabels: string[] | undefined): boolean {
 
 /**
  * Cross a line off the page, leaving a tombstone so no copy of it comes back.
- * Removing a recurring goal also retires its template, so it neither returns
- * to this page nor appears on future ones. A template already retired keeps
- * the moment it was retired.
+ * Removing the line that stands for a recurring goal (`managesGoal`) also
+ * retires its template, so it neither returns to this page nor appears on
+ * future ones. Removing any other line, a past page's, takes that line off
+ * and the goal keeps repeating. A template already retired keeps the moment it
+ * was retired.
  */
-export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
+export function removeGoal(goals: Goals, entryId: string, today: DayKey, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
 
+  const template = managesGoal(goals, entry, today) ? liveTemplateOf(goals, entry) : undefined;
   return {
     ...goals,
     entries: goals.entries.filter((e) => e.id !== entryId),
     tombstones: withTombstone(goals.tombstones, entryId, now),
-    templates: entry.templateId
-      ? goals.templates.map((t) =>
-          t.id === entry.templateId && !t.retiredAt ? { ...t, retiredAt: now, updatedAt: now } : t,
-        )
+    templates: template
+      ? goals.templates.map((t) => (t.id === template.id ? retiredTemplate(t, today, now) : t))
       : goals.templates,
   };
 }
@@ -457,18 +593,22 @@ export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
  * checks and its `templateId`. The line is stamped, and a stamped line is
  * never a ghost, so no merge drops it.
  */
-export function stopRepeating(goals: Goals, entryId: string, now: Stamp): Goals {
+export function stopRepeating(goals: Goals, entryId: string, today: DayKey, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
-  const template = goals.templates.find((t) => t.id === entry?.templateId);
-  if (!entry || !template || template.retiredAt) return goals;
+  const template = entry && liveTemplateOf(goals, entry);
+  if (!entry || !template) return goals;
 
   return {
     ...goals,
     templates: goals.templates.map((t) =>
-      t.id === template.id ? { ...t, retiredAt: now, updatedAt: now } : t,
+      t.id === template.id ? retiredTemplate(t, today, now) : t,
     ),
     entries: goals.entries.map((e) => (e.id === entryId ? { ...e, updatedAt: now } : e)),
   };
+}
+
+function retiredTemplate(template: GoalTemplate, today: DayKey, now: Stamp): GoalTemplate {
+  return { ...template, retiredAt: now, retiredOn: today, updatedAt: now };
 }
 
 const START_MARK = '~';
@@ -501,8 +641,7 @@ export function startRepeating(
 ): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
-  const linked = goals.templates.find((t) => t.id === entry.templateId);
-  if (linked && !linked.retiredAt) return goals;
+  if (isRecurring(goals, entry)) return goals;
 
   const started = goals.templates.filter((t) => startedFrom(t.id) === entryId);
   const live = started.find((t) => !t.retiredAt);
@@ -511,6 +650,7 @@ export function startRepeating(
     cadence: entry.cadence,
     title: entry.title,
     targetCount: entry.checks.length,
+    countAt: entry.countAt,
     checkLabels: entry.checkLabels,
     weekdays: fitWeekdays(entry.cadence, weekdays),
     sortOrder: live?.sortOrder ?? entry.sortOrder,
@@ -747,25 +887,34 @@ export function moveEntry(
 }
 
 const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => x.updatedAt };
+const EPOCH_DAY: DayKey = EPOCH.slice(0, 10);
 
 /**
  * Reconcile two copies of the goals, item by item (ADR 0005): templates and
  * entries each by id, the later write winning, crossed-off lines staying off.
- * A template retired on either copy stays retired from its first retirement,
- * whichever write is later (ADR 0008). A line a stale device wrote for a
+ * A check count merges by its own stamp, whichever write is later, so a tap or
+ * a rename from a copy that had not heard the count changed keeps its marks
+ * and its title and loses only the old count. A template retired on either
+ * copy stays retired from its first retirement, the moment and the day it fell
+ * on, whichever write is later (ADR 0008). A line a stale device wrote for a
  * template after it was retired is dropped. A suggestion declined on either
  * device stays declined.
  */
 export function mergeGoals(local: Goals, remote: Goals): Goals {
   const retired = firstRetirements([...local.templates, ...remote.templates]);
+  const templateCopies = [byIdOf(local.templates), byIdOf(remote.templates)];
   const templates = mergeKeyed(
     { items: local.templates, tombstones: {} },
     { items: remote.templates, tombstones: {} },
     byId,
-  ).items.map((t) => {
-    const retiredAt = retired.get(t.id);
-    return retiredAt === t.retiredAt ? t : { ...t, retiredAt };
+  ).items.map((merged) => {
+    const counted = latestCounted(merged, templateCopies);
+    const t = counted ? recountedTemplate(merged, counted.targetCount, counted.countAt) : merged;
+    const first = retired.get(t.id);
+    if (first?.at === t.retiredAt && first?.on === t.retiredOn) return t;
+    return { ...t, retiredAt: first?.at, retiredOn: first?.on };
   });
+  const entryCopies = [byIdOf(local.entries), byIdOf(remote.entries)];
   const entries = mergeKeyed(
     { items: local.entries, tombstones: local.tombstones },
     { items: remote.entries, tombstones: remote.tombstones },
@@ -776,17 +925,39 @@ export function mergeGoals(local: Goals, remote: Goals): Goals {
   ].sort();
   return {
     templates,
-    entries: entries.items.filter((e) => !isGhost(e, retired)),
+    entries: entries.items
+      .filter((e) => !isGhost(e, retired))
+      .map((merged) => {
+        const counted = latestCounted(merged, entryCopies);
+        return counted ? recounted(merged, counted.checks.length, counted.countAt) : merged;
+      }),
     tombstones: entries.tombstones,
     ...(declinedSuggestions.length > 0 ? { declinedSuggestions } : {}),
   };
 }
 
 /**
+ * The pad as stored before a count carried its own stamp (store v4, pad file
+ * 2 to 6, cloud layout 3 and earlier): each count is credited to its row's
+ * last write, the latest it can have been set, so it stands against a copy
+ * written earlier and yields to a count set since. An untouched row gains
+ * nothing.
+ */
+export function stampCounts(goals: Goals): Goals {
+  const stamped = <T extends Counted & { updatedAt: Stamp }>(row: T): T =>
+    row.countAt !== undefined || row.updatedAt === EPOCH ? row : { ...row, countAt: row.updatedAt };
+  return {
+    ...goals,
+    templates: goals.templates.map(stamped),
+    entries: goals.entries.map(stamped),
+  };
+}
+
+/**
  * The pad as persisted before stamps, brought into shape: everything stamped
- * legacy (ahead of a fresh seed, behind any real write), seed templates and
- * materialized lines given the ids every device shares, retirements marked at
- * the epoch, and its stars retired.
+ * legacy, counts included (ahead of a fresh seed, behind any real write), seed
+ * templates and materialized lines given the ids every device shares,
+ * retirements marked at the epoch, and its stars retired.
  */
 export function upgradeLegacyGoals(legacy: LegacyGoals): Goals {
   const seedIds = new Set(seedGoals().templates.map((t) => t.id));
@@ -801,7 +972,7 @@ export function upgradeLegacyGoals(legacy: LegacyGoals): Goals {
     ...t,
     id: templateIds.get(t.id) ?? t.id,
     updatedAt: LEGACY,
-    ...(active ? {} : { retiredAt: EPOCH }),
+    ...(active ? {} : { retiredAt: EPOCH, retiredOn: EPOCH_DAY }),
   }));
   const entries = legacy.entries.map((e) => {
     if (!e.templateId) return { ...e, updatedAt: LEGACY };
@@ -813,7 +984,7 @@ export function upgradeLegacyGoals(legacy: LegacyGoals): Goals {
       updatedAt: LEGACY,
     };
   });
-  return retireStars({ templates, entries, tombstones: {} });
+  return stampCounts(retireStars({ templates, entries, tombstones: {} }));
 }
 
 /**
@@ -839,27 +1010,98 @@ export function retireStars(goals: StarredGoals): Goals {
   };
 }
 
+/** A template's retirement: the moment, and the day that moment fell on where it was made. */
+interface Retirement {
+  at: Stamp;
+  on: DayKey;
+}
+
 /**
  * An untouched materialized line on a period that began after its template
  * was retired: a stale device wrote it before it heard. Every device drops it
- * the same way, so it needs no tombstone.
+ * the same way, so it needs no tombstone. The period is read from the
+ * retirement's recorded day, never from this device's time zone.
  */
-function isGhost(entry: GoalEntry, retired: Map<string, Stamp>): boolean {
+function isGhost(entry: GoalEntry, retired: Map<string, Retirement>): boolean {
   if (!entry.templateId || entry.updatedAt !== EPOCH) return false;
-  const retiredAt = retired.get(entry.templateId);
-  if (retiredAt === undefined) return false;
-  return periodKeyFor(entry.cadence, dayKeyOf(new Date(retiredAt))) < entry.periodKey;
+  const retirement = retired.get(entry.templateId);
+  if (retirement === undefined) return false;
+  return periodKeyFor(entry.cadence, retirement.on) < entry.periodKey;
 }
 
-/** When each template was first retired, on any of the copies given. */
-function firstRetirements(templates: GoalTemplate[]): Map<string, Stamp> {
-  const first = new Map<string, Stamp>();
-  for (const { id, retiredAt } of templates) {
-    if (retiredAt === undefined) continue;
-    const known = first.get(id);
-    if (known === undefined || isEarlier(retiredAt, known)) first.set(id, retiredAt);
+/** How each template was first retired, on any of the copies given. */
+function firstRetirements(templates: GoalTemplate[]): Map<string, Retirement> {
+  const first = new Map<string, Retirement>();
+  for (const template of templates) {
+    const retirement = retirementOf(template);
+    if (retirement === undefined) continue;
+    const known = first.get(template.id);
+    first.set(template.id, known ? earlierRetirement(known, retirement) : retirement);
   }
   return first;
+}
+
+/**
+ * A retirement from before its day was recorded reads it off this device's
+ * calendar. Devices in different zones may read different days; the merge
+ * settles on the earlier, and the day is stored from then on.
+ */
+function retirementOf({ retiredAt, retiredOn }: GoalTemplate): Retirement | undefined {
+  if (retiredAt === undefined) return undefined;
+  return { at: retiredAt, on: retiredOn ?? dayKeyOf(new Date(retiredAt)) };
+}
+
+function earlierRetirement(a: Retirement, b: Retirement): Retirement {
+  if (a.at !== b.at) return isEarlier(a.at, b.at) ? a : b;
+  return a.on <= b.on ? a : b;
+}
+
+interface Counted {
+  countAt?: Stamp;
+}
+
+function byIdOf<T extends { id: string }>(rows: T[]): Map<string, T> {
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** Whether `a`'s count was set after `b`'s; a count with no stamp stands from the epoch. */
+function isCountedLater(a: Counted, b: Counted): boolean {
+  return isEarlier(b.countAt ?? EPOCH, a.countAt ?? EPOCH);
+}
+
+/** The copy of a merged row whose count was set after the merged row's own, when one was. */
+function latestCounted<T extends Counted & { id: string }>(
+  merged: T,
+  copies: Map<string, T>[],
+): T | undefined {
+  let latest: T | undefined;
+  for (const copy of copies.map((rows) => rows.get(merged.id))) {
+    if (copy && isCountedLater(copy, latest ?? merged)) latest = copy;
+  }
+  return latest;
+}
+
+/** A line with the count another copy set: its marks kept as far as they fit, its labels fitted. */
+function recounted(entry: GoalEntry, count: number, countAt: Stamp | undefined): GoalEntry {
+  return {
+    ...entry,
+    checks: resizeChecks(entry.checks, count),
+    countAt,
+    checkLabels: fitCheckLabels(entry.checkLabels, count),
+  };
+}
+
+function recountedTemplate(
+  template: GoalTemplate,
+  targetCount: number,
+  countAt: Stamp | undefined,
+): GoalTemplate {
+  return {
+    ...template,
+    targetCount,
+    countAt,
+    checkLabels: fitCheckLabels(template.checkLabels, targetCount),
+  };
 }
 
 /** Whether stamp `a` is before `b`; the same moment written two ways orders by its text. */
@@ -931,7 +1173,8 @@ function withoutSettling(settling: Rewards['settling'], periodKey: string): Rewa
   return rest;
 }
 
-function clampChecks(targetCount: number): number {
+/** A check count brought within what a line can hold: one to `MAX_CHECKS`. */
+export function clampChecks(targetCount: number): number {
   return Math.min(MAX_CHECKS, Math.max(1, targetCount));
 }
 
@@ -1048,6 +1291,7 @@ const isOptionalString = isOptional(isString);
 const isOptionalStrings = isOptional(isArrayOf(isString));
 const isOptionalBoolean = isOptional(isBoolean);
 const isOptionalTimestamp = isOptional(isTimestamp);
+const isOptionalDayKey = isOptional(isDayKey);
 const isOptionalWeekdays = isOptional(isArrayOf(isWeekday));
 
 /** Goals as they arrive from a file — a pad file, a cloud file — in the current shape. */
@@ -1075,7 +1319,9 @@ export function isGoalTemplate(value: unknown): value is GoalTemplate {
     isRecord(value) &&
     hasTemplateFields(value) &&
     isOptionalWeekdays(value.weekdays) &&
+    isOptionalTimestamp(value.countAt) &&
     isOptionalTimestamp(value.retiredAt) &&
+    isOptionalDayKey(value.retiredOn) &&
     isTimestamp(value.updatedAt)
   );
 }
@@ -1084,6 +1330,7 @@ export function isGoalEntry(value: unknown): value is GoalEntry {
   return (
     isRecord(value) &&
     hasEntryFields(value) &&
+    isOptionalTimestamp(value.countAt) &&
     isOptionalString(value.carriedFrom) &&
     isOptionalString(value.reminderId) &&
     isTimestamp(value.updatedAt)

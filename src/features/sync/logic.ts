@@ -1,5 +1,5 @@
 import type { PadData } from '@/features/backup/types';
-import { isGoalEntry, isGoalTemplate, retireStars } from '@/features/goals/logic';
+import { isGoalEntry, isGoalTemplate, retireStars, stampCounts } from '@/features/goals/logic';
 import type { GoalEntry, GoalTemplate } from '@/features/goals/types';
 import { isGratitudeEntries } from '@/features/gratitude/logic';
 import type { GratitudeEntries } from '@/features/gratitude/types';
@@ -20,10 +20,16 @@ import type { CloudFiles, CloudPad, SyncPhase } from './types';
  * Bump when the cloud layout changes; an older app leaves a newer file alone.
  * Layout 3 keeps declined suggestions in the goals index: an app on layout 2
  * would merge the index and write it back without them, so it must not read it.
+ * Layout 4 records a retirement's day on its template and gives a check count
+ * its own stamp: an app on layout 3 judges ghost lines by its own time zone
+ * and merges a count with the whole row, so it must not read these files
+ * either.
  */
-export const CLOUD_SCHEMA_VERSION = 3;
+export const CLOUD_SCHEMA_VERSION = 4;
 /** The last layout whose goal lines carry a star. */
 const LAST_STARRED_CLOUD_SCHEMA_VERSION = 1;
+/** The last layout whose check counts carry no stamp of their own. */
+const LAST_UNCOUNTED_CLOUD_SCHEMA_VERSION = 3;
 
 const GOALS_INDEX = 'goals/index.json';
 const GRATITUDE_INDEX = 'gratitude/index.json';
@@ -90,7 +96,7 @@ export function joinPad(files: CloudFiles): CloudPad {
   return {
     pad: {
       goals: {
-        templates: goalsIndex?.templates ?? [],
+        templates: indexTemplates(goalsIndex),
         entries: sortById(entries),
         tombstones: goalsIndex?.tombstones ?? {},
         ...declined(goalsIndex?.declinedSuggestions),
@@ -129,25 +135,32 @@ export function changedPaths(
     .sort();
 }
 
-/** The Settings line on where sync stands. */
+/** The Settings line on where sync stands: its wording, and the time of day it ends on once the pad has synced. */
+export interface SyncLine {
+  text: string;
+  time?: string;
+}
+
+/**
+ * Where sync stands, for Settings. Once the pad has synced the line keeps
+ * saying when, through every later run: only its time changes.
+ */
 export function describeSync(
   phase: SyncPhase,
   lastSyncedAt: Stamp | null,
   problem: string | null,
-): string {
+): SyncLine {
   switch (phase) {
     case 'starting':
-      return 'Checking iCloud…';
+      return { text: 'Checking iCloud…' };
     case 'syncing':
-      return 'Syncing with iCloud…';
     case 'synced':
-      return lastSyncedAt
-        ? `Synced with iCloud at ${formatTime(lastSyncedAt)}`
-        : 'Synced with iCloud';
+      if (lastSyncedAt) return { text: 'Synced with iCloud at', time: formatTime(lastSyncedAt) };
+      return { text: phase === 'syncing' ? 'Syncing with iCloud…' : 'Synced with iCloud' };
     case 'unavailable':
-      return 'Not synced. Sign in to iCloud to keep this pad on every device.';
+      return { text: 'Not synced. Sign in to iCloud to keep this pad on every device.' };
     case 'error':
-      return `Couldn’t sync with iCloud: ${problem ?? 'unknown problem'}`;
+      return { text: `Couldn’t sync with iCloud: ${problem ?? 'unknown problem'}` };
   }
 }
 
@@ -212,8 +225,19 @@ function readFile<T>(text: string, guard: Guard<T>): (CloudFile & T) | undefined
  */
 function yearEntries(year: (CloudFile & GoalsYear) | undefined): GoalEntry[] {
   if (!year) return [];
-  if (year.schemaVersion > LAST_STARRED_CLOUD_SCHEMA_VERSION) return year.entries;
-  return retireStars({ templates: [], entries: year.entries, tombstones: {} }).entries;
+  if (year.schemaVersion > LAST_UNCOUNTED_CLOUD_SCHEMA_VERSION) return year.entries;
+  const unstarred =
+    year.schemaVersion > LAST_STARRED_CLOUD_SCHEMA_VERSION
+      ? year.entries
+      : retireStars({ templates: [], entries: year.entries, tombstones: {} }).entries;
+  return stampCounts({ templates: [], entries: unstarred, tombstones: {} }).entries;
+}
+
+/** The index's templates in the current shape: one from before counts were stamped has them stamped. */
+function indexTemplates(index: (CloudFile & GoalsIndex) | undefined): GoalTemplate[] {
+  if (!index) return [];
+  if (index.schemaVersion > LAST_UNCOUNTED_CLOUD_SCHEMA_VERSION) return index.templates;
+  return stampCounts({ templates: index.templates, entries: [], tombstones: {} }).templates;
 }
 
 /** The declined suggestions as the goals hold them: sorted, and absent when there are none. */

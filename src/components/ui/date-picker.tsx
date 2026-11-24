@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { PrimaryButton } from '@/components/ui/form';
+import { PrimaryButton, TextButton } from '@/components/ui/form';
 import { Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
@@ -43,28 +43,24 @@ export function DatePicker({ selected, today, onSelect }: DatePickerProps) {
   return (
     <View style={styles.picker}>
       <View style={styles.monthRow}>
-        <Pressable
-          accessibilityRole="button"
+        <TextButton
+          label="‹"
+          type="handSmall"
           accessibilityLabel="Previous month"
           hitSlop={10}
-          onPress={() => setMonth(addMonths(month, -1))}>
-          <ThemedText type="handSmall" themeColor="textSecondary">
-            ‹
-          </ThemedText>
-        </Pressable>
+          onPress={() => setMonth(addMonths(month, -1))}
+        />
         <ThemedText type="handSmall">{formatMonth(month)}</ThemedText>
         {isLatestMonth ? (
           <View style={{ width: Spacing.three * scale }} />
         ) : (
-          <Pressable
-            accessibilityRole="button"
+          <TextButton
+            label="›"
+            type="handSmall"
             accessibilityLabel="Next month"
             hitSlop={10}
-            onPress={() => setMonth(addMonths(month, 1))}>
-            <ThemedText type="handSmall" themeColor="textSecondary">
-              ›
-            </ThemedText>
-          </Pressable>
+            onPress={() => setMonth(addMonths(month, 1))}
+          />
         )}
       </View>
 

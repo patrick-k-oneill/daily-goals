@@ -19,6 +19,12 @@ export interface GoalTemplate {
   title: string;
   /** Number of checkboxes per period (e.g. "Daily Prod" gets 8 per day). */
   targetCount: number;
+  /**
+   * When `targetCount` was last set. The count merges by this stamp alone, so
+   * a later write that never touched the count cannot carry an old one. Absent
+   * while the count stands as first written.
+   */
+  countAt?: Stamp;
   /** One label per check by position, like Fitness's Legs/Push/Pull; absent when none is written. */
   checkLabels?: string[];
   /**
@@ -29,6 +35,12 @@ export interface GoalTemplate {
   sortOrder: number;
   /** When the goal was crossed off for good; a retired template writes no more lines. */
   retiredAt?: Stamp;
+  /**
+   * The day `retiredAt` fell on where the goal was crossed off. Every device
+   * reads the retirement's period from it, whatever its own time zone; a
+   * template retired before the day was recorded takes one at its next merge.
+   */
+  retiredOn?: DayKey;
   updatedAt: Stamp;
 }
 
@@ -46,6 +58,12 @@ export interface GoalEntry {
   periodKey: string;
   title: string;
   checks: CheckState[];
+  /**
+   * When the number of checks was last set: by an edit, or by the template the
+   * line was written from. The count merges by this stamp alone. Absent while
+   * the count stands as first written.
+   */
+  countAt?: Stamp;
   /** One label per check by position; absent when none is written. */
   checkLabels?: string[];
   /** The line's place in its period's section, ascending; a new line takes the highest. */

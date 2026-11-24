@@ -25,7 +25,7 @@ _Avoid_: frequency, type
 ### Goals
 
 **Template**:
-A recurring goal. It is not itself on any page; it materializes into an entry on each new period's section. A daily template may name the weekdays it repeats on (Monday first); it is written only on those days, and one that names none is written every day. Weekly and annual templates have no weekday schedule. A retired template writes no more lines: removing one of its lines retires it, and so does stopping it. Retirement is permanent (ADR 0008).
+A recurring goal. It is not itself on any page; it materializes into an entry on each new period's section. A daily template may name the weekdays it repeats on (Monday first); it is written only on those days, and one that names none is written every day. Weekly and annual templates have no weekday schedule. A retired template writes no more lines: removing the line that stands for the goal retires it, and so does stopping it. Retirement is permanent (ADR 0008). The line on the current period stands for its goal, or its latest line on a day the goal skips: editing that line writes the template, and editing any other line, a past page's, changes that line alone (ADR 0012).
 _Avoid_: habit, default, recurring goal (as a noun)
 
 **Entry**:
@@ -41,7 +41,7 @@ Making a template from an entry that has none, or whose template was stopped, by
 _Avoid_: resume, revive, restart
 
 **Suggestion**:
-A goal the pad offers to write on the current period's section: a faded row at the foot of the section with Add and Decline. It is on no page until it is accepted, and a past page shows none. Only the Daily section offers suggestions, from two sources: carryovers first, then due reminders.
+A goal the pad offers to write on the current period's section: a faded row at the foot of the section with Add and Decline. It is on no page until it is accepted, and a past page shows none. Every section offers carryovers; the Daily section offers due reminders after them.
 _Avoid_: recommendation, prompt, reminder
 
 **Carry over**:
@@ -102,7 +102,8 @@ The morning's text about one reflection date, stored as plain text. Lines may be
 _Avoid_: journal post, note
 
 **Streak**:
-Consecutive reflection dates with a gratitude entry, counted back from the current reflection date. This morning being unwritten does not break it.
+Periods in a row that were kept, counted back from the last finished one; the period still being written never breaks it. The gratitude streak counts reflection dates with a gratitude entry. The Daily and Weekly sections each keep their own (ADR 0014): a day is kept when every check on every daily entry is done, a week by its weekly entries alone; a missed mark breaks it, and a period with no entries neither breaks nor extends it. Today adds to it once its section is achieved. Each shows as a pill from two up; the Annual section keeps none.
+_Avoid_: chain, run, longest streak (not kept)
 
 ### Backup
 
@@ -145,7 +146,7 @@ The record a removed item leaves behind: its key and when it was removed, kept b
 _Avoid_: soft delete, deleted flag
 
 **Merge**:
-Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned. A template retired on either copy stays retired, from its first retirement (ADR 0008). Declined suggestions merge as a union: declined on one device is declined on all.
+Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned. A check count merges by its own stamp, so a later write that never touched the count keeps its marks and loses only an old count. A template retired on either copy stays retired, from its first retirement and the day it was made on (ADR 0008). Declined suggestions merge as a union: declined on one device is declined on all.
 _Avoid_: sync (for the rule itself), overwrite, replace
 
 **Cloud pad**:

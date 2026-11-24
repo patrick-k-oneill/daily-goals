@@ -1,4 +1,4 @@
-import { useSyncStore } from './store';
+import { syncNow, useSyncStore } from './store';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -27,5 +27,13 @@ describe('useSyncStore', () => {
 
     unavailable();
     expect(useSyncStore.getState()).toMatchObject({ phase: 'unavailable', problem: null });
+  });
+});
+
+describe('syncNow', () => {
+  it('runs one pull outside an open pad and reports where it ended', async () => {
+    useSyncStore.setState({ phase: 'starting' });
+    expect(await syncNow()).toBe('unavailable');
+    expect(useSyncStore.getState().phase).toBe('unavailable');
   });
 });

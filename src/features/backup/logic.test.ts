@@ -68,6 +68,21 @@ function samplePad(): PadData {
   };
 }
 
+/** The sample pad as a file from before counts were stamped reads: each written row's count credited to that write. */
+function creditedPad(): PadData {
+  const pad = samplePad();
+  const credited = <T extends { updatedAt: string }>(row: T): T =>
+    row.updatedAt === EPOCH ? row : { ...row, countAt: row.updatedAt };
+  return {
+    ...pad,
+    goals: {
+      ...pad.goals,
+      templates: pad.goals.templates.map(credited),
+      entries: pad.goals.entries.map(credited),
+    },
+  };
+}
+
 /** The pad as a schema 1 file carried it: no stamps, `active` flags, no tombstones. */
 function legacyPad(): LegacyPadData {
   return {
@@ -160,7 +175,7 @@ describe('serializePad', () => {
   });
 
   it('is readable as a text file', () => {
-    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 6,\n');
+    expect(serializePad(samplePad(), NOW)).toContain('\n  "schemaVersion": 7,\n');
   });
 });
 
@@ -217,19 +232,27 @@ describe('parsePad', () => {
     expect(parsePad(serializePad(pad, NOW))).toEqual({ ok: true, exportedAt: NOW, pad });
   });
 
-  it('reads a schema 5 file, whose lines are linked to no reminder, as it is', () => {
+  it('reads a schema 6 file, crediting each written row with its count and leaving an untouched one alone', () => {
+    const parsed = parsePad(fileWith({ schemaVersion: 6 }));
+    if (!parsed.ok) throw new Error(parsed.reason);
+    expect(parsed.pad).toEqual(creditedPad());
+    expect(parsed.pad.goals.templates.map((t) => t.countAt)).toEqual([STAMP, STAMP]);
+    expect(parsed.pad.goals.entries.map((e) => e.countAt)).toEqual([STAMP, undefined]);
+  });
+
+  it('reads a schema 5 file, whose lines are linked to no reminder, the same way', () => {
     expect(parsePad(fileWith({ schemaVersion: 5 }))).toEqual({
       ok: true,
       exportedAt: NOW,
-      pad: samplePad(),
+      pad: creditedPad(),
     });
   });
 
-  it('reads a schema 4 file, which holds no suggestions, as it is', () => {
+  it('reads a schema 4 file, which holds no suggestions, the same way', () => {
     expect(parsePad(fileWith({ schemaVersion: 4 }))).toEqual({
       ok: true,
       exportedAt: NOW,
-      pad: samplePad(),
+      pad: creditedPad(),
     });
   });
 
@@ -243,7 +266,7 @@ describe('parsePad', () => {
     ]);
     expect(parsed.pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
     expect(parsed.pad.goals.entries.map((e) => e.updatedAt)).toEqual([STAMP, EPOCH, STAMP]);
-    expect(parsed.pad.goals.templates).toEqual(samplePad().goals.templates);
+    expect(parsed.pad.goals.templates).toEqual(creditedPad().goals.templates);
   });
 
   it('reads a schema 2 file, whose templates name no weekdays, the same way', () => {
@@ -258,7 +281,9 @@ describe('parsePad', () => {
     ]);
     expect(parsed.pad.goals.entries.some((e) => 'starred' in e)).toBe(false);
     expect(parsed.pad.goals.entries.map((e) => e.updatedAt)).toEqual([STAMP, EPOCH, STAMP]);
-    expect(parsed.pad.goals.templates).toEqual(goals.templates);
+    expect(parsed.pad.goals.templates).toEqual(
+      goals.templates.map((t) => ({ ...t, countAt: STAMP })),
+    );
   });
 
   it('reads a schema 1 file, stamping its items legacy and sharing its ids', () => {
@@ -272,6 +297,7 @@ describe('parsePad', () => {
     expect(parsed.pad.goals.entries[0]).toMatchObject({
       id: 'seed:daily:2:2026-08-26',
       templateId: 'seed:daily:2',
+      countAt: LEGACY,
       updatedAt: LEGACY,
     });
     expect('starred' in parsed.pad.goals.entries[0]).toBe(false);
@@ -285,7 +311,7 @@ describe('parsePad', () => {
     expect(parsePad(fileWith({ schemaVersion: 4, events: stamped }))).toEqual({
       ok: true,
       exportedAt: NOW,
-      pad: samplePad(),
+      pad: creditedPad(),
     });
 
     const legacy = parsePad(legacyFileWith({ events: [event] }));

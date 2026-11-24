@@ -15,10 +15,9 @@ interface GoalsState extends Goals {
   materializeToday: (today: DayKey) => void;
   addGoal: (input: logic.AddGoalInput) => void;
   cycleCheck: (entryId: string, checkIndex: number) => void;
+  /** Save a line's edit; a goal it starts repeating lands with today written. */
   updateGoal: (entryId: string, patch: logic.GoalEditPatch) => void;
   removeGoal: (entryId: string) => void;
-  stopRepeating: (entryId: string) => void;
-  startRepeating: (entryId: string, weekdays?: readonly number[]) => void;
   acceptSuggestion: (suggestion: Suggestion, periodKey: string) => void;
   declineSuggestion: (sourceId: string) => void;
   moveEntry: (entryId: string, toIndex: number) => void;
@@ -47,16 +46,14 @@ export const useGoalsStore = create<GoalsState>()(
         useRewardsStore.getState().settleAfterTap(get().entries, entryId);
       },
       updateGoal: (entryId, patch) =>
-        set((goals) => logic.updateGoal(goals, entryId, patch, nowStamp())),
-      removeGoal: (entryId) => set((goals) => logic.removeGoal(goals, entryId, nowStamp())),
-      stopRepeating: (entryId) => set((goals) => logic.stopRepeating(goals, entryId, nowStamp())),
-      startRepeating: (entryId, weekdays) =>
         set((goals) =>
           logic.materializeToday(
-            logic.startRepeating(goals, entryId, weekdays, nowStamp()),
+            logic.updateGoal(goals, entryId, patch, todayKey(), nowStamp()),
             todayKey(),
           ),
         ),
+      removeGoal: (entryId) =>
+        set((goals) => logic.removeGoal(goals, entryId, todayKey(), nowStamp())),
       acceptSuggestion: (suggestion, periodKey) =>
         set((goals) => logic.acceptSuggestion(goals, suggestion, periodKey, nowStamp())),
       declineSuggestion: (sourceId) => set((goals) => logic.declineSuggestion(goals, sourceId)),
@@ -69,16 +66,16 @@ export const useGoalsStore = create<GoalsState>()(
         set((goals) => logic.materializeToday(logic.mergeGoals(goals, remote), todayKey())),
     }),
     persistOptions<GoalsState>('goals', {
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         // v1 persisted a `seeded` flag alongside the data; the seed is now the initial state.
         const { seeded: _seeded, ...legacy } = persisted as LegacyGoals & { seeded?: boolean };
-        // v2 had no stamps, tombstones or shared ids (ADR 0005); v3 ranked a starred line first.
-        const goals =
-          version < 3
-            ? logic.upgradeLegacyGoals(legacy)
-            : logic.retireStars(persisted as StarredGoals);
-        return goals as GoalsState;
+        // v2 had no stamps, tombstones or shared ids (ADR 0005).
+        if (version < 3) return logic.upgradeLegacyGoals(legacy) as GoalsState;
+        // v3 ranked a starred line first; v4 held no stamp for a check count.
+        const unstarred =
+          version < 4 ? logic.retireStars(persisted as StarredGoals) : (persisted as Goals);
+        return logic.stampCounts(unstarred) as GoalsState;
       },
       // The saved pad may be from an earlier day; today is written before the first render.
       merge: (persisted, current) => ({

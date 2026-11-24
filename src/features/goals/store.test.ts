@@ -42,8 +42,16 @@ describe('useGoalsStore', () => {
   });
 
   it("writes today's page onto a rehydrated pad saved on an earlier day", async () => {
-    await rehydrateFrom({ templates: [imported], entries: [], tombstones: {} }, 4);
+    await rehydrateFrom({ templates: [imported], entries: [], tombstones: {} }, 5);
     expect(titlesOn(todayKey())).toEqual(['Imported']);
+    expect(useGoalsStore.getState().templates[0].countAt).toBeUndefined();
+  });
+
+  it('credits the counts of a pad saved before counts were stamped to each row’s last write', async () => {
+    await rehydrateFrom({ templates: [imported], entries: [], tombstones: {} }, 4);
+    const { templates, entries } = useGoalsStore.getState();
+    expect(templates[0].countAt).toBe(NOW);
+    expect(entries.map((e) => [e.updatedAt, e.countAt])).toEqual([[EPOCH, NOW]]);
   });
 
   it('keeps the starred-first order of a pad saved while the star was drawn', async () => {

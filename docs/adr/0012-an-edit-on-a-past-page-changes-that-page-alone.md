@@ -1,0 +1,13 @@
+# An edit on a past page changes that page alone
+
+A recurring goal's line could be edited from any page, and the edit went to the template: a rename, a new check count, labels or weekdays made on last Tuesday's page changed every page to come, and removing that line stopped the goal (#27, candidate 6). A past page is the record of a day, so what is done to it now stays on it. `updateGoal` and `removeGoal` take `today` and ask one question, `managesGoal`: does this line stand for its goal? The line on the current period does. There, an edit writes the live template too, the form's Repeats choice stops the goal or starts it in the same write, and Remove retires the template. On every other line the edit changes that line alone, the form offers the title, the check count and the labels only, and Remove takes that page's line off while the goal keeps repeating.
+
+One exception, or a goal could not be reached on a day it skips. A daily goal limited to some weekdays has no line on the current period on its off days, and Settings lists no goals, so strict page-only would leave no place to rename it, reschedule it or stop it until its next written day, up to six days for a goal set to one weekday by mistake. When a recurring goal has no line on the current period, its latest line stands for it: on Saturday, Friday's line of a Monday to Friday goal opens the whole form and writes the template, and Thursday's does not.
+
+A line kept from a stopped goal (ADR 0008) edits as a one-off wherever it is: its template is retired, and a retired template is not written again. Before this the row said so and `updateGoal` renamed and stamped the retired template anyway.
+
+The rule lives in the core. The row asks `isRecurring` and `managesGoal` instead of deriving them, and saving the form is one transition where it was three store writes composed in the component (`updateGoal`, then `stopRepeating` or `startRepeating`); `clampChecks` is exported for the stepper, which had its own copy of the bounds.
+
+This is also what makes ADR 0005's count rule safe to apply at materialization: a template's count now changes only from the line that stands for the goal, the line being resized, so "today's line follows its template's later count" can never resize a line the user did not touch.
+
+Rejected: keeping Repeats and "Remove & stop repeating" on past pages as deliberate exceptions, which leaves two template writes behind a rule that says there are none; hiding the switch but keeping Remove & stop, the same in miniature; and no exception at all for off days, which trades a rule one clause shorter for a goal that cannot be fixed until it next appears.

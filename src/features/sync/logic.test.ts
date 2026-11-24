@@ -213,6 +213,24 @@ describe('joinPad', () => {
     expect(splitPad(joined)).toEqual(files);
   });
 
+  it('credits each written row of a layout from before counts were stamped with its count', () => {
+    const { templates } = samplePad().goals;
+    const files: CloudFiles = {
+      'goals/index.json': JSON.stringify({ schemaVersion: 3, templates, tombstones: {} }),
+      'goals/entries-2026.json': JSON.stringify({
+        schemaVersion: 3,
+        entries: [line('t1:2026-01-02', '2026-01-02', NOW), line('t1:2026-01-03', '2026-01-03')],
+      }),
+    };
+
+    const { pad } = joinPad(files);
+    expect(pad.goals.templates.map((t) => t.countAt)).toEqual([NOW, NOW]);
+    expect(pad.goals.entries.map((e) => e.countAt)).toEqual([NOW, undefined]);
+
+    const current = joinPad(splitPad(samplePad())).pad;
+    expect(current.goals.templates.some((t) => 'countAt' in t)).toBe(false);
+  });
+
   it('reads an empty cloud as an empty pad', () => {
     expect(joinPad({})).toEqual({ pad: emptyPad(), unreadable: [] });
   });
@@ -234,7 +252,7 @@ describe('joinPad', () => {
 
     const { pad, unreadable } = joinPad(files);
     expect(unreadable).toEqual([]);
-    expect(pad.goals.templates).toEqual(unscheduled);
+    expect(pad.goals.templates).toEqual(unscheduled.map((t) => ({ ...t, countAt: NOW })));
     expect(pad.goals.entries.map((e) => [e.id, e.sortOrder])).toEqual([
       ['a', 2],
       ['b', 1],
@@ -373,10 +391,10 @@ describe('two devices through the cloud', () => {
   it('keep a goal stopped on one device stopped after a later edit on the other', () => {
     const fresh = (): PadData => ({ ...emptyPad(), goals: materializeToday(seedGoals(), TODAY) });
     const lineId = `seed:daily:1:${TODAY}`;
-    const phone: PadData = { ...fresh(), goals: stopRepeating(fresh().goals, lineId, NOW) };
+    const phone: PadData = { ...fresh(), goals: stopRepeating(fresh().goals, lineId, TODAY, NOW) };
     const ipad: PadData = {
       ...fresh(),
-      goals: updateGoal(fresh().goals, lineId, { title: 'Dailies' }, LATER),
+      goals: updateGoal(fresh().goals, lineId, { title: 'Dailies' }, TODAY, LATER),
     };
 
     const phoneFirst = reconcile(phone, {});
@@ -390,16 +408,55 @@ describe('two devices through the cloud', () => {
     expect(ipadAgain.pad).toEqual(phoneAgain.pad);
     expect(ipadAgain.cloud).toEqual(phoneAgain.cloud);
   });
+
+  it('keep a lowered check count when a device that has not heard taps its line first', () => {
+    const YESTERDAY = '2026-08-20';
+    const prod = `seed:daily:2:${TODAY}`;
+    const yesterday = (): PadData => ({
+      ...emptyPad(),
+      goals: materializeToday(seedGoals(), YESTERDAY),
+    });
+    const phone: PadData = {
+      ...yesterday(),
+      goals: updateGoal(
+        yesterday().goals,
+        `seed:daily:2:${YESTERDAY}`,
+        { targetCount: 7 },
+        YESTERDAY,
+        '2026-08-20T20:00:00.000Z',
+      ),
+    };
+    const phonePushed = reconcile(phone, {});
+    expect(phonePushed.pad.goals.entries.find((e) => e.id === prod)?.checks).toHaveLength(7);
+
+    const ipadOpened = materializeToday(yesterday().goals, TODAY);
+    const ipad: PadData = { ...emptyPad(), goals: cycleCheck(ipadOpened, prod, 0, NOW) };
+    const ipadSynced = reconcile(ipad, phonePushed.cloud);
+    const phoneAgain = reconcile(phonePushed.pad, ipadSynced.cloud);
+
+    expect(phoneAgain.pad.goals.entries.find((e) => e.id === prod)?.checks).toHaveLength(7);
+  });
 });
 
 describe('describeSync', () => {
   it('says where sync stands in Settings', () => {
-    expect(describeSync('starting', null, null)).toBe('Checking iCloud…');
-    expect(describeSync('syncing', null, null)).toBe('Syncing with iCloud…');
-    expect(describeSync('synced', NOW, null)).toMatch(/^Synced with iCloud at \d/);
-    expect(describeSync('unavailable', null, null)).toMatch(/^Not synced\./);
-    expect(describeSync('error', null, 'the container is missing')).toBe(
-      'Couldn’t sync with iCloud: the container is missing',
-    );
+    expect(describeSync('starting', null, null)).toEqual({ text: 'Checking iCloud…' });
+    expect(describeSync('syncing', null, null)).toEqual({ text: 'Syncing with iCloud…' });
+    expect(describeSync('synced', NOW, null)).toEqual({
+      text: 'Synced with iCloud at',
+      time: expect.stringMatching(/^\d/),
+    });
+    expect(describeSync('unavailable', null, null).text).toMatch(/^Not synced\./);
+    expect(describeSync('error', null, 'the container is missing')).toEqual({
+      text: 'Couldn’t sync with iCloud: the container is missing',
+    });
+  });
+
+  it('keeps saying when the pad last synced while a later run is under way', () => {
+    expect(describeSync('syncing', NOW, null)).toEqual(describeSync('synced', NOW, null));
+  });
+
+  it('still reports a failure after an earlier sync', () => {
+    expect(describeSync('error', NOW, 'offline').text).toBe('Couldn’t sync with iCloud: offline');
   });
 });
