@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Easing, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { Pill } from '@/components/ui/pill';
 import { SectionHeader } from '@/components/ui/section-header';
 import { useTextScale } from '@/features/text-size/store';
 import { announce } from '@/lib/announce';
@@ -8,7 +9,14 @@ import { nowStamp } from '@/lib/clock';
 import type { DayKey } from '@/lib/dates';
 import { successBuzz } from '@/lib/haptics';
 
-import { msUntilSettled, periodKeyFor, sectionStatus, sectionTitle } from '../logic';
+import {
+  goalStreak,
+  msUntilSettled,
+  periodKeyFor,
+  sectionStatus,
+  sectionTitle,
+  streakLabel,
+} from '../logic';
 import { useRewardsStore } from '../rewards-store';
 import { useGoalsStore } from '../store';
 import type { Cadence } from '../types';
@@ -25,7 +33,8 @@ interface GoalSectionHeaderProps {
 
 /**
  * The header of one cadence's section for the period containing `day`. It
- * reads "… Achieved!" once the section is. While a section a check tap just
+ * reads "… Achieved!" once the section is, and carries the cadence's streak
+ * from two periods up. While a section a check tap just
  * completed is settling it keeps its plain name, then settles it: the header
  * changes, and the reward moment plays when one is due.
  */
@@ -41,6 +50,7 @@ export function GoalSectionHeader({ cadence, day }: GoalSectionHeaderProps) {
 
   const status = sectionStatus(settling, entries, periodKey);
   const settlingSince = settling[periodKey];
+  const streak = streakLabel(cadence, goalStreak(entries, cadence, day, status === 'achieved'));
 
   useEffect(() => {
     if (settlingSince === undefined) return;
@@ -74,6 +84,7 @@ export function GoalSectionHeader({ cadence, day }: GoalSectionHeaderProps) {
       title={sectionTitle(cadence, status)}
       titleFlourish={status === 'achieved' ? <AchievedFlourish moment={moment} /> : null}
       titleInset={status === 'achieved' ? achievedFlourishInset(scale) : 0}
+      accessory={streak ? <Pill label={`★ ${streak}`} /> : null}
     />
   );
 }

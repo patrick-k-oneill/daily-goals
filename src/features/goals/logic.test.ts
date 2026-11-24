@@ -11,6 +11,7 @@ import {
   ensurePeriod,
   entriesForPeriod,
   EVERY_WEEKDAY,
+  goalStreak,
   hasCheckLabels,
   isRecurring,
   isSectionComplete,
@@ -36,14 +37,15 @@ import {
   startedTemplateId,
   startRepeating,
   stopRepeating,
+  streakLabel,
   suggestionNote,
   suggestionSourceId,
   suggestionsFor,
   updateGoal,
   upgradeLegacyGoals,
-  type GoalEditPatch,
 } from './logic';
 import type {
+  CheckState,
   GoalEntry,
   GoalTemplate,
   Goals,
@@ -927,6 +929,78 @@ describe('updateGoal', () => {
       expect(edited.entries[0].checks).toHaveLength(5);
       expect(edited.templates).toBe(stopped.templates);
     });
+  });
+});
+
+describe('goalStreak', () => {
+  const day = (periodKey: string, ...checks: CheckState[]) =>
+    entry({ id: `d:${periodKey}`, periodKey, checks: checks.length ? checks : ['done'] });
+  const week = (periodKey: string, ...checks: CheckState[]) =>
+    entry({ id: `w:${periodKey}`, cadence: 'weekly', periodKey, checks });
+
+  it('counts the kept days in a row back from yesterday, today still being written', () => {
+    const entries = [
+      day('2026-08-17', 'empty'),
+      day('2026-08-18'),
+      day('2026-08-19'),
+      day('2026-08-20'),
+      day(TODAY, 'done', 'empty'),
+    ];
+    expect(goalStreak(entries, 'daily', TODAY, false)).toBe(3);
+  });
+
+  it('adds today once its section is achieved', () => {
+    const entries = [day('2026-08-19'), day('2026-08-20'), day(TODAY)];
+    expect(goalStreak(entries, 'daily', TODAY, false)).toBe(2);
+    expect(goalStreak(entries, 'daily', TODAY, true)).toBe(3);
+  });
+
+  it('is broken by a check marked missed, and by one line of several left open', () => {
+    expect(
+      goalStreak([day('2026-08-19'), day('2026-08-20', 'done', 'missed')], 'daily', TODAY, false),
+    ).toBe(0);
+
+    const openLine = entry({ id: 'other', periodKey: '2026-08-20', checks: ['empty'] });
+    expect(
+      goalStreak([day('2026-08-19'), day('2026-08-20'), openLine], 'daily', TODAY, false),
+    ).toBe(0);
+  });
+
+  it('is neither broken nor extended by a day with no daily goals', () => {
+    const entries = [day('2026-08-14'), day('2026-08-17'), day('2026-08-20')];
+    expect(goalStreak(entries, 'daily', TODAY, false)).toBe(3);
+  });
+
+  it('keeps a week by its weekly goals alone, whatever its days did', () => {
+    const entries = [
+      week('2026-W32', 'done', 'done'),
+      week('2026-W33', 'done'),
+      day('2026-08-12', 'missed'),
+      week('2026-W34', 'empty'),
+    ];
+    expect(goalStreak(entries, 'weekly', TODAY, false)).toBe(2);
+    expect(goalStreak(entries, 'daily', TODAY, false)).toBe(0);
+  });
+
+  it('reads as it stood on the page shown, counting nothing written later', () => {
+    const entries = [day('2026-08-18'), day('2026-08-19'), day('2026-08-20', 'empty'), day(TODAY)];
+    expect(goalStreak(entries, 'daily', '2026-08-20', false)).toBe(2);
+    expect(goalStreak(entries, 'daily', TODAY, true)).toBe(1);
+  });
+
+  it('is zero on a pad with nothing finished', () => {
+    expect(goalStreak([], 'daily', TODAY, false)).toBe(0);
+    expect(goalStreak([day(TODAY, 'empty')], 'daily', TODAY, false)).toBe(0);
+  });
+});
+
+describe('streakLabel', () => {
+  it('names the streak in its cadence, from two up, and only for days and weeks', () => {
+    expect(streakLabel('daily', 5)).toBe('5-day streak');
+    expect(streakLabel('weekly', 2)).toBe('2-week streak');
+    expect(streakLabel('daily', 1)).toBeUndefined();
+    expect(streakLabel('weekly', 0)).toBeUndefined();
+    expect(streakLabel('annual', 4)).toBeUndefined();
   });
 });
 

@@ -296,6 +296,44 @@ export function sectionTitle(cadence: Cadence, status: SectionStatus): string {
   return status === 'achieved' ? `${name} Achieved!` : name;
 }
 
+const STREAK_UNITS: Partial<Record<Cadence, string>> = { daily: 'day', weekly: 'week' };
+
+/**
+ * A cadence's streak as of the page showing `day` (ADR 0014): its kept periods
+ * in a row, counted back from the one before `day`'s. A period is kept when
+ * every check on every one of its lines is done; a line left open or marked
+ * missed breaks the streak, and a period with no lines neither breaks it nor
+ * adds to it. The period holding `day` is still being written: it adds one
+ * once its section is achieved and never breaks the streak before then.
+ */
+export function goalStreak(
+  entries: GoalEntry[],
+  cadence: Cadence,
+  day: DayKey,
+  isCurrentAchieved: boolean,
+): number {
+  const current = periodKeyFor(cadence, day);
+  const kept = new Map<string, boolean>();
+  for (const e of entries) {
+    if (e.cadence !== cadence || e.periodKey >= current) continue;
+    const isDone = e.checks.every((c) => c === 'done');
+    kept.set(e.periodKey, (kept.get(e.periodKey) ?? true) && isDone);
+  }
+
+  let streak = isCurrentAchieved ? 1 : 0;
+  for (const periodKey of [...kept.keys()].sort().reverse()) {
+    if (!kept.get(periodKey)) break;
+    streak += 1;
+  }
+  return streak;
+}
+
+/** What a section's streak pill reads: "5-day streak". Nothing below two, or for a cadence that keeps no streak. */
+export function streakLabel(cadence: Cadence, streak: number): string | undefined {
+  const unit = STREAK_UNITS[cadence];
+  return unit && streak > 1 ? `${streak}-${unit} streak` : undefined;
+}
+
 /**
  * What a check tap does to its section's settling, given the lines as the tap
  * left them: a tap that completes the section starts it settling from `now`,

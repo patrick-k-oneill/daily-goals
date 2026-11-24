@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ListTextInput } from '@/components/ui/list-text-input';
+import { Pill } from '@/components/ui/pill';
 import { Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
@@ -41,13 +42,7 @@ export function GratitudeEditor({ reflectionDate }: { reflectionDate: DayKey }) 
     <ThemedView type="backgroundElement" style={styles.card}>
       <View style={styles.headerRow}>
         <ThemedText type="hand">I am Grateful for:</ThemedText>
-        {streak > 1 && (
-          <ThemedView type="backgroundSelected" style={styles.streakPill}>
-            <ThemedText type="smallBold" themeColor="accent">
-              ★ {streak}-day streak
-            </ThemedText>
-          </ThemedView>
-        )}
+        {streak > 1 && <Pill label={`★ ${streak}-day streak`} />}
       </View>
 
       <ThemedText type="small" themeColor="textSecondary">
@@ -88,11 +83,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: Spacing.two,
-  },
-  streakPill: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-    borderRadius: Spacing.five,
   },
   input: {
     fontSize: 17,

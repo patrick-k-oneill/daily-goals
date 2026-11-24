@@ -11,20 +11,28 @@ export interface SectionHeaderProps {
   titleFlourish?: ReactNode;
   /** Room kept clear either side of the title, for a flourish that overhangs it. */
   titleInset?: number;
+  /** Sits after the title on its line, and under it when the line has no room. */
+  accessory?: ReactNode;
 }
 
-export function SectionHeader({ title, titleFlourish, titleInset = 0 }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  titleFlourish,
+  titleInset = 0,
+  accessory,
+}: SectionHeaderProps) {
   const theme = useTheme();
 
   return (
     <View style={[styles.container, { borderBottomColor: theme.text }]}>
-      <View style={[styles.titleRow, { paddingHorizontal: titleInset }]}>
-        <View style={styles.titleBox}>
+      <View style={styles.titleRow}>
+        <View style={[styles.titleBox, { marginHorizontal: titleInset }]}>
           <ThemedText type="hand" style={styles.title} aria-live="polite">
             {title}
           </ThemedText>
           {titleFlourish}
         </View>
+        {accessory}
       </View>
     </View>
   );
@@ -36,7 +44,12 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.one,
   },
   titleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: Spacing.three,
+    rowGap: Spacing.one,
   },
   titleBox: {
     maxWidth: '100%',

@@ -102,7 +102,8 @@ The morning's text about one reflection date, stored as plain text. Lines may be
 _Avoid_: journal post, note
 
 **Streak**:
-Consecutive reflection dates with a gratitude entry, counted back from the current reflection date. This morning being unwritten does not break it.
+Periods in a row that were kept, counted back from the last finished one; the period still being written never breaks it. The gratitude streak counts reflection dates with a gratitude entry. The Daily and Weekly sections each keep their own (ADR 0014): a day is kept when every check on every daily entry is done, a week by its weekly entries alone; a missed mark breaks it, and a period with no entries neither breaks nor extends it. Today adds to it once its section is achieved. Each shows as a pill from two up; the Annual section keeps none.
+_Avoid_: chain, run, longest streak (not kept)
 
 ### Backup
 
