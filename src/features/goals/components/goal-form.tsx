@@ -7,7 +7,7 @@ import { Spacing } from '@/constants/theme';
 import { scaleTextStyle } from '@/features/text-size/logic';
 import { useTextScale } from '@/features/text-size/store';
 
-import { hasCheckLabels, MAX_CHECK_LABEL_LENGTH, MAX_CHECKS } from '../logic';
+import { clampChecks, hasCheckLabels, MAX_CHECK_LABEL_LENGTH } from '../logic';
 
 import { WeekdayToggles } from './weekday-toggles';
 
@@ -143,7 +143,7 @@ function CheckCountStepper({ value, onChange }: { value: number; onChange: (n: n
         type="subtitle"
         accessibilityLabel="Fewer checks"
         style={styles.stepperButton}
-        onPress={() => onChange(Math.max(1, value - 1))}
+        onPress={() => onChange(clampChecks(value - 1))}
       />
       <ThemedText type="smallBold">
         {value} {value === 1 ? 'check' : 'checks'}
@@ -153,7 +153,7 @@ function CheckCountStepper({ value, onChange }: { value: number; onChange: (n: n
         type="subtitle"
         accessibilityLabel="More checks"
         style={styles.stepperButton}
-        onPress={() => onChange(Math.min(MAX_CHECKS, value + 1))}
+        onPress={() => onChange(clampChecks(value + 1))}
       />
     </View>
   );

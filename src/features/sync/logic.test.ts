@@ -394,7 +394,7 @@ describe('two devices through the cloud', () => {
     const phone: PadData = { ...fresh(), goals: stopRepeating(fresh().goals, lineId, TODAY, NOW) };
     const ipad: PadData = {
       ...fresh(),
-      goals: updateGoal(fresh().goals, lineId, { title: 'Dailies' }, LATER),
+      goals: updateGoal(fresh().goals, lineId, { title: 'Dailies' }, TODAY, LATER),
     };
 
     const phoneFirst = reconcile(phone, {});
@@ -422,6 +422,7 @@ describe('two devices through the cloud', () => {
         yesterday().goals,
         `seed:daily:2:${YESTERDAY}`,
         { targetCount: 7 },
+        YESTERDAY,
         '2026-08-20T20:00:00.000Z',
       ),
     };

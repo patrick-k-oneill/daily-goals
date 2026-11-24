@@ -365,19 +365,91 @@ export interface GoalEditPatch {
   checkLabels?: string[];
   /** Replaces the template's weekdays; omit to keep them. Lines already written are never moved. */
   weekdays?: readonly number[];
+  /** Whether the goal repeats from here on; omit to leave it as it is. */
+  repeats?: boolean;
+}
+
+/** Whether a line is on the period of its cadence that holds `today`. */
+export function isOnCurrentPeriod(
+  entry: Pick<GoalEntry, 'cadence' | 'periodKey'>,
+  today: DayKey,
+): boolean {
+  return periodKeyFor(entry.cadence, today) === entry.periodKey;
+}
+
+/** Whether a line still repeats: it was written from a template that has not been retired. */
+export function isRecurring(goals: Pick<Goals, 'templates'>, entry: GoalEntry): boolean {
+  return liveTemplateOf(goals, entry) !== undefined;
 }
 
 /**
- * Edit a line in place. What an edit changes on a recurring goal's line also
- * goes to its template, so future pages inherit the new title, check count,
- * labels and weekdays; what it leaves alone on the line is left alone on the
- * template. A blank title keeps the old one; existing marks survive a resize
- * and labels follow it.
+ * Whether a line stands for its goal, so that editing or removing it reaches
+ * past the page it is on (ADR 0012): the line on the current period, or, for
+ * a recurring goal with no line there (a weekday it skips), its latest line.
+ * Every other line is a past page, changed alone.
  */
-export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, now: Stamp): Goals {
+export function managesGoal(
+  goals: Pick<Goals, 'templates' | 'entries'>,
+  entry: GoalEntry,
+  today: DayKey,
+): boolean {
+  if (isOnCurrentPeriod(entry, today)) return true;
+  if (!isRecurring(goals, entry)) return false;
+  return goals.entries.every(
+    (e) =>
+      e.templateId !== entry.templateId ||
+      (!isOnCurrentPeriod(e, today) && e.periodKey <= entry.periodKey),
+  );
+}
+
+function liveTemplateOf(
+  goals: Pick<Goals, 'templates'>,
+  entry: GoalEntry,
+): GoalTemplate | undefined {
+  if (!entry.templateId) return undefined;
+  const template = goals.templates.find((t) => t.id === entry.templateId);
+  return template?.retiredAt ? undefined : template;
+}
+
+/**
+ * Save a line's edit. The line takes the title, check count and labels: a
+ * blank title keeps the old one, existing marks survive a resize and labels
+ * follow it. Where the line stands for its goal (`managesGoal`) the edit
+ * reaches the goal too: what it changes on the line goes to the live template,
+ * so future pages inherit it, along with the weekdays, and `repeats` stops the
+ * goal or starts it. On any other line, a past page, the edit changes that
+ * line alone, and a line kept from a stopped goal never writes its retired
+ * template.
+ */
+export function updateGoal(
+  goals: Goals,
+  entryId: string,
+  patch: GoalEditPatch,
+  today: DayKey,
+  now: Stamp,
+): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
 
+  const isManaging = managesGoal(goals, entry, today);
+  const template = isManaging ? liveTemplateOf(goals, entry) : undefined;
+  const edited = editedGoals(goals, entry, template, patch, now);
+  if (!isManaging) return edited;
+
+  const isRepeating = template !== undefined;
+  if (patch.repeats === undefined || patch.repeats === isRepeating) return edited;
+  return patch.repeats
+    ? startRepeating(edited, entryId, patch.weekdays, now)
+    : stopRepeating(edited, entryId, today, now);
+}
+
+function editedGoals(
+  goals: Goals,
+  entry: GoalEntry,
+  template: GoalTemplate | undefined,
+  patch: GoalEditPatch,
+  now: Stamp,
+): Goals {
   const title = patch.title?.trim() || entry.title;
   const targetCount = clampChecks(patch.targetCount ?? entry.checks.length);
   const checkLabels = fitCheckLabels(patch.checkLabels ?? entry.checkLabels, targetCount);
@@ -387,7 +459,7 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, 
   return {
     ...goals,
     entries: goals.entries.map((e) =>
-      e.id === entryId
+      e.id === entry.id
         ? {
             ...e,
             title,
@@ -398,16 +470,16 @@ export function updateGoal(goals: Goals, entryId: string, patch: GoalEditPatch, 
           }
         : e,
     ),
-    templates: entry.templateId
+    templates: template
       ? goals.templates.map((t) =>
-          t.id === entry.templateId ? editedTemplate(t, entry, patch, title, targetCount, now) : t,
+          t.id === template.id ? editedTemplate(t, entry, patch, title, targetCount, now) : t,
         )
       : goals.templates,
   };
 }
 
 /**
- * A template after an edit to one of its lines. It takes the title and count
+ * A template after an edit to the line that stands for it. It takes the title and count
  * only where the edit changed them on the line, and new labels fitted to its
  * own count: a line may differ from its template (an older page, a count
  * changed since), and saving it must not write that difference back. An edit
@@ -456,22 +528,23 @@ export function hasCheckLabels(checkLabels: string[] | undefined): boolean {
 
 /**
  * Cross a line off the page, leaving a tombstone so no copy of it comes back.
- * Removing a recurring goal also retires its template, so it neither returns
- * to this page nor appears on future ones. A template already retired keeps
- * the moment it was retired.
+ * Removing the line that stands for a recurring goal (`managesGoal`) also
+ * retires its template, so it neither returns to this page nor appears on
+ * future ones. Removing any other line, a past page's, takes that line off
+ * and the goal keeps repeating. A template already retired keeps the moment it
+ * was retired.
  */
 export function removeGoal(goals: Goals, entryId: string, today: DayKey, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
 
+  const template = managesGoal(goals, entry, today) ? liveTemplateOf(goals, entry) : undefined;
   return {
     ...goals,
     entries: goals.entries.filter((e) => e.id !== entryId),
     tombstones: withTombstone(goals.tombstones, entryId, now),
-    templates: entry.templateId
-      ? goals.templates.map((t) =>
-          t.id === entry.templateId && !t.retiredAt ? retiredTemplate(t, today, now) : t,
-        )
+    templates: template
+      ? goals.templates.map((t) => (t.id === template.id ? retiredTemplate(t, today, now) : t))
       : goals.templates,
   };
 }
@@ -484,8 +557,8 @@ export function removeGoal(goals: Goals, entryId: string, today: DayKey, now: St
  */
 export function stopRepeating(goals: Goals, entryId: string, today: DayKey, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
-  const template = goals.templates.find((t) => t.id === entry?.templateId);
-  if (!entry || !template || template.retiredAt) return goals;
+  const template = entry && liveTemplateOf(goals, entry);
+  if (!entry || !template) return goals;
 
   return {
     ...goals,
@@ -530,8 +603,7 @@ export function startRepeating(
 ): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
-  const linked = goals.templates.find((t) => t.id === entry.templateId);
-  if (linked && !linked.retiredAt) return goals;
+  if (isRecurring(goals, entry)) return goals;
 
   const started = goals.templates.filter((t) => startedFrom(t.id) === entryId);
   const live = started.find((t) => !t.retiredAt);
@@ -1063,7 +1135,8 @@ function withoutSettling(settling: Rewards['settling'], periodKey: string): Rewa
   return rest;
 }
 
-function clampChecks(targetCount: number): number {
+/** A check count brought within what a line can hold: one to `MAX_CHECKS`. */
+export function clampChecks(targetCount: number): number {
   return Math.min(MAX_CHECKS, Math.max(1, targetCount));
 }
 

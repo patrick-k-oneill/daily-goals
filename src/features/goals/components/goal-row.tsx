@@ -8,9 +8,10 @@ import { useReorderHandle } from '@/components/ui/reorderable';
 import { Spacing } from '@/constants/theme';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
+import { useToday } from '@/lib/clock';
 import { confirmAction } from '@/lib/confirm';
 
-import { EVERY_WEEKDAY, hasCheckLabels } from '../logic';
+import { EVERY_WEEKDAY, hasCheckLabels, isRecurring, managesGoal } from '../logic';
 import { useGoalsStore } from '../store';
 import type { GoalEntry } from '../types';
 
@@ -110,20 +111,23 @@ function TitleButton({
 }
 
 function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void }) {
+  const today = useToday();
   const updateGoal = useGoalsStore((s) => s.updateGoal);
   const removeGoal = useGoalsStore((s) => s.removeGoal);
-  const stopRepeating = useGoalsStore((s) => s.stopRepeating);
-  const startRepeating = useGoalsStore((s) => s.startRepeating);
-  const template = useGoalsStore((s) => s.templates.find((t) => t.id === entry.templateId));
-  // A line kept from a stopped template edits as a one-off.
-  const recurring = template !== undefined && !template.retiredAt;
+  const templates = useGoalsStore((s) => s.templates);
+  const entries = useGoalsStore((s) => s.entries);
+  const goals = { templates, entries };
+  const recurring = isRecurring(goals, entry);
+  const managing = managesGoal(goals, entry, today);
+  const stopsGoal = managing && recurring;
+  const template = templates.find((t) => t.id === entry.templateId);
   const [repeatsChoice, setRepeatsChoice] = useState<boolean>();
   const repeats = repeatsChoice ?? recurring;
 
   const remove = () => {
     confirmAction(
       'Remove goal',
-      recurring
+      stopsGoal
         ? `Remove “${entry.title}” from this page and stop it repeating in future periods?`
         : `Remove “${entry.title}” from this page?`,
       () => removeGoal(entry.id),
@@ -141,18 +145,18 @@ function GoalRowEditor({ entry, onDone }: { entry: GoalEntry; onDone: () => void
       placeholder="Goal title…"
       submitLabel="Save"
       style={styles.editor}
-      showWeekdays={repeats && entry.cadence === 'daily'}
+      showWeekdays={managing && repeats && entry.cadence === 'daily'}
       onSubmit={(draft) => {
-        updateGoal(entry.id, draft);
-        if (recurring && !repeats) stopRepeating(entry.id);
-        if (!recurring && repeats) startRepeating(entry.id, draft.weekdays);
+        updateGoal(entry.id, managing ? { ...draft, repeats } : draft);
         onDone();
       }}
       onCancel={onDone}
-      accessory={<RepeatsToggle value={repeats} onValueChange={setRepeatsChoice} />}
+      accessory={
+        managing ? <RepeatsToggle value={repeats} onValueChange={setRepeatsChoice} /> : undefined
+      }
       footer={
         <TextButton
-          label={recurring ? 'Remove & stop repeating' : 'Remove'}
+          label={stopsGoal ? 'Remove & stop repeating' : 'Remove'}
           themeColor="missed"
           onPress={remove}
           hitSlop={4}

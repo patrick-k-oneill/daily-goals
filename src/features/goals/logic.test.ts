@@ -5,13 +5,16 @@ import {
   acceptSuggestion,
   addGoal,
   carriedEntryId,
+  clampChecks,
   cycleCheck,
   declineSuggestion,
   ensurePeriod,
   entriesForPeriod,
   EVERY_WEEKDAY,
   hasCheckLabels,
+  isRecurring,
   isSectionComplete,
+  managesGoal,
   materializedEntryId,
   materializeToday,
   MAX_CHECK_LABEL_LENGTH,
@@ -647,7 +650,7 @@ describe('achieved sections', () => {
 
   it('keeps settling through an edit that leaves the section complete', () => {
     const tapped = tap(lastGoalOpen(), 'b', NOW);
-    const renamed = updateGoal(tapped.goals, 'a', { title: 'Renamed' }, after(500));
+    const renamed = updateGoal(tapped.goals, 'a', { title: 'Renamed' }, TODAY, after(500));
     expect(msUntilSettled(tapped.rewards.settling[TODAY], after(500))).toBe(SETTLE_MS - 500);
     expect(
       settleSection(tapped.rewards, renamed.entries, TODAY, TODAY, after(SETTLE_MS)).outcome,
@@ -687,17 +690,17 @@ describe('updateGoal', () => {
     });
 
   it('renames the line and its template together', () => {
-    const state = updateGoal(recurring(), 'e1', { title: 'Deep Work' }, NOW);
+    const state = updateGoal(recurring(), 'e1', { title: 'Deep Work' }, TODAY, NOW);
     expect(state.entries[0].title).toBe('Deep Work');
     expect(state.templates[0].title).toBe('Deep Work');
   });
 
   it('resizes checks preserving marks and carries the new count to future pages', () => {
-    const grown = updateGoal(recurring(), 'e1', { targetCount: 5 }, NOW);
+    const grown = updateGoal(recurring(), 'e1', { targetCount: 5 }, TODAY, NOW);
     expect(grown.entries[0].checks).toEqual(['done', 'missed', 'empty', 'empty', 'empty']);
     expect(grown.templates[0].targetCount).toBe(5);
 
-    const shrunk = updateGoal(recurring(), 'e1', { targetCount: 2 }, NOW);
+    const shrunk = updateGoal(recurring(), 'e1', { targetCount: 2 }, TODAY, NOW);
     expect(shrunk.entries[0].checks).toEqual(['done', 'missed']);
 
     const tomorrow = ensurePeriod(grown, 'daily', '2026-08-22', '2026-08-22');
@@ -706,12 +709,12 @@ describe('updateGoal', () => {
 
   it('leaves templates untouched for one-off lines and keeps the old title when blanked', () => {
     const start = goals({ templates: [template()], entries: [entry({ title: 'Keep me' })] });
-    const renamed = updateGoal(start, 'e1', { title: 'Renamed' }, NOW);
+    const renamed = updateGoal(start, 'e1', { title: 'Renamed' }, TODAY, NOW);
     expect(renamed.entries[0].title).toBe('Renamed');
     expect(renamed.templates).toBe(start.templates);
 
-    expect(updateGoal(start, 'e1', { title: '   ' }, NOW).entries[0].title).toBe('Keep me');
-    expect(updateGoal(start, 'missing', { title: 'X' }, NOW)).toBe(start);
+    expect(updateGoal(start, 'e1', { title: '   ' }, TODAY, NOW).entries[0].title).toBe('Keep me');
+    expect(updateGoal(start, 'missing', { title: 'X' }, TODAY, NOW)).toBe(start);
   });
 
   it('labels the checks of the line and its template, so the next page inherits them', () => {
@@ -724,7 +727,13 @@ describe('updateGoal', () => {
     const start = recurring();
     start.entries.push(yesterday);
 
-    const labeled = updateGoal(start, 'e1', { checkLabels: [' Legs', 'Push', 'Pull '] }, NOW);
+    const labeled = updateGoal(
+      start,
+      'e1',
+      { checkLabels: [' Legs', 'Push', 'Pull '] },
+      TODAY,
+      NOW,
+    );
     expect(labeled.entries[0].checkLabels).toEqual(['Legs', 'Push', 'Pull']);
     expect(labeled.entries[0].checks).toEqual(['done', 'missed', 'empty']);
     expect(labeled.templates[0].checkLabels).toEqual(['Legs', 'Push', 'Pull']);
@@ -735,30 +744,40 @@ describe('updateGoal', () => {
   });
 
   it('fits labels to a new count: shrink trims, grow leaves new boxes blank, one check drops them', () => {
-    const labeled = updateGoal(recurring(), 'e1', { checkLabels: ['Legs', 'Push', 'Pull'] }, NOW);
+    const labeled = updateGoal(
+      recurring(),
+      'e1',
+      { checkLabels: ['Legs', 'Push', 'Pull'] },
+      TODAY,
+      NOW,
+    );
 
-    const shrunk = updateGoal(labeled, 'e1', { targetCount: 2 }, NOW);
+    const shrunk = updateGoal(labeled, 'e1', { targetCount: 2 }, TODAY, NOW);
     expect(shrunk.entries[0].checkLabels).toEqual(['Legs', 'Push']);
     expect(shrunk.templates[0].checkLabels).toEqual(['Legs', 'Push']);
 
-    const grown = updateGoal(labeled, 'e1', { targetCount: 5 }, NOW);
+    const grown = updateGoal(labeled, 'e1', { targetCount: 5 }, TODAY, NOW);
     expect(grown.entries[0].checkLabels).toEqual(['Legs', 'Push', 'Pull', '', '']);
     expect(grown.entries[0].checks).toEqual(['done', 'missed', 'empty', 'empty', 'empty']);
 
-    const single = updateGoal(labeled, 'e1', { targetCount: 1 }, NOW);
+    const single = updateGoal(labeled, 'e1', { targetCount: 1 }, TODAY, NOW);
     expect(single.entries[0].checkLabels).toBeUndefined();
     expect(single.templates[0].checkLabels).toBeUndefined();
   });
 
   it('stores all-blank labels as none, and keeps the labels when the patch omits them', () => {
-    const labeled = updateGoal(recurring(), 'e1', { checkLabels: ['Legs', 'Push', 'Pull'] }, NOW);
-    expect(updateGoal(labeled, 'e1', { title: 'Lift' }, NOW).entries[0].checkLabels).toEqual([
-      'Legs',
-      'Push',
-      'Pull',
-    ]);
+    const labeled = updateGoal(
+      recurring(),
+      'e1',
+      { checkLabels: ['Legs', 'Push', 'Pull'] },
+      TODAY,
+      NOW,
+    );
+    expect(updateGoal(labeled, 'e1', { title: 'Lift' }, TODAY, NOW).entries[0].checkLabels).toEqual(
+      ['Legs', 'Push', 'Pull'],
+    );
 
-    const cleared = updateGoal(labeled, 'e1', { checkLabels: ['', ' ', ''] }, NOW);
+    const cleared = updateGoal(labeled, 'e1', { checkLabels: ['', ' ', ''] }, TODAY, NOW);
     expect(cleared.entries[0].checkLabels).toBeUndefined();
     expect(cleared.templates[0].checkLabels).toBeUndefined();
     expect(JSON.stringify(cleared)).not.toContain('checkLabels');
@@ -774,7 +793,7 @@ describe('updateGoal', () => {
     const start = recurring();
     start.entries.push(yesterday);
 
-    const weekend = updateGoal(start, 'e1', { weekdays: [6, 7] }, NOW);
+    const weekend = updateGoal(start, 'e1', { weekdays: [6, 7] }, TODAY, NOW);
     expect(weekend.templates[0].weekdays).toEqual([6, 7]);
     expect(weekend.entries[0]).toMatchObject({
       id: 'e1',
@@ -786,13 +805,15 @@ describe('updateGoal', () => {
     expect(ensurePeriod(weekend, 'daily', '2026-08-22', '2026-08-22').entries).toHaveLength(3); // Sat
     expect(ensurePeriod(weekend, 'daily', '2026-08-24', '2026-08-24')).toBe(weekend); // Mon
 
-    expect(updateGoal(weekend, 'e1', { title: 'Lift' }, NOW).templates[0].weekdays).toEqual([6, 7]);
-    const everyDay = updateGoal(weekend, 'e1', { weekdays: [...EVERY_WEEKDAY] }, NOW);
+    expect(updateGoal(weekend, 'e1', { title: 'Lift' }, TODAY, NOW).templates[0].weekdays).toEqual([
+      6, 7,
+    ]);
+    const everyDay = updateGoal(weekend, 'e1', { weekdays: [...EVERY_WEEKDAY] }, TODAY, NOW);
     expect(everyDay.templates[0].weekdays).toBeUndefined();
   });
-  describe('on a line whose count differs from its template', () => {
-    /** The count went down to two on today's line; yesterday's line keeps its three. */
-    const loweredSinceYesterday = () => {
+  describe('on a past page', () => {
+    /** Today's line and yesterday's, both written from the template. */
+    const withYesterday = () => {
       const start = recurring();
       start.entries.push(
         entry({
@@ -803,65 +824,163 @@ describe('updateGoal', () => {
           checks: ['done', 'done', 'empty'],
         }),
       );
-      return updateGoal(start, 'e1', { targetCount: 2 }, NOW);
-    };
-    /** What the goal form sends on Save: the line's own title, count and labels, changed or not. */
-    const formOf = (state: Goals, id: string): GoalEditPatch => {
-      const line = byId(state, id);
-      return {
-        title: line?.title,
-        targetCount: line?.checks.length,
-        checkLabels: line?.checkLabels ?? [],
-        weekdays: EVERY_WEEKDAY,
-      };
+      return start;
     };
 
-    it("renames the template without writing the older line's count back to it", () => {
-      const start = loweredSinceYesterday();
-      const renamed = updateGoal(start, 'y', { ...formOf(start, 'y'), title: 'Deep Work' }, LATER);
-
-      expect(byId(renamed, 'y')?.checks).toEqual(['done', 'done', 'empty']);
-      expect(renamed.templates[0]).toMatchObject({ title: 'Deep Work', targetCount: 2 });
-      const tomorrow = ensurePeriod(renamed, 'daily', '2026-08-22', '2026-08-22');
-      expect(byId(tomorrow, 't1:2026-08-22')?.checks).toHaveLength(2);
-    });
-
-    it('leaves the template as it was when the form is saved with nothing changed', () => {
-      const start = loweredSinceYesterday();
-      const saved = updateGoal(start, 'y', formOf(start, 'y'), LATER);
-      expect(saved.templates).toEqual(start.templates);
-    });
-
-    it("fits new labels to the template's own count", () => {
-      const start = loweredSinceYesterday();
-      const labeled = updateGoal(start, 'y', { checkLabels: ['Legs', 'Push', 'Pull'] }, LATER);
-
-      expect(byId(labeled, 'y')?.checkLabels).toEqual(['Legs', 'Push', 'Pull']);
-      expect(labeled.templates[0]).toMatchObject({
-        targetCount: 2,
-        checkLabels: ['Legs', 'Push'],
-        updatedAt: LATER,
-      });
-    });
-
-    it('still carries a count the edit changed, with the labels written over its new boxes', () => {
-      const start = loweredSinceYesterday();
-      const grown = updateGoal(start, 'y', { ...formOf(start, 'y'), targetCount: 4 }, LATER);
-      expect(byId(grown, 'y')?.checks).toHaveLength(4);
-      expect(grown.templates[0].targetCount).toBe(4);
-      expect(grown.templates[0].checkLabels).toBeUndefined();
-
-      const labeled = updateGoal(
-        grown,
+    it("changes that line alone: the template and today's line stay as they were", () => {
+      const start = withYesterday();
+      const edited = updateGoal(
+        start,
         'y',
-        { ...formOf(grown, 'y'), targetCount: 5, checkLabels: ['', '', '', '', 'Core'] },
-        LATER,
+        { title: 'Deep Work', targetCount: 4, checkLabels: ['A', 'B', 'C', 'D'], weekdays: [6, 7] },
+        TODAY,
+        NOW,
       );
-      expect(labeled.templates[0]).toMatchObject({
-        targetCount: 5,
-        checkLabels: ['', '', '', '', 'Core'],
+
+      expect(byId(edited, 'y')).toMatchObject({
+        title: 'Deep Work',
+        checks: ['done', 'done', 'empty', 'empty'],
+        checkLabels: ['A', 'B', 'C', 'D'],
+        countAt: NOW,
+        updatedAt: NOW,
+      });
+      expect(edited.templates).toBe(start.templates);
+      expect(byId(edited, 'e1')).toBe(start.entries[0]);
+      expect(materializeToday(edited, TODAY)).toBe(edited);
+    });
+
+    it('neither stops a goal nor starts one, whatever the edit asks', () => {
+      const start = withYesterday();
+      expect(updateGoal(start, 'y', { repeats: false }, TODAY, NOW).templates).toBe(
+        start.templates,
+      );
+
+      const oneOff = goals({ entries: [entry({ id: 'old', periodKey: '2026-08-20' })] });
+      expect(updateGoal(oneOff, 'old', { repeats: true }, TODAY, NOW).templates).toEqual([]);
+    });
+  });
+
+  describe('on the line that stands for its goal', () => {
+    it('stops the goal in the same save when the edit turns Repeats off', () => {
+      const saved = updateGoal(recurring(), 'e1', { title: 'Lift', repeats: false }, TODAY, NOW);
+      expect(saved.entries[0]).toMatchObject({ title: 'Lift', templateId: 't1', updatedAt: NOW });
+      expect(saved.templates[0]).toMatchObject({
+        title: 'Lift',
+        retiredAt: NOW,
+        retiredOn: TODAY,
       });
     });
+
+    it('starts a one-off repeating in the same save, on the weekdays chosen', () => {
+      const start = goals({ entries: [entry({ title: 'Run' })] });
+      const saved = updateGoal(
+        start,
+        'e1',
+        { targetCount: 2, weekdays: [1, 3, 5], repeats: true },
+        TODAY,
+        NOW,
+      );
+
+      expect(saved.templates).toHaveLength(1);
+      expect(saved.templates[0]).toMatchObject({
+        title: 'Run',
+        targetCount: 2,
+        weekdays: [1, 3, 5],
+      });
+      expect(saved.entries[0].templateId).toBe(saved.templates[0].id);
+    });
+
+    it('leaves the goal as it is when the edit says what already holds, or nothing', () => {
+      const start = recurring();
+      expect(updateGoal(start, 'e1', { repeats: true }, TODAY, NOW).templates[0]).toBe(
+        start.templates[0],
+      );
+      expect(
+        updateGoal(start, 'e1', { title: 'Lift' }, TODAY, NOW).templates[0].retiredAt,
+      ).toBeUndefined();
+    });
+
+    it('lets the latest line of a goal stand in for it on a day the goal skips', () => {
+      const SATURDAY = '2026-08-22';
+      const weekdays = [1, 2, 3, 4, 5];
+      const line = (periodKey: string) =>
+        entry({ id: `t1:${periodKey}`, templateId: 't1', periodKey, title: 'Daily Prod' });
+      const start = goals({
+        templates: [template({ title: 'Daily Prod', targetCount: 1, weekdays })],
+        entries: [line('2026-08-20'), line('2026-08-21')],
+      });
+
+      const renamed = updateGoal(start, 't1:2026-08-21', { title: 'Deep Work' }, SATURDAY, NOW);
+      expect(renamed.templates[0]).toMatchObject({ title: 'Deep Work', weekdays });
+
+      const stopped = updateGoal(start, 't1:2026-08-21', { repeats: false }, SATURDAY, NOW);
+      expect(stopped.templates[0]).toMatchObject({ retiredAt: NOW, retiredOn: SATURDAY });
+
+      const earlier = updateGoal(start, 't1:2026-08-20', { title: 'Deep Work' }, SATURDAY, NOW);
+      expect(earlier.templates).toBe(start.templates);
+    });
+
+    it('leaves a retired template alone when the line kept from a stopped goal is edited', () => {
+      const stopped = stopRepeating(recurring(), 'e1', TODAY, NOW);
+      const edited = updateGoal(stopped, 'e1', { title: 'Renamed', targetCount: 5 }, TODAY, LATER);
+      expect(edited.entries[0]).toMatchObject({ title: 'Renamed', updatedAt: LATER });
+      expect(edited.entries[0].checks).toHaveLength(5);
+      expect(edited.templates).toBe(stopped.templates);
+    });
+  });
+});
+
+describe('managesGoal', () => {
+  const YESTERDAY = '2026-08-20';
+  const line = (periodKey: string, overrides: Partial<GoalEntry> = {}) =>
+    entry({ id: `t1:${periodKey}`, templateId: 't1', periodKey, ...overrides });
+
+  it('holds for any line on the current period of its cadence, recurring or not', () => {
+    const start = goals({
+      templates: [template()],
+      entries: [
+        line(TODAY),
+        entry({ id: 'one-off' }),
+        entry({ id: 'week', cadence: 'weekly', periodKey: '2026-W34' }),
+      ],
+    });
+    expect(start.entries.map((e) => managesGoal(start, e, TODAY))).toEqual([true, true, true]);
+    expect(managesGoal(start, start.entries[2], '2026-08-24')).toBe(false);
+  });
+
+  it('holds for no past line while the goal has a line on the current period', () => {
+    const start = goals({ templates: [template()], entries: [line(YESTERDAY), line(TODAY)] });
+    expect(managesGoal(start, start.entries[0], TODAY)).toBe(false);
+  });
+
+  it('holds for the latest line of a recurring goal with no line on the current period, and no earlier one', () => {
+    const start = goals({
+      templates: [template()],
+      entries: [line('2026-08-19'), line(YESTERDAY)],
+    });
+    expect(start.entries.map((e) => managesGoal(start, e, TODAY))).toEqual([false, true]);
+  });
+
+  it('never holds for a past one-off line, nor for a past line kept from a stopped goal', () => {
+    const start = goals({
+      templates: [template({ retiredAt: NOW, retiredOn: YESTERDAY })],
+      entries: [line(YESTERDAY), entry({ id: 'one-off', periodKey: YESTERDAY })],
+    });
+    expect(start.entries.map((e) => managesGoal(start, e, TODAY))).toEqual([false, false]);
+    expect(start.entries.map((e) => isRecurring(start, e))).toEqual([false, false]);
+  });
+});
+
+describe('clampChecks', () => {
+  it('keeps a count between one check and the most a line holds', () => {
+    expect([-2, 0, 1, 5, MAX_CHECKS, MAX_CHECKS + 3].map(clampChecks)).toEqual([
+      1,
+      1,
+      1,
+      5,
+      MAX_CHECKS,
+      MAX_CHECKS,
+    ]);
   });
 });
 
@@ -1126,6 +1245,31 @@ describe('removeGoal', () => {
     const state = removeGoal(start, 'a', TODAY, NOW);
     expect(state.entries.map((e) => e.id)).toEqual(['b']);
     expect(state.tombstones).toEqual({ a: NOW });
+  });
+
+  it("takes a past page's line off alone: the goal keeps repeating", () => {
+    const yesterday = entry({ id: 't1:2026-08-20', templateId: 't1', periodKey: '2026-08-20' });
+    const start = materializeToday(goals({ templates: [template()], entries: [yesterday] }), TODAY);
+
+    const state = removeGoal(start, 't1:2026-08-20', TODAY, NOW);
+    expect(byId(state, 't1:2026-08-20')).toBeUndefined();
+    expect(state.tombstones).toEqual({ 't1:2026-08-20': NOW });
+    expect(state.templates).toBe(start.templates);
+    expect(materializeToday(state, '2026-08-22').entries.map((e) => e.id)).toEqual([
+      't1:2026-08-21',
+      't1:2026-08-22',
+    ]);
+  });
+
+  it('retires a goal from its latest line on a day the goal skips', () => {
+    const friday = entry({ id: 't1:2026-08-21', templateId: 't1' });
+    const start = goals({
+      templates: [template({ weekdays: [1, 2, 3, 4, 5] })],
+      entries: [friday],
+    });
+
+    const state = removeGoal(start, 't1:2026-08-21', '2026-08-22', NOW);
+    expect(state.templates[0]).toMatchObject({ retiredAt: NOW, retiredOn: '2026-08-22' });
   });
 
   it('retires a recurring goal so it returns to neither this page nor the next', () => {
@@ -1737,7 +1881,7 @@ describe('stamps', () => {
     });
     expect(byId(cycleCheck(start, 'e1', 0, NOW), 'e1')?.updatedAt).toBe(NOW);
 
-    const edited = updateGoal(start, 'e1', { title: 'Deep Work' }, NOW);
+    const edited = updateGoal(start, 'e1', { title: 'Deep Work' }, TODAY, NOW);
     expect(byId(edited, 'e1')?.updatedAt).toBe(NOW);
     expect(edited.templates[0].updatedAt).toBe(NOW);
 
@@ -1885,7 +2029,7 @@ describe('mergeGoals', () => {
     const [phone, ipad] = twoDevices();
     const stopped = stopRepeating(phone, 't1:2026-08-21', TODAY, NOW);
     // The iPad, not yet having heard, renames the goal: its live template is the later write.
-    const renamed = updateGoal(ipad, 't1:2026-08-21', { title: 'Deep Work' }, LATER);
+    const renamed = updateGoal(ipad, 't1:2026-08-21', { title: 'Deep Work' }, TODAY, LATER);
     expect(renamed.templates[0].retiredAt).toBeUndefined();
 
     const merged = mergeGoals(stopped, renamed);
@@ -2049,11 +2193,11 @@ describe('mergeGoals', () => {
 
   it("carries a template's weekdays through a merge, the later schedule winning", () => {
     const [phone, ipad] = twoDevices();
-    const onPhone = updateGoal(phone, 't1:2026-08-21', { weekdays: [1, 3, 5] }, NOW);
+    const onPhone = updateGoal(phone, 't1:2026-08-21', { weekdays: [1, 3, 5] }, TODAY, NOW);
     expect(mergeGoals(onPhone, ipad).templates[0].weekdays).toEqual([1, 3, 5]);
     expect(mergeGoals(ipad, onPhone).templates[0].weekdays).toEqual([1, 3, 5]);
 
-    const onIpad = updateGoal(ipad, 't1:2026-08-21', { weekdays: [2, 4] }, LATER);
+    const onIpad = updateGoal(ipad, 't1:2026-08-21', { weekdays: [2, 4] }, TODAY, LATER);
     expect(mergeGoals(onPhone, onIpad).templates[0].weekdays).toEqual([2, 4]);
   });
 });
@@ -2100,7 +2244,8 @@ describe('the check count a line ends up with', () => {
     [mergeGoals(a, b), mergeGoals(b, a)].map((merged) => materializeToday(merged, TODAY));
 
   describe('when one device changed the count last night and the other has not heard', () => {
-    const lowered = () => updateGoal(shared(), YESTERDAY_LINE, { targetCount: 2 }, LAST_NIGHT);
+    const lowered = () =>
+      updateGoal(shared(), YESTERDAY_LINE, { targetCount: 2 }, YESTERDAY, LAST_NIGHT);
     const stale = () => materializeToday(shared(), TODAY);
 
     it('keeps the lowered count when both wrote today untouched', () => {
@@ -2130,14 +2275,20 @@ describe('the check count a line ends up with', () => {
     });
 
     it('keeps a raised count when both wrote today untouched', () => {
-      const raised = updateGoal(shared(), YESTERDAY_LINE, { targetCount: 4 }, LAST_NIGHT);
+      const raised = updateGoal(
+        shared(),
+        YESTERDAY_LINE,
+        { targetCount: 4 },
+        YESTERDAY,
+        LAST_NIGHT,
+      );
       for (const merged of mergedBothWays(materializeToday(raised, TODAY), stale())) {
         expect(checkCount(merged, TODAY_LINE)).toBe(4);
       }
     });
 
     it('keeps the lowered count when the stale device renames its line of today', () => {
-      const renamed = updateGoal(stale(), TODAY_LINE, { title: 'Deep work' }, NOW);
+      const renamed = updateGoal(stale(), TODAY_LINE, { title: 'Deep work' }, TODAY, NOW);
       for (const merged of mergedBothWays(materializeToday(lowered(), TODAY), renamed)) {
         expect(targetCount(merged)).toBe(2);
         expect(checkCount(materializeToday(merged, TOMORROW), `t1:${TOMORROW}`)).toBe(2);
@@ -2147,7 +2298,7 @@ describe('the check count a line ends up with', () => {
 
   describe("when one device lowers the count on today's line", () => {
     const lowered = () =>
-      updateGoal(materializeToday(shared(), TODAY), TODAY_LINE, { targetCount: 2 }, NOW);
+      updateGoal(materializeToday(shared(), TODAY), TODAY_LINE, { targetCount: 2 }, TODAY, NOW);
     const other = () => materializeToday(shared(), TODAY);
 
     it("keeps the lowered count over the other device's untouched line", () => {
@@ -2197,7 +2348,10 @@ describe('the check count a line ends up with', () => {
       ],
     });
     const lowered = () =>
-      materializeToday(updateGoal(shared(), YESTERDAY_LINE, { targetCount: 2 }, LAST_NIGHT), TODAY);
+      materializeToday(
+        updateGoal(shared(), YESTERDAY_LINE, { targetCount: 2 }, YESTERDAY, LAST_NIGHT),
+        TODAY,
+      );
 
     it("keeps the lowered count on the template against the upgraded device's", () => {
       for (const merged of mergedBothWays(lowered(), upgradeLegacyGoals(legacy()))) {
@@ -2221,11 +2375,11 @@ describe("a check count's own stamp", () => {
     materializeToday(goals({ templates: [template({ targetCount: 3 })] }), TODAY);
 
   it('is set on the line and its template by an edit that changes the count, and by no other', () => {
-    const renamed = updateGoal(written(), TODAY_LINE, { title: 'Deep Work' }, NOW);
+    const renamed = updateGoal(written(), TODAY_LINE, { title: 'Deep Work' }, TODAY, NOW);
     expect(byId(renamed, TODAY_LINE)?.countAt).toBeUndefined();
     expect(renamed.templates[0].countAt).toBeUndefined();
 
-    const resized = updateGoal(renamed, TODAY_LINE, { targetCount: 2 }, LATER);
+    const resized = updateGoal(renamed, TODAY_LINE, { targetCount: 2 }, TODAY, LATER);
     expect(byId(resized, TODAY_LINE)?.countAt).toBe(LATER);
     expect(resized.templates[0]).toMatchObject({ targetCount: 2, countAt: LATER });
 
@@ -2234,7 +2388,7 @@ describe("a check count's own stamp", () => {
   });
 
   it('goes with the count onto each line the template writes, and onto a template started from a line', () => {
-    const resized = updateGoal(written(), TODAY_LINE, { targetCount: 2 }, NOW);
+    const resized = updateGoal(written(), TODAY_LINE, { targetCount: 2 }, TODAY, NOW);
     const tomorrow = materializeToday(resized, TOMORROW);
     expect(byId(tomorrow, `t1:${TOMORROW}`)).toMatchObject({
       checks: ['empty', 'empty'],
@@ -2242,7 +2396,7 @@ describe("a check count's own stamp", () => {
       updatedAt: EPOCH,
     });
 
-    const oneOff = updateGoal(goals({ entries: [entry()] }), 'e1', { targetCount: 4 }, NOW);
+    const oneOff = updateGoal(goals({ entries: [entry()] }), 'e1', { targetCount: 4 }, TODAY, NOW);
     const started = startRepeating(oneOff, 'e1', undefined, LATER);
     expect(started.templates[0]).toMatchObject({ targetCount: 4, countAt: NOW });
   });
@@ -2275,9 +2429,10 @@ describe("a check count's own stamp", () => {
       written(),
       TODAY_LINE,
       { checkLabels: ['Legs', 'Push', 'Pull'] },
+      TODAY,
       '2026-08-21T08:00:00.000Z',
     );
-    const lowered = updateGoal(labeled, TODAY_LINE, { targetCount: 2 }, NOW);
+    const lowered = updateGoal(labeled, TODAY_LINE, { targetCount: 2 }, TODAY, NOW);
     const tapped = cycleCheck(cycleCheck(labeled, TODAY_LINE, 0, LATER), TODAY_LINE, 2, LATER);
 
     const merged = mergeGoals(lowered, tapped);
@@ -2340,7 +2495,7 @@ describe('stampCounts', () => {
       }),
     );
 
-    const renamed = updateGoal(stale, 't1:2026-08-20', { title: 'Deep Work' }, NOW);
+    const renamed = updateGoal(stale, 't1:2026-08-20', { title: 'Deep Work' }, TODAY, NOW);
     const merged = mergeGoals(lowered, renamed);
     expect(merged.templates[0]).toMatchObject({ title: 'Deep Work', targetCount: 2 });
     expect(byId(merged, 't1:2026-08-20')).toMatchObject({ title: 'Deep Work' });

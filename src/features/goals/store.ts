@@ -15,10 +15,9 @@ interface GoalsState extends Goals {
   materializeToday: (today: DayKey) => void;
   addGoal: (input: logic.AddGoalInput) => void;
   cycleCheck: (entryId: string, checkIndex: number) => void;
+  /** Save a line's edit; a goal it starts repeating lands with today written. */
   updateGoal: (entryId: string, patch: logic.GoalEditPatch) => void;
   removeGoal: (entryId: string) => void;
-  stopRepeating: (entryId: string) => void;
-  startRepeating: (entryId: string, weekdays?: readonly number[]) => void;
   acceptSuggestion: (suggestion: Suggestion, periodKey: string) => void;
   declineSuggestion: (sourceId: string) => void;
   moveEntry: (entryId: string, toIndex: number) => void;
@@ -47,18 +46,14 @@ export const useGoalsStore = create<GoalsState>()(
         useRewardsStore.getState().settleAfterTap(get().entries, entryId);
       },
       updateGoal: (entryId, patch) =>
-        set((goals) => logic.updateGoal(goals, entryId, patch, nowStamp())),
-      removeGoal: (entryId) =>
-        set((goals) => logic.removeGoal(goals, entryId, todayKey(), nowStamp())),
-      stopRepeating: (entryId) =>
-        set((goals) => logic.stopRepeating(goals, entryId, todayKey(), nowStamp())),
-      startRepeating: (entryId, weekdays) =>
         set((goals) =>
           logic.materializeToday(
-            logic.startRepeating(goals, entryId, weekdays, nowStamp()),
+            logic.updateGoal(goals, entryId, patch, todayKey(), nowStamp()),
             todayKey(),
           ),
         ),
+      removeGoal: (entryId) =>
+        set((goals) => logic.removeGoal(goals, entryId, todayKey(), nowStamp())),
       acceptSuggestion: (suggestion, periodKey) =>
         set((goals) => logic.acceptSuggestion(goals, suggestion, periodKey, nowStamp())),
       declineSuggestion: (sourceId) => set((goals) => logic.declineSuggestion(goals, sourceId)),
