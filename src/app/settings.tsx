@@ -6,6 +6,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { BackupSettings } from '@/features/backup/components/backup-settings';
 import { FeedbackSettings } from '@/features/feedback/components/feedback-settings';
 import { RemindersSetting } from '@/features/goals/components/reminders-setting';
+import { MorningReminderSetting } from '@/features/morning-reminder/components/morning-reminder-setting';
 import { SyncSetting } from '@/features/sync/components/sync-setting';
 
 export default function SettingsScreen() {
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
       }>
       <SectionHeader title="Settings" />
       <RemindersSetting />
+      <MorningReminderSetting />
       <SyncSetting />
       <BackupSettings />
       <FeedbackSettings />

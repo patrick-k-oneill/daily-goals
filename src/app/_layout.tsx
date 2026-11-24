@@ -8,6 +8,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRemindersRefresh, useRemindersStore } from '@/features/goals/reminders-store';
 import { useGoalsStore, useMaterializeToday } from '@/features/goals/store';
 import { useGratitudeStore } from '@/features/gratitude/store';
+import {
+  useMorningReminderSchedule,
+  useMorningReminderStore,
+} from '@/features/morning-reminder/store';
 import { useSyncEngine } from '@/features/sync/store';
 import { useTextSizeStore, useZoomMenu } from '@/features/text-size/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -16,7 +20,13 @@ import { useHydrated } from '@/lib/persisted-store';
 
 SplashScreen.preventAutoHideAsync();
 
-const persistedStores = [useGoalsStore, useGratitudeStore, useRemindersStore, useTextSizeStore];
+const persistedStores = [
+  useGoalsStore,
+  useGratitudeStore,
+  useRemindersStore,
+  useTextSizeStore,
+  useMorningReminderStore,
+];
 
 export default function RootLayout() {
   const dark = useColorScheme() === 'dark';
@@ -26,6 +36,7 @@ export default function RootLayout() {
   useMaterializeToday();
   useRemindersRefresh();
   useSyncEngine(storesHydrated);
+  useMorningReminderSchedule(storesHydrated);
   useZoomMenu();
   const ready = (fontsLoaded || Boolean(fontError)) && storesHydrated;
 

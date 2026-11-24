@@ -7,6 +7,7 @@ import { GoalList } from '@/features/goals/components/goal-list';
 import { GoalSectionHeader } from '@/features/goals/components/goal-section-header';
 import { GratitudeEditor } from '@/features/gratitude/components/gratitude-editor';
 import { reflectionDateFor } from '@/features/gratitude/logic';
+import { useMorningReminderTap } from '@/features/morning-reminder/store';
 import { useToday } from '@/lib/clock';
 import type { DayKey } from '@/lib/dates';
 
@@ -24,6 +25,10 @@ export default function TodayScreen() {
   const isToday = day === today;
 
   const showDay = (next: DayKey) => setPinnedDay(next === today ? null : next);
+  useMorningReminderTap(() => {
+    setPinnedDay(null);
+    if (router.canDismiss()) router.dismissAll();
+  });
 
   return (
     <Screen
