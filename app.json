@@ -66,7 +66,22 @@
         }
       ],
       "expo-background-task",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "TodayGoals",
+              "displayName": "Today's Goals",
+              "description": "Today's daily goals and how far along each one is.",
+              "ios": {
+                "supportedFamilies": ["systemSmall"]
+              }
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
