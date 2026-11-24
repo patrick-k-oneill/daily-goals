@@ -41,7 +41,7 @@ Making a template from an entry that has none, or whose template was stopped, by
 _Avoid_: resume, revive, restart
 
 **Suggestion**:
-A goal the pad offers to write on the current period's section: a faded row at the foot of the section with Add and Decline. It is on no page until it is accepted, and a past page shows none. Only the Daily section offers suggestions, from two sources: carryovers first, then due reminders.
+A goal the pad offers to write on the current period's section: a faded row at the foot of the section with Add and Decline. It is on no page until it is accepted, and a past page shows none. Every section offers carryovers; the Daily section offers due reminders after them.
 _Avoid_: recommendation, prompt, reminder
 
 **Carry over**:

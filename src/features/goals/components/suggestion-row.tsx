@@ -13,9 +13,6 @@ import { useRemindersStore } from '../reminders-store';
 import { useGoalsStore } from '../store';
 import type { Cadence, Suggestion } from '../types';
 
-/** The sections that offer suggestions. */
-const SUGGESTING_CADENCES: readonly Cadence[] = ['daily'];
-
 /** Ink at this opacity reads as pencil beside a written line, and stays legible on both papers. */
 const SUGGESTION_OPACITY = 0.65;
 
@@ -27,7 +24,7 @@ const ACTION_SIZE = 44;
 
 /**
  * A section's suggestions, one row each, between its last line and the next
- * blank one. Renders nothing on a past page or in a section that offers none.
+ * blank one. Renders nothing on a past page.
  */
 export function SuggestionRows({ cadence, periodKey }: { cadence: Cadence; periodKey: string }) {
   const today = useToday();
@@ -35,7 +32,6 @@ export function SuggestionRows({ cadence, periodKey }: { cadence: Cadence; perio
   const tombstones = useGoalsStore((s) => s.tombstones);
   const declinedSuggestions = useGoalsStore((s) => s.declinedSuggestions);
   const reminders = useRemindersStore((s) => s.reminders);
-  if (!SUGGESTING_CADENCES.includes(cadence)) return null;
 
   const pad = { entries, tombstones, declinedSuggestions };
   const suggestions = suggestionsFor(pad, cadence, periodKey, today, reminders);
@@ -80,7 +76,7 @@ function SuggestionRow({
         <SuggestionAction
           glyph="+"
           themeColor="text"
-          accessibilityLabel="Add this goal to today"
+          accessibilityLabel="Add this goal"
           onPress={() => {
             selectionTap();
             acceptSuggestion(suggestion, periodKey);
