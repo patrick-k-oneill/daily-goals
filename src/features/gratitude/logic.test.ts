@@ -1,11 +1,4 @@
-import {
-  currentStreak,
-  hasEntry,
-  mergeGratitude,
-  reflectionDateFor,
-  saveEntry,
-  sortedEntries,
-} from './logic';
+import { currentStreak, hasEntry, mergeGratitude, reflectionDateFor, saveEntry } from './logic';
 import type { Gratitude, GratitudeEntry } from './types';
 
 const WRITTEN_AT = '2026-08-22T08:00:00.000Z';
@@ -114,16 +107,5 @@ describe('currentStreak', () => {
   it('breaks on a missed day', () => {
     const entries = byDate('2026-08-17', '2026-08-18', '2026-08-20', '2026-08-21');
     expect(currentStreak(entries, '2026-08-21')).toBe(2);
-  });
-});
-
-describe('sortedEntries', () => {
-  it('sorts newest first and drops blank entries', () => {
-    const entries = {
-      '2026-08-19': entry('2026-08-19'),
-      '2026-08-21': entry('2026-08-21'),
-      '2026-08-20': entry('2026-08-20', '   '),
-    };
-    expect(sortedEntries(entries).map((e) => e.forDate)).toEqual(['2026-08-21', '2026-08-19']);
   });
 });

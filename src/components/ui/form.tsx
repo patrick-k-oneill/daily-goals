@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import { useRef, type ReactNode, type Ref } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -9,9 +9,12 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { Layout, Spacing } from '@/constants/theme';
+import { scaleTextStyle } from '@/features/text-size/logic';
+import { useTextScale } from '@/features/text-size/store';
 import { useHover } from '@/hooks/use-hover';
+import { useKeyboardReveal } from '@/hooks/use-keyboard-reveal';
 import { useTheme } from '@/hooks/use-theme';
 
 /** The bordered card a pad line turns into while it's being written or edited. */
@@ -23,7 +26,27 @@ export function InlineForm({
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
-  return <View style={[styles.form, { borderColor: theme.border }, style]}>{children}</View>;
+  const form = useRef<View>(null);
+  const revealAboveKeyboard = useKeyboardReveal(form);
+  return (
+    <View
+      ref={form}
+      onLayout={revealAboveKeyboard}
+      style={[styles.form, { borderColor: theme.border }, style]}>
+      {children}
+    </View>
+  );
+}
+
+export function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <View style={styles.field}>
+      <ThemedText type="small" themeColor="textSecondary">
+        {label}
+      </ThemedText>
+      {children}
+    </View>
+  );
 }
 
 type FormInputProps = TextInputProps & {
@@ -36,16 +59,62 @@ type FormInputProps = TextInputProps & {
 /** One ruled input line: ink text over a blue rule, grey placeholder. */
 export function FormInput({ style, onEscape, onKeyPress, ...props }: FormInputProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   return (
     <TextInput
+      allowFontScaling={false}
       placeholderTextColor={theme.textSecondary}
-      style={[styles.input, { color: theme.text, borderBottomColor: theme.rule }, style]}
+      style={[
+        scaleTextStyle(styles.input, scale),
+        { color: theme.text, borderBottomColor: theme.rule },
+        style,
+      ]}
       onKeyPress={(e) => {
         if (e.nativeEvent.key === 'Escape') onEscape?.();
         onKeyPress?.(e);
       }}
       {...props}
     />
+  );
+}
+
+interface PrimaryButtonProps {
+  label: string;
+  onPress: () => void;
+  isDisabled?: boolean;
+  accessibilityLabel?: string;
+}
+
+export function PrimaryButton({
+  label,
+  onPress,
+  isDisabled = false,
+  accessibilityLabel,
+}: PrimaryButtonProps) {
+  const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
+  return (
+    <Pressable
+      {...hoverProps}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: isDisabled }}
+      disabled={isDisabled}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.primaryButton,
+        {
+          backgroundColor:
+            !isDisabled && (pressed || hovered) ? theme.primaryPressed : theme.primary,
+          borderColor: theme.primaryEdge,
+        },
+        isDisabled && styles.disabled,
+      ]}>
+      <ThemedText type="smallBold" themeColor="onPrimary">
+        {label}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -56,21 +125,11 @@ interface FormActionsProps {
   onCancel: () => void;
 }
 
-/** The accent submit pill and a quiet Cancel. */
+/** The yellow submit pill and a quiet Cancel. */
 export function FormActions({ submitLabel, canSubmit, onSubmit, onCancel }: FormActionsProps) {
-  const theme = useTheme();
   return (
     <View style={styles.actions}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !canSubmit }}
-        disabled={!canSubmit}
-        onPress={onSubmit}
-        style={[styles.submit, { backgroundColor: theme.accent }, !canSubmit && styles.disabled]}>
-        <ThemedText type="smallBold" themeColor="onAccent">
-          {submitLabel}
-        </ThemedText>
-      </Pressable>
+      <PrimaryButton label={submitLabel} isDisabled={!canSubmit} onPress={onSubmit} />
       <Pressable accessibilityRole="button" onPress={onCancel} hitSlop={8}>
         <ThemedText type="small" themeColor="textSecondary">
           Cancel
@@ -84,11 +143,10 @@ interface AddLineProps {
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
-  type?: ThemedTextProps['type'];
 }
 
 /** The next blank line on the page — "+ Add …" — that opens a form when tapped. */
-export function AddLine({ label, accessibilityLabel, onPress, type }: AddLineProps) {
+export function AddLine({ label, accessibilityLabel, onPress }: AddLineProps) {
   const { hovered, hoverProps } = useHover();
   return (
     <Pressable
@@ -97,9 +155,7 @@ export function AddLine({ label, accessibilityLabel, onPress, type }: AddLinePro
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={styles.addLine}>
-      <ThemedText type={type} themeColor={hovered ? 'text' : 'textSecondary'}>
-        {label}
-      </ThemedText>
+      <ThemedText themeColor={hovered ? 'text' : 'textSecondary'}>{label}</ThemedText>
     </Pressable>
   );
 }
@@ -110,6 +166,9 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderWidth: 1,
     borderRadius: Spacing.two,
+  },
+  field: {
+    gap: Spacing.one,
   },
   input: {
     fontSize: 16,
@@ -122,10 +181,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.four,
   },
-  submit: {
+  primaryButton: {
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
+    borderWidth: Layout.primaryEdgeWidth,
   },
   disabled: {
     opacity: 0.4,
