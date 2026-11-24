@@ -373,7 +373,7 @@ describe('two devices through the cloud', () => {
   it('keep a goal stopped on one device stopped after a later edit on the other', () => {
     const fresh = (): PadData => ({ ...emptyPad(), goals: materializeToday(seedGoals(), TODAY) });
     const lineId = `seed:daily:1:${TODAY}`;
-    const phone: PadData = { ...fresh(), goals: stopRepeating(fresh().goals, lineId, NOW) };
+    const phone: PadData = { ...fresh(), goals: stopRepeating(fresh().goals, lineId, TODAY, NOW) };
     const ipad: PadData = {
       ...fresh(),
       goals: updateGoal(fresh().goals, lineId, { title: 'Dailies' }, LATER),

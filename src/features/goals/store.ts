@@ -48,8 +48,10 @@ export const useGoalsStore = create<GoalsState>()(
       },
       updateGoal: (entryId, patch) =>
         set((goals) => logic.updateGoal(goals, entryId, patch, nowStamp())),
-      removeGoal: (entryId) => set((goals) => logic.removeGoal(goals, entryId, nowStamp())),
-      stopRepeating: (entryId) => set((goals) => logic.stopRepeating(goals, entryId, nowStamp())),
+      removeGoal: (entryId) =>
+        set((goals) => logic.removeGoal(goals, entryId, todayKey(), nowStamp())),
+      stopRepeating: (entryId) =>
+        set((goals) => logic.stopRepeating(goals, entryId, todayKey(), nowStamp())),
       startRepeating: (entryId, weekdays) =>
         set((goals) =>
           logic.materializeToday(

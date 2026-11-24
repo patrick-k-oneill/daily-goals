@@ -2,6 +2,7 @@ import {
   addDays,
   dayKeyOf,
   formatDayWithWeekday,
+  isDayKey,
   weekdayOf,
   weekKeyOf,
   yearKeyOf,
@@ -435,7 +436,7 @@ export function hasCheckLabels(checkLabels: string[] | undefined): boolean {
  * to this page nor appears on future ones. A template already retired keeps
  * the moment it was retired.
  */
-export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
+export function removeGoal(goals: Goals, entryId: string, today: DayKey, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   if (!entry) return goals;
 
@@ -445,7 +446,7 @@ export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
     tombstones: withTombstone(goals.tombstones, entryId, now),
     templates: entry.templateId
       ? goals.templates.map((t) =>
-          t.id === entry.templateId && !t.retiredAt ? { ...t, retiredAt: now, updatedAt: now } : t,
+          t.id === entry.templateId && !t.retiredAt ? retiredTemplate(t, today, now) : t,
         )
       : goals.templates,
   };
@@ -457,7 +458,7 @@ export function removeGoal(goals: Goals, entryId: string, now: Stamp): Goals {
  * checks and its `templateId`. The line is stamped, and a stamped line is
  * never a ghost, so no merge drops it.
  */
-export function stopRepeating(goals: Goals, entryId: string, now: Stamp): Goals {
+export function stopRepeating(goals: Goals, entryId: string, today: DayKey, now: Stamp): Goals {
   const entry = goals.entries.find((e) => e.id === entryId);
   const template = goals.templates.find((t) => t.id === entry?.templateId);
   if (!entry || !template || template.retiredAt) return goals;
@@ -465,10 +466,14 @@ export function stopRepeating(goals: Goals, entryId: string, now: Stamp): Goals 
   return {
     ...goals,
     templates: goals.templates.map((t) =>
-      t.id === template.id ? { ...t, retiredAt: now, updatedAt: now } : t,
+      t.id === template.id ? retiredTemplate(t, today, now) : t,
     ),
     entries: goals.entries.map((e) => (e.id === entryId ? { ...e, updatedAt: now } : e)),
   };
+}
+
+function retiredTemplate(template: GoalTemplate, today: DayKey, now: Stamp): GoalTemplate {
+  return { ...template, retiredAt: now, retiredOn: today, updatedAt: now };
 }
 
 const START_MARK = '~';
@@ -747,14 +752,15 @@ export function moveEntry(
 }
 
 const byId: KeyOf<GoalTemplate | GoalEntry> = { key: (x) => x.id, stamp: (x) => x.updatedAt };
+const EPOCH_DAY: DayKey = EPOCH.slice(0, 10);
 
 /**
  * Reconcile two copies of the goals, item by item (ADR 0005): templates and
  * entries each by id, the later write winning, crossed-off lines staying off.
  * A template retired on either copy stays retired from its first retirement,
- * whichever write is later (ADR 0008). A line a stale device wrote for a
- * template after it was retired is dropped. A suggestion declined on either
- * device stays declined.
+ * the moment and the day it fell on, whichever write is later (ADR 0008). A
+ * line a stale device wrote for a template after it was retired is dropped. A
+ * suggestion declined on either device stays declined.
  */
 export function mergeGoals(local: Goals, remote: Goals): Goals {
   const retired = firstRetirements([...local.templates, ...remote.templates]);
@@ -763,8 +769,9 @@ export function mergeGoals(local: Goals, remote: Goals): Goals {
     { items: remote.templates, tombstones: {} },
     byId,
   ).items.map((t) => {
-    const retiredAt = retired.get(t.id);
-    return retiredAt === t.retiredAt ? t : { ...t, retiredAt };
+    const first = retired.get(t.id);
+    if (first?.at === t.retiredAt && first?.on === t.retiredOn) return t;
+    return { ...t, retiredAt: first?.at, retiredOn: first?.on };
   });
   const entries = mergeKeyed(
     { items: local.entries, tombstones: local.tombstones },
@@ -801,7 +808,7 @@ export function upgradeLegacyGoals(legacy: LegacyGoals): Goals {
     ...t,
     id: templateIds.get(t.id) ?? t.id,
     updatedAt: LEGACY,
-    ...(active ? {} : { retiredAt: EPOCH }),
+    ...(active ? {} : { retiredAt: EPOCH, retiredOn: EPOCH_DAY }),
   }));
   const entries = legacy.entries.map((e) => {
     if (!e.templateId) return { ...e, updatedAt: LEGACY };
@@ -839,27 +846,50 @@ export function retireStars(goals: StarredGoals): Goals {
   };
 }
 
+/** A template's retirement: the moment, and the day that moment fell on where it was made. */
+interface Retirement {
+  at: Stamp;
+  on: DayKey;
+}
+
 /**
  * An untouched materialized line on a period that began after its template
  * was retired: a stale device wrote it before it heard. Every device drops it
- * the same way, so it needs no tombstone.
+ * the same way, so it needs no tombstone. The period is read from the
+ * retirement's recorded day, never from this device's time zone.
  */
-function isGhost(entry: GoalEntry, retired: Map<string, Stamp>): boolean {
+function isGhost(entry: GoalEntry, retired: Map<string, Retirement>): boolean {
   if (!entry.templateId || entry.updatedAt !== EPOCH) return false;
-  const retiredAt = retired.get(entry.templateId);
-  if (retiredAt === undefined) return false;
-  return periodKeyFor(entry.cadence, dayKeyOf(new Date(retiredAt))) < entry.periodKey;
+  const retirement = retired.get(entry.templateId);
+  if (retirement === undefined) return false;
+  return periodKeyFor(entry.cadence, retirement.on) < entry.periodKey;
 }
 
-/** When each template was first retired, on any of the copies given. */
-function firstRetirements(templates: GoalTemplate[]): Map<string, Stamp> {
-  const first = new Map<string, Stamp>();
-  for (const { id, retiredAt } of templates) {
-    if (retiredAt === undefined) continue;
-    const known = first.get(id);
-    if (known === undefined || isEarlier(retiredAt, known)) first.set(id, retiredAt);
+/** How each template was first retired, on any of the copies given. */
+function firstRetirements(templates: GoalTemplate[]): Map<string, Retirement> {
+  const first = new Map<string, Retirement>();
+  for (const template of templates) {
+    const retirement = retirementOf(template);
+    if (retirement === undefined) continue;
+    const known = first.get(template.id);
+    first.set(template.id, known ? earlierRetirement(known, retirement) : retirement);
   }
   return first;
+}
+
+/**
+ * A retirement from before its day was recorded reads it off this device's
+ * calendar. Devices in different zones may read different days; the merge
+ * settles on the earlier, and the day is stored from then on.
+ */
+function retirementOf({ retiredAt, retiredOn }: GoalTemplate): Retirement | undefined {
+  if (retiredAt === undefined) return undefined;
+  return { at: retiredAt, on: retiredOn ?? dayKeyOf(new Date(retiredAt)) };
+}
+
+function earlierRetirement(a: Retirement, b: Retirement): Retirement {
+  if (a.at !== b.at) return isEarlier(a.at, b.at) ? a : b;
+  return a.on <= b.on ? a : b;
 }
 
 /** Whether stamp `a` is before `b`; the same moment written two ways orders by its text. */
@@ -1048,6 +1078,7 @@ const isOptionalString = isOptional(isString);
 const isOptionalStrings = isOptional(isArrayOf(isString));
 const isOptionalBoolean = isOptional(isBoolean);
 const isOptionalTimestamp = isOptional(isTimestamp);
+const isOptionalDayKey = isOptional(isDayKey);
 const isOptionalWeekdays = isOptional(isArrayOf(isWeekday));
 
 /** Goals as they arrive from a file — a pad file, a cloud file — in the current shape. */
@@ -1076,6 +1107,7 @@ export function isGoalTemplate(value: unknown): value is GoalTemplate {
     hasTemplateFields(value) &&
     isOptionalWeekdays(value.weekdays) &&
     isOptionalTimestamp(value.retiredAt) &&
+    isOptionalDayKey(value.retiredOn) &&
     isTimestamp(value.updatedAt)
   );
 }

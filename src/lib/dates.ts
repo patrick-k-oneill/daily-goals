@@ -40,6 +40,12 @@ const MONTH_LABELS_FULL = [
   'December',
 ] as const;
 
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isDayKey(value: unknown): value is DayKey {
+  return typeof value === 'string' && DAY_KEY.test(value);
+}
+
 export function dayKeyOf(date: Date): DayKey {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');

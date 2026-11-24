@@ -29,6 +29,12 @@ export interface GoalTemplate {
   sortOrder: number;
   /** When the goal was crossed off for good; a retired template writes no more lines. */
   retiredAt?: Stamp;
+  /**
+   * The day `retiredAt` fell on where the goal was crossed off. Every device
+   * reads the retirement's period from it, whatever its own time zone; a
+   * template retired before the day was recorded takes one at its next merge.
+   */
+  retiredOn?: DayKey;
   updatedAt: Stamp;
 }
 

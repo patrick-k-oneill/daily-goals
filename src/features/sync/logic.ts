@@ -20,8 +20,11 @@ import type { CloudFiles, CloudPad, SyncPhase } from './types';
  * Bump when the cloud layout changes; an older app leaves a newer file alone.
  * Layout 3 keeps declined suggestions in the goals index: an app on layout 2
  * would merge the index and write it back without them, so it must not read it.
+ * Layout 4 records a retirement's day on its template: an app on layout 3
+ * judges ghost lines by its own time zone and merges a twice-retired template
+ * without the day, so it must not read these files either.
  */
-export const CLOUD_SCHEMA_VERSION = 3;
+export const CLOUD_SCHEMA_VERSION = 4;
 /** The last layout whose goal lines carry a star. */
 const LAST_STARRED_CLOUD_SCHEMA_VERSION = 1;
 

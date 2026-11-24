@@ -1,3 +1,4 @@
+import { dayKeyOf } from '@/lib/dates';
 import { EPOCH, LEGACY } from '@/lib/merge';
 
 import {
@@ -1097,7 +1098,7 @@ describe('moveEntry', () => {
     const read = template({ id: 'read', title: 'Read', targetCount: 1, sortOrder: 1 });
     const walk = template({ id: 'walk', title: 'Walk', targetCount: 1, sortOrder: 2 });
     const phone = materializeToday(goals({ templates: [read, walk] }), TODAY);
-    const retired = removeGoal(phone, 'read:2026-08-21', NOW);
+    const retired = removeGoal(phone, 'read:2026-08-21', TODAY, NOW);
     // The iPad, not yet having heard, writes tomorrow's page and moves Walk above Read's line.
     const ipad = materializeToday(structuredClone(phone), TOMORROW);
     const moved = moveEntry(ipad, 'walk:2026-08-22', 0, TOMORROW, '2026-08-22T09:00:00.000Z');
@@ -1121,16 +1122,16 @@ describe('hasCheckLabels', () => {
 describe('removeGoal', () => {
   it('crosses a one-off line off the page, leaving a tombstone', () => {
     const start = goals({ entries: [entry({ id: 'a' }), entry({ id: 'b' })] });
-    const state = removeGoal(start, 'a', NOW);
+    const state = removeGoal(start, 'a', TODAY, NOW);
     expect(state.entries.map((e) => e.id)).toEqual(['b']);
     expect(state.tombstones).toEqual({ a: NOW });
   });
 
   it('retires a recurring goal so it returns to neither this page nor the next', () => {
     let state = ensurePeriod(goals({ templates: [template()] }), 'daily', TODAY, TODAY);
-    state = removeGoal(state, state.entries[0].id, NOW);
+    state = removeGoal(state, state.entries[0].id, TODAY, NOW);
     expect(state.entries).toHaveLength(0);
-    expect(state.templates[0]).toMatchObject({ retiredAt: NOW, updatedAt: NOW });
+    expect(state.templates[0]).toMatchObject({ retiredAt: NOW, retiredOn: TODAY, updatedAt: NOW });
 
     expect(ensurePeriod(state, 'daily', TODAY, TODAY)).toBe(state);
     expect(ensurePeriod(state, 'daily', '2026-08-22', '2026-08-22')).toBe(state);
@@ -1138,7 +1139,7 @@ describe('removeGoal', () => {
 
   it('ignores unknown entries', () => {
     const start = goals({ entries: [entry()] });
-    expect(removeGoal(start, 'missing', NOW)).toBe(start);
+    expect(removeGoal(start, 'missing', TODAY, NOW)).toBe(start);
   });
 });
 
@@ -1162,9 +1163,13 @@ describe('stopRepeating', () => {
 
   it('retires the template and keeps the line where it was written, with its checks', () => {
     const start = recurringGoal();
-    const state = stopRepeating(start, 't1:2026-08-21', LATER);
+    const state = stopRepeating(start, 't1:2026-08-21', TODAY, LATER);
 
-    expect(state.templates[0]).toMatchObject({ retiredAt: LATER, updatedAt: LATER });
+    expect(state.templates[0]).toMatchObject({
+      retiredAt: LATER,
+      retiredOn: TODAY,
+      updatedAt: LATER,
+    });
     expect(byId(state, 't1:2026-08-21')).toEqual({
       ...byId(start, 't1:2026-08-21'),
       updatedAt: LATER,
@@ -1177,7 +1182,7 @@ describe('stopRepeating', () => {
 
   it('writes the goal on no later page and leaves past pages as they were', () => {
     const start = recurringGoal();
-    const state = stopRepeating(start, 't1:2026-08-21', LATER);
+    const state = stopRepeating(start, 't1:2026-08-21', TODAY, LATER);
 
     expect(materializeToday(state, TODAY)).toBe(state);
     expect(materializeToday(state, '2026-08-22')).toBe(state);
@@ -1189,23 +1194,23 @@ describe('stopRepeating', () => {
       goals({ templates: [template(), template({ id: 't2', title: 'Read', sortOrder: 2 })] }),
       TODAY,
     );
-    const state = stopRepeating(start, 't1:2026-08-21', NOW);
+    const state = stopRepeating(start, 't1:2026-08-21', TODAY, NOW);
     expect(state.templates.map((t) => t.retiredAt)).toEqual([NOW, undefined]);
     expect(titlesOn(materializeToday(state, '2026-08-22'), '2026-08-22')).toEqual(['Read']);
   });
 
   it('ignores a one-off line, an unknown entry and a goal already stopped', () => {
     const start = goals({ templates: [template()], entries: [entry()] });
-    expect(stopRepeating(start, 'e1', NOW)).toBe(start);
-    expect(stopRepeating(start, 'missing', NOW)).toBe(start);
+    expect(stopRepeating(start, 'e1', TODAY, NOW)).toBe(start);
+    expect(stopRepeating(start, 'missing', TODAY, NOW)).toBe(start);
 
-    const stopped = stopRepeating(recurringGoal(), 't1:2026-08-21', NOW);
-    expect(stopRepeating(stopped, 't1:2026-08-21', LATER)).toBe(stopped);
+    const stopped = stopRepeating(recurringGoal(), 't1:2026-08-21', TODAY, NOW);
+    expect(stopRepeating(stopped, 't1:2026-08-21', TODAY, LATER)).toBe(stopped);
   });
 
   it('keeps the moment of the stop when the kept line is crossed off later', () => {
-    const stopped = stopRepeating(recurringGoal(), 't1:2026-08-21', NOW);
-    const removed = removeGoal(stopped, 't1:2026-08-21', LATER);
+    const stopped = stopRepeating(recurringGoal(), 't1:2026-08-21', TODAY, NOW);
+    const removed = removeGoal(stopped, 't1:2026-08-21', TODAY, LATER);
     expect(byId(removed, 't1:2026-08-21')).toBeUndefined();
     expect(removed.templates[0]).toBe(stopped.templates[0]);
   });
@@ -1271,7 +1276,7 @@ describe('startRepeating', () => {
 
   it('starts a stopped goal as a new template and leaves the old one retired', () => {
     const written = materializeToday(goals({ templates: [template()] }), TODAY);
-    const stopped = stopRepeating(written, 't1:2026-08-21', NOW);
+    const stopped = stopRepeating(written, 't1:2026-08-21', TODAY, NOW);
     const state = startRepeating(stopped, 't1:2026-08-21', undefined, LATER);
     const restarted = startedTemplateId('t1:2026-08-21', 1);
 
@@ -1288,7 +1293,7 @@ describe('startRepeating', () => {
 
   it('gives each start after a stop a template of its own', () => {
     const once = startRepeating(goals({ entries: [entry()] }), 'e1', undefined, NOW);
-    const again = startRepeating(stopRepeating(once, 'e1', LATER), 'e1', undefined, LATER);
+    const again = startRepeating(stopRepeating(once, 'e1', TODAY, LATER), 'e1', undefined, LATER);
 
     expect(again.templates.map((t) => [t.id, t.retiredAt])).toEqual([
       [STARTED, LATER],
@@ -1508,6 +1513,7 @@ describe('suggestions', () => {
       const crossedOff = removeGoal(
         acceptSuggestion(start, suggestion, TODAY, NOW),
         'a>2026-08-21',
+        TODAY,
         LATER,
       );
       expect(sourcesFor(crossedOff)).toEqual([]);
@@ -1532,7 +1538,7 @@ describe('suggestions', () => {
 
     it('stays declined through a later write elsewhere on the pad', () => {
       const declined = declineSuggestion(goals({ entries: [left({ id: 'a' }), entry()] }), 'a');
-      expect(removeGoal(declined, 'e1', NOW).declinedSuggestions).toEqual(['a']);
+      expect(removeGoal(declined, 'e1', TODAY, NOW).declinedSuggestions).toEqual(['a']);
       expect(cycleCheck(declined, 'e1', 0, NOW).declinedSuggestions).toEqual(['a']);
     });
   });
@@ -1670,6 +1676,7 @@ describe('suggestions', () => {
       const crossedOff = removeGoal(
         acceptSuggestion(goals(), suggestion, TODAY, NOW),
         'r1>2026-08-21',
+        TODAY,
         LATER,
       );
       expect(offered(crossedOff, [reminder()])).toEqual([]);
@@ -1793,7 +1800,7 @@ describe('mergeGoals', () => {
 
   it('keeps a line crossed off on one device off the other, and retires its template', () => {
     const [phone, ipad] = twoDevices();
-    const removed = removeGoal(phone, 't1:2026-08-21', NOW);
+    const removed = removeGoal(phone, 't1:2026-08-21', TODAY, NOW);
     const merged = mergeGoals(ipad, removed);
     expect(merged.entries).toHaveLength(0);
     expect(merged.tombstones).toEqual({ 't1:2026-08-21': NOW });
@@ -1803,19 +1810,19 @@ describe('mergeGoals', () => {
 
   it('lets a write after a removal revive the line, and a removal after a write remove it', () => {
     const [phone, ipad] = twoDevices();
-    const removedFirst = removeGoal(phone, 't1:2026-08-21', NOW);
+    const removedFirst = removeGoal(phone, 't1:2026-08-21', TODAY, NOW);
     const tappedLater = cycleCheck(ipad, 't1:2026-08-21', 0, LATER);
     expect(mergeGoals(removedFirst, tappedLater).entries).toHaveLength(1);
     expect(mergeGoals(removedFirst, tappedLater).tombstones).toEqual({});
 
     const tappedFirst = cycleCheck(ipad, 't1:2026-08-21', 0, NOW);
-    const removedLater = removeGoal(phone, 't1:2026-08-21', LATER);
+    const removedLater = removeGoal(phone, 't1:2026-08-21', TODAY, LATER);
     expect(mergeGoals(tappedFirst, removedLater).entries).toHaveLength(0);
   });
 
   it('drops the line a stale device wrote for a template after it was retired', () => {
     const [phone, ipad] = twoDevices();
-    const retired = removeGoal(phone, 't1:2026-08-21', NOW);
+    const retired = removeGoal(phone, 't1:2026-08-21', TODAY, NOW);
     // The iPad, not yet having heard, writes tomorrow's page from the retired template.
     const tomorrow = ensurePeriod(ipad, 'daily', '2026-08-22', '2026-08-22');
     expect(byId(tomorrow, 't1:2026-08-22')).toBeDefined();
@@ -1831,7 +1838,7 @@ describe('mergeGoals', () => {
       ...ipad,
       entries: [entry({ id: 't1:2026-08-20', templateId: 't1', periodKey: '2026-08-20' })],
     };
-    const retired = removeGoal(phone, 't1:2026-08-21', NOW);
+    const retired = removeGoal(phone, 't1:2026-08-21', TODAY, NOW);
     const ghostTapped = cycleCheck(
       ensurePeriod(yesterday, 'daily', '2026-08-22', '2026-08-22'),
       't1:2026-08-22',
@@ -1847,6 +1854,7 @@ describe('mergeGoals', () => {
     const stopped = stopRepeating(
       cycleCheck(phone, 't1:2026-08-21', 0, NOW),
       't1:2026-08-21',
+      TODAY,
       LATER,
     );
     // The iPad still holds the live template and an untouched line, and writes tomorrow's page from them.
@@ -1863,7 +1871,7 @@ describe('mergeGoals', () => {
 
   it('keeps the kept line of a stopped goal when a stale device writes on it afterwards', () => {
     const [phone, ipad] = twoDevices();
-    const stopped = stopRepeating(phone, 't1:2026-08-21', NOW);
+    const stopped = stopRepeating(phone, 't1:2026-08-21', TODAY, NOW);
     const tappedLater = cycleCheck(ipad, 't1:2026-08-21', 1, LATER);
 
     const merged = mergeGoals(stopped, tappedLater);
@@ -1874,7 +1882,7 @@ describe('mergeGoals', () => {
 
   it('keeps a goal stopped when a stale device edits it after the stop', () => {
     const [phone, ipad] = twoDevices();
-    const stopped = stopRepeating(phone, 't1:2026-08-21', NOW);
+    const stopped = stopRepeating(phone, 't1:2026-08-21', TODAY, NOW);
     // The iPad, not yet having heard, renames the goal: its live template is the later write.
     const renamed = updateGoal(ipad, 't1:2026-08-21', { title: 'Deep Work' }, LATER);
     expect(renamed.templates[0].retiredAt).toBeUndefined();
@@ -1919,7 +1927,7 @@ describe('mergeGoals', () => {
 
   it('leaves a started goal stopped when another device starts it before hearing of the stop', () => {
     const pad = goals({ entries: [entry()] });
-    const stopped = stopRepeating(startRepeating(pad, 'e1', undefined, NOW), 'e1', LATER);
+    const stopped = stopRepeating(startRepeating(pad, 'e1', undefined, NOW), 'e1', TODAY, LATER);
     const startedLater = startRepeating(
       structuredClone(pad),
       'e1',
@@ -1940,10 +1948,57 @@ describe('mergeGoals', () => {
 
   it('keeps the first retirement when both devices retire the same goal', () => {
     const [phone, ipad] = twoDevices();
-    const stoppedFirst = stopRepeating(phone, 't1:2026-08-21', NOW);
-    const removedLater = removeGoal(ipad, 't1:2026-08-21', LATER);
-    expect(mergeGoals(stoppedFirst, removedLater).templates[0].retiredAt).toBe(NOW);
-    expect(mergeGoals(removedLater, stoppedFirst).templates[0].retiredAt).toBe(NOW);
+    const stoppedFirst = stopRepeating(phone, 't1:2026-08-21', TODAY, NOW);
+    const removedLater = removeGoal(ipad, 't1:2026-08-21', '2026-08-22', LATER);
+    const first = { retiredAt: NOW, retiredOn: TODAY };
+    expect(mergeGoals(stoppedFirst, removedLater).templates[0]).toMatchObject(first);
+    expect(mergeGoals(removedLater, stoppedFirst).templates[0]).toMatchObject(first);
+  });
+
+  it('reads a retirement by the day it was made on, not the day its stamp falls on here', () => {
+    const [phone, ipad] = twoDevices();
+    const eveningOfThe21stWestOfUtc = '2026-08-22T01:00:00.000Z';
+    const retired = removeGoal(phone, 't1:2026-08-21', TODAY, eveningOfThe21stWestOfUtc);
+    const tomorrow = ensurePeriod(ipad, 'daily', '2026-08-22', '2026-08-22');
+
+    const merged = mergeGoals(tomorrow, retired);
+    expect(merged.entries).toHaveLength(0);
+    expect(merged).toEqual(mergeGoals(retired, tomorrow));
+  });
+
+  it('keeps the line of the day a goal was retired on when its stamp falls on the day before', () => {
+    const [, ipad] = twoDevices();
+    const morningOfThe21stEastOfUtc = '2026-08-20T22:00:00.000Z';
+    const stopped = goals({
+      templates: [
+        template({
+          retiredAt: morningOfThe21stEastOfUtc,
+          retiredOn: TODAY,
+          updatedAt: morningOfThe21stEastOfUtc,
+        }),
+      ],
+    });
+
+    const merged = mergeGoals(ipad, stopped);
+    expect(merged.entries.map((e) => e.id)).toEqual(['t1:2026-08-21']);
+    expect(merged).toEqual(mergeGoals(stopped, ipad));
+  });
+
+  it('records the day of a retirement made before days were, the earlier where two copies differ', () => {
+    const noon = '2026-08-21T12:00:00.000Z';
+    const undated = goals({ templates: [template({ retiredAt: noon, updatedAt: noon })] });
+    const onThisDevicesCalendar = dayKeyOf(new Date(noon));
+    expect(mergeGoals(undated, undated).templates[0].retiredOn).toBe(onThisDevicesCalendar);
+
+    const readAs = (retiredOn: string) =>
+      goals({ templates: [template({ retiredAt: noon, retiredOn, updatedAt: noon })] });
+    const merged = mergeGoals(readAs('2026-08-22'), readAs(TODAY));
+    expect(merged.templates[0].retiredOn).toBe(TODAY);
+    expect(merged).toEqual(mergeGoals(readAs(TODAY), readAs('2026-08-22')));
+    const earlierThanAnyZoneReadsNoon = '2026-08-19';
+    expect(mergeGoals(undated, readAs(earlierThanAnyZoneReadsNoon)).templates[0].retiredOn).toBe(
+      earlierThanAnyZoneReadsNoon,
+    );
   });
 
   it('keeps a suggestion declined on either device declined, in one canonical order', () => {
@@ -2084,11 +2139,11 @@ describe('upgradeLegacyGoals', () => {
     const upgraded = upgradeLegacyGoals(legacy);
     expect(upgraded.templates.every((t) => t.updatedAt === LEGACY)).toBe(true);
     expect(upgraded.entries.every((e) => e.updatedAt === LEGACY)).toBe(true);
-    expect(upgraded.templates.map((t) => t.retiredAt)).toEqual([
-      undefined,
-      EPOCH,
-      undefined,
-      undefined,
+    expect(upgraded.templates.map((t) => [t.retiredAt, t.retiredOn])).toEqual([
+      [undefined, undefined],
+      [EPOCH, '1970-01-01'],
+      [undefined, undefined],
+      [undefined, undefined],
     ]);
     expect(JSON.stringify(upgraded)).not.toContain('active');
     expect(upgraded.tombstones).toEqual({});

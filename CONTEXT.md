@@ -145,7 +145,7 @@ The record a removed item leaves behind: its key and when it was removed, kept b
 _Avoid_: soft delete, deleted flag
 
 **Merge**:
-Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned. A template retired on either copy stays retired, from its first retirement (ADR 0008). Declined suggestions merge as a union: declined on one device is declined on all.
+Reconciling two copies of the pad item by item, the later stamp winning and tombstones removing what was crossed off (ADR 0005). A merge never overwrites and never drops data that isn't tombstoned. A template retired on either copy stays retired, from its first retirement and the day it was made on (ADR 0008). Declined suggestions merge as a union: declined on one device is declined on all.
 _Avoid_: sync (for the rule itself), overwrite, replace
 
 **Cloud pad**:
