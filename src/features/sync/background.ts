@@ -10,8 +10,10 @@ const MINIMUM_INTERVAL_MINUTES = 15;
 
 TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
   try {
-    await syncNow();
-    return BackgroundTask.BackgroundTaskResult.Success;
+    const phase = await syncNow();
+    return phase === 'error'
+      ? BackgroundTask.BackgroundTaskResult.Failed
+      : BackgroundTask.BackgroundTaskResult.Success;
   } catch {
     return BackgroundTask.BackgroundTaskResult.Failed;
   }

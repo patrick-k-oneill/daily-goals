@@ -61,8 +61,10 @@ export function useSyncEngine(ready: boolean) {
  * Pull and push once, whether or not the pad is open: through the open pad's
  * engine when there is one, otherwise through one run just for this. Waits for
  * the pad to rehydrate first, so a pad that has not been read is never synced.
+ * Resolves to where sync stood when the run ended.
  */
-export async function syncNow(): Promise<void> {
+export async function syncNow(): Promise<SyncPhase> {
   await whenHydrated(padStores);
-  return holdEngine().pull().finally(releaseEngine);
+  await holdEngine().pull().finally(releaseEngine);
+  return useSyncStore.getState().phase;
 }

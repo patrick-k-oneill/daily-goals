@@ -33,7 +33,7 @@ describe('useSyncStore', () => {
 describe('syncNow', () => {
   it('runs one pull outside an open pad and reports where it ended', async () => {
     useSyncStore.setState({ phase: 'starting' });
-    await syncNow();
+    expect(await syncNow()).toBe('unavailable');
     expect(useSyncStore.getState().phase).toBe('unavailable');
   });
 });

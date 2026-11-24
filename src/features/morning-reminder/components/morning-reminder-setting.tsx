@@ -1,6 +1,7 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Alert, Linking } from 'react-native';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { Alert, Linking, Platform } from 'react-native';
 
+import { TextButton } from '@/components/ui/form';
 import { SettingsGroup, SettingsRow } from '@/components/ui/settings-list';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -15,6 +16,7 @@ import {
   useMorningReminderStore,
   type EnableOutcome,
 } from '../store';
+import type { ReminderTime } from '../types';
 
 const SWITCH_LABEL = 'Morning reminder';
 const TIME_LABEL = 'Remind me at';
@@ -45,8 +47,6 @@ function explain(outcome: EnableOutcome) {
  * off. Turning it on asks to notify. Absent where nothing can be posted.
  */
 export function MorningReminderSetting() {
-  const theme = useTheme();
-  const dark = useColorScheme() === 'dark';
   const isOn = useMorningReminderStore((s) => s.isOn);
   const time = useMorningReminderStore((s) => s.time);
   if (!hasNotifications) return null;
@@ -67,17 +67,51 @@ export function MorningReminderSetting() {
       </SettingsRow>
       {isOn ? (
         <SettingsRow label={TIME_LABEL}>
-          <DateTimePicker
-            mode="time"
-            display="compact"
-            value={dateAt(time, new Date())}
-            onValueChange={(_event, picked) => void moveMorningReminder(timeOfDay(picked))}
-            themeVariant={dark ? 'dark' : 'light'}
-            accentColor={theme.primaryEdge}
-            accessibilityLabel={`${TIME_LABEL} ${formatReminderTime(time)}`}
-          />
+          <ReminderTimePicker time={time} />
         </SettingsRow>
       ) : null}
     </SettingsGroup>
+  );
+}
+
+/**
+ * The time of day, picked the platform's way: iOS draws a compact picker in
+ * the row; Android's is a dialog, opened from the time shown.
+ */
+function ReminderTimePicker({ time }: { time: ReminderTime }) {
+  const theme = useTheme();
+  const dark = useColorScheme() === 'dark';
+  const value = dateAt(time, new Date());
+  const pick = (picked: Date) => void moveMorningReminder(timeOfDay(picked));
+  const accessibilityLabel = `${TIME_LABEL} ${formatReminderTime(time)}`;
+
+  if (Platform.OS === 'android') {
+    return (
+      <TextButton
+        label={formatReminderTime(time)}
+        themeColor="text"
+        type="default"
+        accessibilityLabel={accessibilityLabel}
+        onPress={() =>
+          DateTimePickerAndroid.open({
+            mode: 'time',
+            value,
+            onValueChange: (_event, picked) => pick(picked),
+          })
+        }
+      />
+    );
+  }
+
+  return (
+    <DateTimePicker
+      mode="time"
+      display="compact"
+      value={value}
+      onValueChange={(_event, picked) => pick(picked)}
+      themeVariant={dark ? 'dark' : 'light'}
+      accentColor={theme.primaryEdge}
+      accessibilityLabel={accessibilityLabel}
+    />
   );
 }

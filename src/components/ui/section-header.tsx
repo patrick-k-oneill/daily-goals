@@ -25,8 +25,8 @@ export function SectionHeader({
 
   return (
     <View style={[styles.container, { borderBottomColor: theme.text }]}>
-      <View style={styles.titleRow}>
-        <View style={[styles.titleBox, { marginHorizontal: titleInset }]}>
+      <View style={[styles.titleRow, { paddingHorizontal: titleInset }]}>
+        <View style={styles.titleBox}>
           <ThemedText type="hand" style={styles.title} aria-live="polite">
             {title}
           </ThemedText>
