@@ -12,29 +12,43 @@ Sort the PR by its changed files (`gh pr diff <num> --name-only`):
 
 ## The plan
 
-Numbered steps, first from the issue's acceptance list, then scoped regressions: one step per changed screen or feature, exercising it as it worked before. One line per step: the action, naming the device, an arrow, the expected result.
+The plan is a checklist in the PR body, where Patrick ticks his place as he runs it. Model: [PR #104](https://github.com/patrick-k-oneill/daily-goals/pull/104).
 
-```
-1. iPhone: tap a check on today's page → the iPad shows it checked within a minute.
-2. Both in airplane mode; iPhone adds a goal, iPad checks another; both back online → both devices show both changes.
-```
+- **Know before testing** comes first: a few bullets on what would surprise the runner, such as data a step changes for good or what a build replaces.
+- **A part per place it runs**, in the order each can start, its heading saying what it waits on: `## Part A: Simulator (ready now)`, `## Part B: Devices (needs TestFlight build 4)`. The commands that get that build running sit under the heading in a code fence.
+- **A `###` group per feature**, its issues in the heading: `### Reorder (#86)`. Steps come first from the issue's acceptance list, then scoped regressions: one step per changed screen or feature, exercising it as it worked before. A run that leaves test data behind ends on a cleanup step.
+- **A checkbox per step**, a blank line between steps:
 
-A step is concrete when the runner never has to guess what to tap or what counts as done. An acceptance item that spans devices or states becomes one step per observation.
+  ```
+  - [ ] **S12** · Tap "Stretch".
+    → The form shows Repeats on and the weekdays.
+    Turn Repeats off.
+    → The switch goes pale with a grey knob and the weekday row hides.
+
+  - [ ] **D6** · iPhone: tap a check on today's Daily with the iPad open.
+    → The iPad shows it within a minute (note the seconds).
+  ```
+
+  The action is one short line, led by the device when the part has several. Each expected result is its own `→` line holding one observation, what must stay absent included. A further action in the same step takes its own line.
+
+- **Stable ids.** `S<n>` on the Simulator, `D<n>` on devices, counted through the whole part. A step added later takes the next unused number wherever it sits. Every revision of the body keeps each id and each tick.
+
+A step is concrete when the runner never has to guess what to tap or what counts as done: labels quoted as the screen shows them, the data to enter named. An acceptance item that spans devices or states becomes one step per observation. The reason for a change stays in the PR's summary.
 
 ## Verdicts
 
-Per step: **PASS**, **FAIL** or **BLOCKED**, with one line of evidence: what was seen and how long it took, a screenshot name, or why the step could not run. A FAIL is re-run once before it counts; a real FAIL carries the smallest repro.
+Per step: **PASS**, **FAIL** or **BLOCKED**, with one line of evidence: what was seen and how long it took, a screenshot name, or why the step could not run. A FAIL is re-run once before it counts; a real FAIL carries the smallest repro. A tick in the body marks Patrick's place; the verdict is the comment.
 
-The run is one comment on the PR:
+The run is one comment on the PR, a line per step under its id:
 
 ```
 ## Manual test 2026-09-27
 
 Build TestFlight 1.0.0 (8) from a1b2c3d · iPhone 15 Pro, iOS 27.0 · iPad Air, iOS 27.0
 
-1. iPhone: tap a check on today's page → the iPad shows it within a minute. **PASS** 14 s.
-2. Both in airplane mode … → both show both changes. **FAIL** the iPad kept its page. Repro: …
-3. iPad: delete the app, reinstall, open → the whole pad is back. **BLOCKED** iPad not signed into iCloud.
+- **D6** PASS 14 s.
+- **D8** FAIL the iPad kept its page. Repro: …
+- **D9** BLOCKED iPad not signed into iCloud.
 
 Verdict: FAIL
 ```

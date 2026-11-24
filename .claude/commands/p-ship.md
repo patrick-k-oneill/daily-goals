@@ -32,7 +32,7 @@ One issue per session: if this conversation already built an issue, stop and tel
 6. **Push:** `git push -u origin <branch>`.
 7. **Confirm before publishing** (opening a PR is an outward action). Show the diff summary and the proposed:
    - Title: `[#<num>] <issue title>` (or just a clear title when there's no issue)
-   - Body: short summary + what-changed checklist + `Closes #<num>` when an issue exists
+   - Body: short summary + what-changed checklist + the test plan when the change is **device** or **screen** (format and sorting in `docs/agents/manual-testing.md`) + `Closes #<num>` when an issue exists
      On approval: `gh pr create --base main --title "<title>" --body "<body>"`.
 8. Print the PR URL.
 9. **Worktree teardown.** The worktree has done its job once the PR exists: delete its `node_modules` symlink, `cd` to the main checkout and `git worktree remove <worktree>`; then `git checkout <branch>` there only when it is clean and on `main`, so the PR is reviewable in the IDE. Say where the branch now lives.
