@@ -26,6 +26,23 @@ interface HydratingStore {
   };
 }
 
+/** Resolves once every store has rehydrated from storage, for code that runs outside a render. */
+export function whenHydrated(stores: readonly HydratingStore[]): Promise<void> {
+  return new Promise((resolve) => {
+    const settle = () => {
+      if (!stores.every((store) => store.persist.hasHydrated())) return false;
+      resolve();
+      return true;
+    };
+    if (settle()) return;
+    const unsubscribes = stores.map((store) =>
+      store.persist.onFinishHydration(() => {
+        if (settle()) unsubscribes.forEach((unsubscribe) => unsubscribe());
+      }),
+    );
+  });
+}
+
 /** True once every store has rehydrated from storage; false during static render. */
 export function useHydrated(stores: readonly HydratingStore[]): boolean {
   return useSyncExternalStore(

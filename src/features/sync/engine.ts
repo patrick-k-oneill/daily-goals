@@ -25,21 +25,28 @@ export interface SyncOptions {
   pullDelayMs?: number;
 }
 
+/** A running engine. */
+export interface SyncEngine {
+  /** Pull now, outside the engine's own schedule; resolves once it is at rest again. */
+  pull(): Promise<void>;
+  stop(): void;
+}
+
 type Run = 'pull' | 'push';
 
 /**
  * The engine (ADR 0006): pull the cloud pad and merge it in, then push what
  * the cloud doesn't hold yet. It pulls at start, on return to the foreground,
- * when another device writes and when iCloud availability changes; a push
- * waits a moment after the last local write. One run at a time, a pull asked
- * for mid-run following it — and nothing is pushed before the cloud has been
- * read once, so a fresh device never writes over a pad it hasn't seen.
+ * when another device writes, when iCloud availability changes and when asked
+ * to; a push waits a moment after the last local write. One run at a time, a
+ * pull asked for mid-run following it — and nothing is pushed before the cloud
+ * has been read once, so a fresh device never writes over a pad it hasn't seen.
  */
 export function startSync(
   cloud: CloudBinding,
   report: SyncReporter,
   options: SyncOptions = {},
-): () => void {
+): SyncEngine {
   const pushDelay = options.pushDelayMs ?? 2000;
   const pullDelay = options.pullDelayMs ?? 1000;
 
@@ -126,16 +133,27 @@ export function startSync(
     if (state === 'active') request('pull');
   });
 
-  cloud.start().then(
+  const started = cloud.start().then(
     () => request('pull'),
     (error: unknown) => report.failed(describe(error)),
   );
 
-  return () => {
-    Object.values(timers).forEach((timer) => clearTimeout(timer));
-    unsubscribes.forEach((unsubscribe) => unsubscribe());
-    foreground.remove();
-    cloud.stop();
+  function atRest(): Promise<void> {
+    return inFlight ? inFlight.then(atRest) : Promise.resolve();
+  }
+
+  return {
+    pull: async () => {
+      await started;
+      request('pull');
+      await atRest();
+    },
+    stop: () => {
+      Object.values(timers).forEach((timer) => clearTimeout(timer));
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+      foreground.remove();
+      cloud.stop();
+    },
   };
 }
 

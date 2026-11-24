@@ -12,6 +12,7 @@ import {
   useMorningReminderSchedule,
   useMorningReminderStore,
 } from '@/features/morning-reminder/store';
+import { useBackgroundSync } from '@/features/sync/background';
 import { useSyncEngine } from '@/features/sync/store';
 import { useTextSizeStore, useZoomMenu } from '@/features/text-size/store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -36,6 +37,7 @@ export default function RootLayout() {
   useMaterializeToday();
   useRemindersRefresh();
   useSyncEngine(storesHydrated);
+  useBackgroundSync();
   useMorningReminderSchedule(storesHydrated);
   useZoomMenu();
   const ready = (fontsLoaded || Boolean(fontError)) && storesHydrated;
